@@ -439,6 +439,35 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Updates Section
+            SectionHeader(
+                text = context.getString(R.string.updates_section),
+                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = if (darkTheme) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            ) {
+                var checkAppUpdates by remember { mutableStateOf(prefsManager.checkAppUpdates) }
+                SwitchItem(
+                    icon = Icons.Default.SystemUpdate,
+                    title = context.getString(R.string.check_app_updates),
+                    summary = context.getString(R.string.check_app_updates_description),
+                    checked = checkAppUpdates,
+                    onCheckedChange = { checked ->
+                        checkAppUpdates = checked
+                        prefsManager.checkAppUpdates = checked
+                        // Hides the Home banner right away, or fetches right away.
+                        appStateViewModel.checkAppUpdate()
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Debugging Section
             SectionHeader(
                 text = context.getString(R.string.debugging_section),

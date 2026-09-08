@@ -227,6 +227,14 @@ class PreferencesManager private constructor(context: Context) {
 
     val treatAs64BitFlow: Flow<Boolean> = booleanPrefFlow(KEY_TREAT_AS_64BIT, false)
 
+    // One GET to the GitHub releases API per app open. Default on, since the
+    // app only ships through GitHub Releases and nobody polls that page by hand.
+    var checkAppUpdates: Boolean
+        get() = prefs.getBoolean(KEY_CHECK_APP_UPDATES, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_CHECK_APP_UPDATES, value).apply()
+        }
+
     private fun booleanPrefFlow(key: String, default: Boolean): Flow<Boolean> = callbackFlow {
         trySend(prefs.getBoolean(key, default))
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
@@ -455,6 +463,7 @@ class PreferencesManager private constructor(context: Context) {
         const val KEY_DAEMON_MODE_ENABLED = Constants.KEY_DAEMON_MODE_ENABLED
         const val KEY_SYMLINK_ENABLED = Constants.KEY_SYMLINK_ENABLED
         const val KEY_TREAT_AS_64BIT = Constants.KEY_TREAT_AS_64BIT
+        const val KEY_CHECK_APP_UPDATES = Constants.KEY_CHECK_APP_UPDATES
         const val KEY_CONTAINER_LOG_PREFIX = Constants.KEY_CONTAINER_LOG_PREFIX
         private const val KEY_CONTAINER_OS_INFO_PREFIX = Constants.KEY_CONTAINER_OS_INFO_PREFIX
         private const val KEY_CACHED_CONTAINER_NAMES = Constants.KEY_CACHED_CONTAINER_NAMES

@@ -53,6 +53,7 @@ object Constants {
     const val KEY_SELINUX_STATUS = "selinux_status"
     const val KEY_DAEMON_MODE_ENABLED = "daemon_mode_enabled"
     const val KEY_TREAT_AS_64BIT = "treat_as_64bit"
+    const val KEY_CHECK_APP_UPDATES = "check_app_updates"
 
     // Container log cache prefix
     const val KEY_CONTAINER_LOG_PREFIX = "container_log_"

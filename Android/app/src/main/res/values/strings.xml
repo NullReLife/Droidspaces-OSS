@@ -658,4 +658,8 @@
     <string name="experimental_section">Experimental</string>
     <string name="treat_as_64bit">Use the 64-bit backend</string>
     <string name="treat_as_64bit_description">Your OS is 32-bit but the kernel is 64-bit. Install the 64-bit backend and list 64-bit rootfs images instead.</string>
+    <string name="app_update_message">Droidspaces %1$s is ready. Tap to open the release on GitHub.</string>
+    <string name="updates_section">Updates</string>
+    <string name="check_app_updates">Check for app updates</string>
+    <string name="check_app_updates_description">Look for a new release on GitHub when the app opens</string>
 </resources>

@@ -34,6 +34,7 @@ import com.droidspaces.app.util.SystemInfoManager
 import com.droidspaces.app.ui.viewmodel.AppStateViewModel
 import com.droidspaces.app.ui.viewmodel.ContainerViewModel
 import com.droidspaces.app.ui.component.HelpCard
+import com.droidspaces.app.util.AppUpdateInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -296,6 +297,7 @@ fun MainTabScreen(
                 when (tabs[page]) {
                     TabItem.Home -> {
                         HomeTabContent(
+                            appUpdate = appStateViewModel.appUpdate,
                             droidspacesStatus = droidspacesStatus,
                             isChecking = isChecking,
                             isRootAvailable = appStateViewModel.isRootAvailable,
@@ -368,6 +370,7 @@ fun MainTabScreen(
 
 @Composable
 private fun HomeTabContent(
+    appUpdate: AppUpdateInfo?,
     droidspacesStatus: DroidspacesStatus,
     isChecking: Boolean,
     isRootAvailable: Boolean,
@@ -401,6 +404,7 @@ private fun HomeTabContent(
                 isChecking = isChecking,
                 isRootAvailable = isRootAvailable,
                 refreshTrigger = refreshTrigger,
+                appUpdate = appUpdate,
                 onClick = {
                     if (!isRootAvailable) {
                         // Disabled for non-root users
