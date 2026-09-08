@@ -39,7 +39,6 @@ import android.net.Uri
 import com.droidspaces.app.ui.component.DsDialog
 import com.droidspaces.app.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.droidspaces.app.ui.component.DialogCloseButton
 import com.droidspaces.app.ui.component.DialogFooterRow
 import com.droidspaces.app.ui.component.SectionHeader
@@ -69,6 +68,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    appStateViewModel: AppStateViewModel,
     onBack: () -> Unit,
     onNavigateToInstallation: () -> Unit = {},
     onNavigateToRequirements: () -> Unit = {},
@@ -78,7 +78,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val prefsManager = remember { PreferencesManager.getInstance(context) }
-    val appStateViewModel: AppStateViewModel = viewModel()
     val isRootAvailable = appStateViewModel.isRootAvailable
     val scope = rememberCoroutineScope()
 

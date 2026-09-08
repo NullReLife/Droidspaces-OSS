@@ -297,6 +297,7 @@ fun DroidspacesNavigation(
             val fromInstallation = backStackEntry.arguments?.getBoolean("fromInstallation") ?: false
 
             MainTabScreen(
+                appStateViewModel = sharedAppStateViewModel,
                 containerViewModel = sharedContainerViewModel,
                 // skipInitialRefresh=false when fromInstallation=true (invert the logic)
                 skipInitialRefresh = !fromInstallation,
@@ -526,6 +527,7 @@ fun DroidspacesNavigation(
             popExitTransition = defaultExitTransition
         ) {
             SettingsScreen(
+                appStateViewModel = sharedAppStateViewModel,
                 onBack = {
                     // Simply pop back - no refresh needed (ViewModel preserves state)
                     navController.popBackStack()
@@ -582,6 +584,7 @@ fun DroidspacesNavigation(
             popExitTransition = defaultExitTransition
         ) {
             RequirementsScreen(
+                appStateViewModel = sharedAppStateViewModel,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.droidspaces.app.ui.component.DroidspacesStatus
 import com.droidspaces.app.ui.component.DroidspacesStatusCard
 import com.droidspaces.app.ui.component.SystemInfoCard
@@ -56,6 +55,7 @@ enum class TabItem(val titleResId: Int, val icon: androidx.compose.ui.graphics.v
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MainTabScreen(
+    appStateViewModel: AppStateViewModel,
     containerViewModel: ContainerViewModel,
     skipInitialRefresh: Boolean = false,
     requestedTab: TabItem? = null,
@@ -70,8 +70,6 @@ fun MainTabScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // ViewModels - persist across navigation (activity-scoped)
-    val appStateViewModel: AppStateViewModel = viewModel()
     // containerViewModel is now passed as parameter to ensure sharing
 
 
