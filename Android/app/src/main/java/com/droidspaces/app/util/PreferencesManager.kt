@@ -105,6 +105,14 @@ class PreferencesManager private constructor(context: Context) {
             }
         }
 
+    // Last known SELinux status. Seeds the home card on a fresh launch so it
+    // never shows a loading row while the root shell spins up.
+    var cachedSelinuxStatus: String?
+        get() = prefs.getString(KEY_SELINUX_STATUS, null)
+        set(value) {
+            prefs.edit().putString(KEY_SELINUX_STATUS, value).apply()
+        }
+
     // Theme preferences
     var followSystemTheme: Boolean
         get() = prefs.getBoolean(KEY_FOLLOW_SYSTEM_THEME, true)
@@ -432,6 +440,7 @@ class PreferencesManager private constructor(context: Context) {
         private const val KEY_RUNNING_COUNT = Constants.KEY_RUNNING_COUNT
         private const val KEY_BACKEND_STATUS = Constants.KEY_BACKEND_STATUS
         private const val KEY_BACKEND_MODE = Constants.KEY_BACKEND_MODE
+        private const val KEY_SELINUX_STATUS = Constants.KEY_SELINUX_STATUS
         private const val KEY_FOLLOW_SYSTEM_THEME = Constants.KEY_FOLLOW_SYSTEM_THEME
         private const val KEY_DARK_THEME = Constants.KEY_DARK_THEME
         private const val KEY_AMOLED_MODE = Constants.KEY_AMOLED_MODE
