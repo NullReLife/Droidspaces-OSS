@@ -1,4 +1,7 @@
 package com.droidspaces.app.ui.screen
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.foundation.clickable
@@ -40,6 +43,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.sp
 import com.droidspaces.app.R
+
+private const val EASTER_EGG_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 enum class TabItem(val titleResId: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     Home(R.string.home_title, Icons.Default.Home),
@@ -385,6 +390,11 @@ private fun HomeTabContent(
     // Track refresh trigger for SystemInfoCard
     var refreshTrigger by remember { mutableStateOf(0) }
 
+    // Taps on a healthy status card do nothing useful, so count them for the
+    // easter egg. Reset whenever the backend state changes so a tap that was
+    // meant for the installer never lands on YouTube instead.
+    var idleTaps by remember(droidspacesStatus) { mutableStateOf(0) }
+
     PullToRefreshWrapper(
         onRefresh = {
             onRefresh()
@@ -416,6 +426,19 @@ private fun HomeTabContent(
                         droidspacesStatus == DroidspacesStatus.ModuleMissing
                     ) {
                         onNavigateToInstallation()
+                        return@DroidspacesStatusCard
+                    }
+                    if (droidspacesStatus != DroidspacesStatus.Working) return@DroidspacesStatusCard
+                    idleTaps++
+                    when (idleTaps) {
+                        5 -> Toast.makeText(context, R.string.easter_egg_warning, Toast.LENGTH_SHORT).show()
+                        10 -> {
+                            idleTaps = 0
+                            Toast.makeText(context, R.string.easter_egg_reward, Toast.LENGTH_SHORT).show()
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(EASTER_EGG_URL)))
+                            }
+                        }
                     }
                 }
             )

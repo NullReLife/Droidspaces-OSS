@@ -59,6 +59,8 @@
     <string name="root_unavailable">Root access is unavailable.</string>
     <string name="grant_root_message">Grant root access to continue exploring droidspaces !</string>
     <string name="unknown">Unknown</string>
+    <string name="easter_egg_warning">The backend is fine, no need to spam it 🙂</string>
+    <string name="easter_egg_reward">You asked for it 🎵</string>
     <string name="update_available_message">Backend update available, click here to update</string>
     <string name="backend_attention_required">Backend: Action required</string>
     <string name="tap_to_fix_system">Tap to fix system configuration</string>
