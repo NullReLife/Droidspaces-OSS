@@ -58,6 +58,7 @@ import android.util.Base64
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import com.droidspaces.app.util.SymlinkInstaller
+import com.droidspaces.app.util.DeviceArch
 import androidx.core.content.edit
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +109,8 @@ fun SettingsScreen(
         .collectAsStateWithLifecycle(initialValue = prefsManager.isDaemonModeEnabled)
     val isSymlinkEnabled by prefsManager.symlinkEnabledFlow
         .collectAsStateWithLifecycle(initialValue = prefsManager.isSymlinkEnabled)
+    val treatAs64Bit by prefsManager.treatAs64BitFlow
+        .collectAsStateWithLifecycle(initialValue = prefsManager.treatAs64Bit)
 
     // Listen for locale changes and sync daemon mode from disk
     LaunchedEffect(Unit) {
@@ -498,6 +501,37 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            // Experimental Section, only for a 32-bit userspace on a 64-bit kernel
+            if (DeviceArch.is32Bit()) {
+                SectionHeader(
+                    text = context.getString(R.string.experimental_section),
+                    modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
+                )
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = if (darkTheme) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                ) {
+                    SwitchItem(
+                        icon = Icons.Default.Memory,
+                        title = context.getString(R.string.treat_as_64bit),
+                        summary = context.getString(R.string.treat_as_64bit_description),
+                        checked = treatAs64Bit,
+                        enabled = isRootAvailable,
+                        onCheckedChange = { checked ->
+                            prefsManager.treatAs64Bit = checked
+                            // The hash check now compares against the other arch's
+                            // asset, so the update banner appears without a restart.
+                            appStateViewModel.forceRefresh()
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // About Section
             SectionHeader(

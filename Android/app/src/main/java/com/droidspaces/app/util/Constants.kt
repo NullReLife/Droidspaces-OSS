@@ -51,6 +51,7 @@ object Constants {
     const val KEY_APP_LOCALE = "app_locale"
     const val KEY_BACKEND_MODE = "backend_mode"
     const val KEY_DAEMON_MODE_ENABLED = "daemon_mode_enabled"
+    const val KEY_TREAT_AS_64BIT = "treat_as_64bit"
 
     // Container log cache prefix
     const val KEY_CONTAINER_LOG_PREFIX = "container_log_"

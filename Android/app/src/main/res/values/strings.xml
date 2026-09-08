@@ -655,4 +655,7 @@
     <string name="repo_custom_url_empty">URL cannot be empty</string>
     <string name="repo_custom_url_invalid">URL must start with https://</string>
     <string name="debugging_section">Debugging</string>
+    <string name="experimental_section">Experimental</string>
+    <string name="treat_as_64bit">Use the 64-bit backend</string>
+    <string name="treat_as_64bit_description">Your OS is 32-bit but the kernel is 64-bit. Install the 64-bit backend and list 64-bit rootfs images instead.</string>
 </resources>

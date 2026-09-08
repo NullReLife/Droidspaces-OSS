@@ -209,6 +209,16 @@ class PreferencesManager private constructor(context: Context) {
     /** Reactive stream of the symlink-enabled preference. */
     val symlinkEnabledFlow: Flow<Boolean> = booleanPrefFlow(KEY_SYMLINK_ENABLED, false)
 
+    // 32-bit OS on a 64-bit kernel: install the 64-bit backend and list 64-bit
+    // rootfs images. Read by DeviceArch, which every arch lookup goes through.
+    var treatAs64Bit: Boolean
+        get() = prefs.getBoolean(KEY_TREAT_AS_64BIT, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_TREAT_AS_64BIT, value).apply()
+        }
+
+    val treatAs64BitFlow: Flow<Boolean> = booleanPrefFlow(KEY_TREAT_AS_64BIT, false)
+
     private fun booleanPrefFlow(key: String, default: Boolean): Flow<Boolean> = callbackFlow {
         trySend(prefs.getBoolean(key, default))
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changedKey ->
@@ -435,6 +445,7 @@ class PreferencesManager private constructor(context: Context) {
         const val KEY_THEME_PALETTE = Constants.KEY_THEME_PALETTE
         const val KEY_DAEMON_MODE_ENABLED = Constants.KEY_DAEMON_MODE_ENABLED
         const val KEY_SYMLINK_ENABLED = Constants.KEY_SYMLINK_ENABLED
+        const val KEY_TREAT_AS_64BIT = Constants.KEY_TREAT_AS_64BIT
         const val KEY_CONTAINER_LOG_PREFIX = Constants.KEY_CONTAINER_LOG_PREFIX
         private const val KEY_CONTAINER_OS_INFO_PREFIX = Constants.KEY_CONTAINER_OS_INFO_PREFIX
         private const val KEY_CACHED_CONTAINER_NAMES = Constants.KEY_CACHED_CONTAINER_NAMES

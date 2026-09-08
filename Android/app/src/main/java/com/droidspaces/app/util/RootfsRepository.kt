@@ -46,9 +46,6 @@ sealed class RepoResult {
     data class Error(val message: String) : RepoResult()
 }
 
-/** Maps the device's primary ABI to the arch string used in rootfs.json. */
-fun deviceArch(): String = DeviceArch.suffix()
-
 object RootfsRepository {
 
     private const val OFFICIAL_REPO_URL =
@@ -79,7 +76,7 @@ object RootfsRepository {
             }
         }
 
-        val arch = deviceArch()
+        val arch = DeviceArch.suffix(context)
         val filtered = allAssets.filter { it.architecture == arch }
 
         return@withContext when {
