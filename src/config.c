@@ -367,9 +367,9 @@ int ds_config_load(const char *config_path, struct ds_config *cfg) {
         cfg->net_mode = DS_NET_GATEWAY;
       } else {
         ds_warn(
-            "Unknown network mode '%s' in config file. Defaulting to 'host'.",
+            "Unknown network mode '%s' in config file. Defaulting to 'nat'.",
             val);
-        cfg->net_mode = DS_NET_HOST;
+        cfg->net_mode = DS_NET_NAT;
       }
     } else if (strcmp(key, "gateway_container") == 0) {
       if (validate_container_name(val))
@@ -1017,6 +1017,7 @@ void ds_config_reset_defaults(struct ds_config *cfg) {
 
   cfg->net_ready_pipe[0] = cfg->net_ready_pipe[1] = -1;
   cfg->net_done_pipe[0] = cfg->net_done_pipe[1] = -1;
+  cfg->net_mode = DS_NET_NAT; /* zero is host, see main() */
 
   safe_strncpy(cfg->container_name, save_name, sizeof(cfg->container_name));
   safe_strncpy(cfg->rootfs_path, save_rootfs, sizeof(cfg->rootfs_path));

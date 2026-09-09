@@ -110,7 +110,7 @@ sudo droidspaces --name=web,db,app stop
 
 | 选项 | 简写 | 说明 |
 |--------|------|-------------|
-| `--net=MODE` | | 网络模式：主机模式 `host`（默认）、NAT 模式 `nat`、无网络模式 `none` 或网关模式 `gateway`。 |
+| `--net=MODE` | | 网络模式：NAT 模式 `nat`（默认）、主机模式 `host`、无网络模式 `none` 或网关模式 `gateway`。 |
 | `--upstream=IFACE` | | 将 NAT WAN 固定到指定接口；禁用自动上行链路检测。逗号分隔、按优先级排序，并支持通配符。示例：`--upstream=wlan0,rmnet*`。仅 NAT 模式有效。 |
 | `--port HOST:CONT[/proto]` | | 将主机端口转发到容器（NAT 模式）。支持 TCP/UDP。 |
 | `--dns=SERVERS` | `-d` | 自定义 DNS 服务器，逗号分隔。示例：`--dns=1.1.1.1,8.8.8.8` |

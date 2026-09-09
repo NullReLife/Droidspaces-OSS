@@ -110,7 +110,7 @@ sudo droidspaces --name=web,db,app stop
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--net=MODE` | | Networking mode: `host` (default), `nat`, `none`, or `gateway`. |
+| `--net=MODE` | | Networking mode: `nat` (default), `host`, `none`, or `gateway`. |
 | `--upstream=IFACE` | | Pin the NAT WAN to specific interface(s); disables automatic uplink detection. Comma-separated, priority-ordered, supports wildcards. Example: `--upstream=wlan0,rmnet*`. NAT mode only. |
 | `--port HOST:CONT[/proto]` | | Forward host port to container (NAT mode). Supports TCP/UDP. |
 | `--dns=SERVERS` | `-d` | Custom DNS servers, comma-separated. Example: `--dns=1.1.1.1,8.8.8.8` |

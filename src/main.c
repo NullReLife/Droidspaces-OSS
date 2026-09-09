@@ -53,7 +53,7 @@ void print_usage(void) {
   printf(
       C_BOLD
       "Options (Networking):" C_RESET "\n"
-      "      --net=MODE            Modes: host (default), nat, none, gateway\n"
+      "      --net=MODE            Modes: nat (default), host, none, gateway\n"
       "      --gateway=NAME        Gateway container for --net=gateway\n"
       "      --gateway-net=NAME    Gateway LAN name/bridge suffix (default: "
       "lan)\n"
@@ -310,7 +310,7 @@ static void enforce_nat_safety(struct ds_config *cfg, int argc, char **argv) {
              "[ FATAL: NETWORK NAMESPACE UNSUPPORTED ]" C_RESET "\n\n");
       ds_error("Kernel does not support CLONE_NEWNET (network namespaces).");
       ds_log("Cannot use --net=nat, --net=none, or --net=gateway.");
-      ds_log("Tip: Use --net=host (default) for shared host networking.");
+      ds_log("Tip: Use --net=host for shared host networking.");
       exit(EXIT_FAILURE);
     }
   }
@@ -351,7 +351,7 @@ static void enforce_nat_safety(struct ds_config *cfg, int argc, char **argv) {
     printf("\n" C_RED C_BOLD "[ FATAL: NAT NETWORKING UNSUPPORTED ]" C_RESET
            "\n\n");
     ds_error("--net=nat is not supported on this kernel:\n  %s", reason);
-    ds_log("\nTip: Use --net=host (default) for shared host networking,");
+    ds_log("\nTip: Use --net=host for shared host networking,");
     ds_log("or rebuild your kernel with CONFIG_BRIDGE=y and CONFIG_VETH=y.");
     exit(1);
   }
@@ -895,6 +895,11 @@ int main(int argc, char **argv) {
   /* Initialise pipe fds to -1 so accidental close(-1) is harmless */
   cfg.net_ready_pipe[0] = cfg.net_ready_pipe[1] = -1;
   cfg.net_done_pipe[0] = cfg.net_done_pipe[1] = -1;
+
+  /* DS_NET_HOST is the enum's zero value because the socketd wire format
+   * pins 0=host, so the zeroed struct must be corrected: NAT is the default,
+   * a saved config or --net overrides it below. */
+  cfg.net_mode = DS_NET_NAT;
 
   safe_strncpy(cfg.prog_name, argv[0], sizeof(cfg.prog_name));
 

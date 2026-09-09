@@ -284,9 +284,10 @@ static void print_page(int page, const char *bin) {
     p_printf("----------\n\n");
 
     p_printf("%sIsolation Modes (--net):%s\n", bold, reset);
-    p_printf("  --net=host     Shared with host (default)\n");
+    p_printf("  --net=nat      Isolated namespace with internet access "
+             "(default)\n");
+    p_printf("  --net=host     Shared with host\n");
     p_printf("  --net=none     No network access (air-gapped)\n");
-    p_printf("  --net=nat      Isolated namespace with internet access\n");
     p_printf("  --net=gateway  LAN delegated to another container "
              "(e.g. OpenWRT)\n\n");
 
