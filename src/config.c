@@ -81,8 +81,6 @@ void parse_privileged(const char *value, struct ds_config *cfg) {
       cfg->privileged_mask |= DS_PRIV_NOSEC;
     else if (strcasecmp(t, "shared") == 0)
       cfg->privileged_mask |= DS_PRIV_SHARED;
-    else if (strcasecmp(t, "unfiltered-dev") == 0)
-      cfg->privileged_mask |= DS_PRIV_UNFILTERED;
     else if (strcasecmp(t, "full") == 0)
       cfg->privileged_mask |= DS_PRIV_FULL;
 
@@ -291,6 +289,8 @@ int ds_config_load(const char *config_path, struct ds_config *cfg) {
       cfg->selinux_permissive = parse_bool(val);
     } else if (strcmp(key, "allow_userns") == 0) {
       cfg->userns_allowed = parse_bool(val);
+    } else if (strcmp(key, "allow_vts") == 0) {
+      cfg->allow_vts = parse_bool(val);
     } else if (strcmp(key, "volatile_mode") == 0) {
       cfg->volatile_mode = parse_bool(val);
     } else if (strcmp(key, "force_cgroupv1") == 0) {
@@ -653,6 +653,7 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
   fprintf(f, "enable_gpu_mode=%d\n", cfg->gpu_mode);
   fprintf(f, "selinux_permissive=%d\n", cfg->selinux_permissive);
   fprintf(f, "allow_userns=%d\n", cfg->userns_allowed);
+  fprintf(f, "allow_vts=%d\n", cfg->allow_vts);
   fprintf(f, "volatile_mode=%d\n", cfg->volatile_mode);
   fprintf(f, "force_cgroupv1=%d\n", cfg->force_cgroupv1);
   fprintf(f, "block_nested_ns=%d\n", cfg->block_nested_ns);
@@ -685,10 +686,6 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
       }
       if (cfg->privileged_mask & DS_PRIV_SHARED) {
         fprintf(f, "%sshared", first ? "" : ",");
-        first = 0;
-      }
-      if (cfg->privileged_mask & DS_PRIV_UNFILTERED) {
-        fprintf(f, "%sunfiltered-dev", first ? "" : ",");
         first = 0;
       }
     }

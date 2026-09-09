@@ -103,8 +103,10 @@ void print_usage(void) {
       "      --cpus=COUNT          CPU limit (e.g. 1.5, 2)\n"
       "      --pids-limit=N        Max number of PIDs\n"
       "      --privileged=TAGS     Relax security: nomask, nocaps, noseccomp, "
-      "shared, unfiltered-dev, full\n"
-      "      --allow-userns        Allow user namespaces\n\n");
+      "shared, full\n"
+      "      --allow-userns        Allow user namespaces\n"
+      "      --allow-vts           Leave host VTs (tty1-6) visible with "
+      "--hw-access\n\n");
 
   printf(
       C_BOLD
@@ -378,6 +380,7 @@ static struct option long_options[] = {
     {"enable-android-storage", no_argument, 0, 'S'},
     {"selinux-permissive", no_argument, 0, 'P'},
     {"allow-userns", no_argument, 0, 279},
+    {"allow-vts", no_argument, 0, 278},
     {"volatile", no_argument, 0, 'V'},
     {"bind-mount", required_argument, 0, 'B'},
     {"bind", required_argument, 0, 'B'},
@@ -519,6 +522,9 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
       break;
     case 279:
       cfg->userns_allowed = 1;
+      break;
+    case 278:
+      cfg->allow_vts = 1;
       break;
     case 'V':
       cfg->volatile_mode = 1;

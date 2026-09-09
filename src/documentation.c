@@ -355,7 +355,11 @@ static void print_page(int page, const char *bin) {
         "  %s --name=mycontainer --rootfs=/path/to/rootfs --hw-access start\n",
         bin);
     p_printf("  (Exposes host /dev nodes, maps GPU groups, setups X11 in "
-             "Linux)\n\n");
+             "Linux)\n");
+    p_printf("  --allow-vts               Leave the host VTs (tty1-6) visible. "
+             "Off by default so a\n");
+    p_printf("                            systemd container's getty does not "
+             "land on the host console.\n\n");
 
     p_printf("%sSecure GPU-only Mode (--gpu):%s\n", bold, reset);
     p_printf("  %s --name=mycontainer --rootfs=/path/to/rootfs --gpu start\n",
@@ -384,7 +388,6 @@ static void print_page(int page, const char *bin) {
     p_printf("  noseccomp     Disable syscall filtering (useful for "
              "flatpak,bwrap and other unprivileged sandboxes)\n");
     p_printf("  shared        Enable MS_SHARED mount propagation\n");
-    p_printf("  unfiltered-dev Bypass device filtering (all host /dev)\n");
     p_printf("  full          Enable all above tags\n\n");
 
     p_printf(

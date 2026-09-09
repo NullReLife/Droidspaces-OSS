@@ -311,10 +311,7 @@ struct ds_port_forward {
 #define DS_PRIV_NOCAPS (1 << 1) /* No capability drops */
 #define DS_PRIV_NOSEC (1 << 2)  /* Minimal seccomp only */
 #define DS_PRIV_SHARED (1 << 3) /* MS_SHARED root propagation */
-#define DS_PRIV_UNFILTERED                                                     \
-  (1 << 4)                  /* No device node blocking (except PTYs)           \
-                             */
-#define DS_PRIV_FULL (0xFF) /* All above */
+#define DS_PRIV_FULL (0xFF)     /* All above */
 
 typedef enum {
   DS_INIT_UNKNOWN = 0,
@@ -360,6 +357,7 @@ struct ds_config {
   int android_storage;     /* --enable-android-storage */
   int selinux_permissive;  /* --selinux-permissive */
   int userns_allowed;      /* --allow-userns */
+  int allow_vts;           /* --allow-vts: leave host VTs unmasked in hw mode */
   int net_bridgeless;      /* Probe result: no CONFIG_BRIDGE, use PTP NAT */
   int reboot_cycle;        /* 1 if we are in a reboot loop */
   int force_cgroupv1;  /* --force-cgroupv1: use v1 even if v2 is available */
@@ -599,10 +597,11 @@ int domount(const char *src, const char *tgt, const char *fstype,
 int domount_silent(const char *src, const char *tgt, const char *fstype,
                    unsigned long flags, const char *data);
 int bind_mount(const char *src, const char *tgt);
+int ds_stage_dev_node(const char *staging, const char *dev_dir, const char *rel,
+                      mode_t mode, dev_t dev, gid_t gid);
 int ds_apply_jail_mask(int hw_access, int privileged_mask);
-int setup_dev(const char *rootfs, int hw_access, int gpu_mode,
-              int privileged_mask);
-int create_devices(const char *rootfs, int hw_access, int privileged_mask);
+int setup_dev(const char *rootfs, int hw_access, int gpu_mode, int allow_vts);
+int create_devices(const char *rootfs, const char *staging);
 int setup_devpts(int hw_access);
 int ds_fix_host_ptys(void);
 int setup_volatile_overlay(struct ds_config *cfg);
@@ -644,8 +643,7 @@ unsigned long ds_get_pid_ns_inode(pid_t pid);
 
 /* hardware.c */
 
-int scan_host_gpu_gids(gid_t *gids, int max_gids);
-void mirror_gpu_nodes(const char *dev_path);
+void mirror_gpu_nodes(const char *dev_path, const char *staging);
 int setup_gpu_groups(void);
 int setup_hardware_access(struct ds_config *cfg);
 
@@ -884,7 +882,6 @@ void print_documentation(const char *argv0);
 
 /* check.c */
 
-int is_dangerous_node(const char *name);
 int check_requirements(void);
 int check_requirements_hw(int hw_access);
 int check_requirements_detailed(void);

@@ -1663,6 +1663,7 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     printf("FORCE_CGROUP_V1=%d\n", cfg->force_cgroupv1);
     printf("DEADLOCK_SHIELD=%d\n", cfg->block_nested_ns);
     printf("USERNS_ALLOWED=%d\n", cfg->userns_allowed);
+    printf("VTS_ALLOWED=%d\n", cfg->allow_vts);
     printf("FOREGROUND_MODE=%d\n", cfg->foreground);
 
     printf("DNS_SERVERS=%s\n", cfg->dns_servers[0] ? cfg->dns_servers : "");
@@ -1701,10 +1702,6 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
         }
         if (cfg->privileged_mask & DS_PRIV_SHARED) {
           printf("%sshared", first ? "" : ",");
-          first = 0;
-        }
-        if (cfg->privileged_mask & DS_PRIV_UNFILTERED) {
-          printf("%sunfiltered-dev", first ? "" : ",");
           first = 0;
         }
       }
@@ -1890,6 +1887,12 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
       feat_count++;
     }
 
+    /* 14b. Host virtual terminals */
+    if (cfg->allow_vts) {
+      printf("  " C_RED "Host VTs:" C_RESET " tty1-6 unmasked\n");
+      feat_count++;
+    }
+
     /* 15. Privileged Mode */
     if (cfg->privileged_mask > 0) {
       printf("  " C_RED "Privileged mode:" C_RESET " ");
@@ -1911,10 +1914,6 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
         }
         if (cfg->privileged_mask & DS_PRIV_SHARED) {
           printf("%sshared", first ? "" : ", ");
-          first = 0;
-        }
-        if (cfg->privileged_mask & DS_PRIV_UNFILTERED) {
-          printf("%sunfiltered-dev", first ? "" : ", ");
           first = 0;
         }
       }
