@@ -23,25 +23,23 @@ void print_usage(void) {
   printf(C_DIM "Built on: %s %s" C_RESET "\n\n", __DATE__, __TIME__);
   printf("Usage: droidspaces [options] <command> [args]\n\n");
 
-  printf(
-      C_BOLD
-      "Commands:" C_RESET "\n"
-      "  start                     Start a new container\n"
-      "  stop                      Stop one or more containers\n"
-      "  restart                   Restart a container\n"
-      "  enter [user]              Enter a running container\n"
-      "  run <cmd> [args]          Run a command in a running container\n"
-      "  usage                     Show container uptime, CPU and RAM usage\n"
-      "  info                      Show detailed container info\n"
-      "  pid                       Show the live PID of the container init\n"
-      "  show                      List all running containers\n"
-      "  scan                      Scan for untracked containers\n"
-      "  check                     Check system requirements\n"
-      "  docs                      Show interactive documentation\n"
-      "  help                      Show this help message\n"
-      "  version                   Show version information\n"
-      "  daemon                    Run daemon mode (use --foreground for "
-      "foreground execution)\n\n");
+  printf(C_BOLD
+         "Commands:" C_RESET "\n"
+         "  start                     Start a new container\n"
+         "  stop                      Stop one or more containers\n"
+         "  restart                   Restart a container\n"
+         "  enter [user]              Enter a running container\n"
+         "  run <cmd> [args]          Run a command in a running container\n"
+         "  info                      Show detailed container info\n"
+         "  pid                       Show the live PID of the container init\n"
+         "  show                      List all running containers\n"
+         "  scan                      Scan for untracked containers\n"
+         "  check                     Check system requirements\n"
+         "  docs                      Show interactive documentation\n"
+         "  help                      Show this help message\n"
+         "  version                   Show version information\n"
+         "  daemon                    Run daemon mode (use --foreground for "
+         "foreground execution)\n\n");
 
   printf(C_BOLD "Options (Container Setup):" C_RESET "\n"
                 "  -r, --rootfs=PATH         Path to rootfs directory\n"
@@ -123,7 +121,7 @@ void print_usage(void) {
       "                            e.g. -B /data:/data,/tmp:/tmp\n"
       "      --reset               Reset config to defaults (keeps "
       "name/rootfs)\n"
-      "      --format              Machine-parseable output (KEY=VALUE)\n"
+      "      --format              JSON output (show, info)\n"
       "      --help                Show this help message\n\n");
 
   printf(C_BOLD
@@ -822,7 +820,7 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
       cfg->gpu_mode = 1;
       break;
     case 265:
-      /* --format: machine-parseable output */
+      /* --format: JSON output */
       cfg->format_output = 1;
       break;
 
@@ -1023,7 +1021,6 @@ int main(int argc, char **argv) {
                           strcmp(discovered_cmd, "restart") == 0 ||
                           strcmp(discovered_cmd, "pid") == 0 ||
                           strcmp(discovered_cmd, "info") == 0 ||
-                          strcmp(discovered_cmd, "usage") == 0 ||
                           strcmp(discovered_cmd, "enter") == 0 ||
                           strcmp(discovered_cmd, "run") == 0));
 
@@ -1219,11 +1216,6 @@ int main(int argc, char **argv) {
 
   if (strcmp(cmd, "info") == 0) {
     ret = show_info(&cfg, 0);
-    goto cleanup;
-  }
-
-  if (strcmp(cmd, "usage") == 0) {
-    ret = show_container_usage(&cfg);
     goto cleanup;
   }
 

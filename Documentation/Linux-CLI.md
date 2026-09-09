@@ -75,8 +75,8 @@ sudo droidspaces --name=web,db,app stop
 | `restart` | Fast restart (under 200ms) by preserving loop mounts. |
 | `enter [user]` | Open an interactive shell inside a running container. |
 | `run <cmd>` | Execute a single command without opening a full shell. Use `-u`/`--user` to run as a specific container user. |
-| `info` | Show deep technical details about a container. |
-| `show` | List all currently running containers in a table. |
+| `info` | Show deep technical details about a container. With `--format`, print them as JSON. |
+| `show` | List all currently running containers in a table. With `--format`, print JSON including OS, IP, uptime, CPU and RAM per container. |
 | `scan` | Detect and register orphaned/untracked containers. |
 | `check` | Verify system and kernel requirements. |
 | `docs` | Open the interactive terminal-based documentation. |

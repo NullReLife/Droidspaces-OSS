@@ -364,7 +364,7 @@ struct ds_config {
   int block_nested_ns; /* --block-nested-namespaces: fix VFS deadlock by
                             blocking nested namespace creation */
   int privileged_mask; /* --privileged bitmask */
-  int format_output;   /* --format: machine-parseable output (KEY=VALUE) */
+  int format_output;   /* --format: JSON output (show, info) */
   char prog_name[64];  /* argv[0] for logging */
 
   /* Runtime state */
@@ -446,6 +446,28 @@ char *ds_resolve_path_arg(const char *path);
 void ds_resolve_argv_paths(int argc, char **argv);
 long ds_get_container_uptime(pid_t pid);
 void ds_format_uptime(long uptime_sec, char *buf, size_t size);
+
+/* status.c */
+
+struct ds_status {
+  char name[128];
+  pid_t pid;
+  char hostname[256]; /* from the container config, same source as info */
+  char os[256];       /* PRETTY_NAME from /proc/<pid>/root/etc/os-release */
+  char ip[256];       /* non-loopback IPv4 addresses, comma separated */
+  long uptime_sec;
+  long ram_used_kb;
+  long cpu_permill;
+};
+
+/* Caller fills name, pid and hostname. Fills the rest for every entry in one
+ * /proc walk pair (one 250 ms CPU window total). Returns host MemTotal KB. */
+long ds_collect_status(struct ds_status *st, int n);
+void get_os_pretty(const char *osrelease_path, char *buf, size_t size);
+/* Flat JSON members, `,"key":value`. *first suppresses the leading comma. */
+void ds_json_str(const char *key, const char *val, int *first);
+void ds_json_int(const char *key, long long val, int *first);
+void ds_json_status(const struct ds_status *st, int *first);
 int is_ramfs(const char *path);
 int is_subpath(const char *parent, const char *child);
 int is_running_in_termux(void);
@@ -866,7 +888,6 @@ int enter_rootfs(struct ds_config *cfg, const char *user);
 int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
                   const char *as_user);
 int show_info(struct ds_config *cfg, int trust_cfg_pid);
-int show_container_usage(struct ds_config *cfg);
 /* argc/argv: the process's original arguments, so restart can re-apply CLI
  * overrides after its post-stop config reload. NULL argv skips that step. */
 int restart_rootfs(struct ds_config *cfg, int argc, char **argv);
