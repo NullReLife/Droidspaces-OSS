@@ -2308,6 +2308,16 @@ int ds_peer_in_pidns(pid_t peer_pid) {
 
   char path[64], self_ns[64], peer_ns[64];
   ssize_t sn = readlink("/proc/self/ns/pid", self_ns, sizeof(self_ns) - 1);
+  /* Our own ns/pid is missing while ns/mnt (unconditional in procfs since
+   * 3.8) is there: this kernel was built without CONFIG_PID_NS. There is
+   * exactly one PID namespace, so the peer cannot be anywhere else and no
+   * container exists to hide it in. That is a positive answer, not "cannot
+   * confirm". Denying here rejects every client before it sends its request,
+   * and the daemon closing mid-write is what the client saw as a silent exit
+   * 141; the requirement probe in the worker is what reports the missing
+   * feature. The peer-path ENOENT below (dead, recycled pid) still denies. */
+  if (sn < 0 && errno == ENOENT && access("/proc/self/ns/mnt", F_OK) == 0)
+    return 1;
   snprintf(path, sizeof(path), "/proc/%d/ns/pid", (int)peer_pid);
   ssize_t pn = readlink(path, peer_ns, sizeof(peer_ns) - 1);
   if (sn <= 0 || pn <= 0)
