@@ -35,7 +35,7 @@ keywords: droidspaces, networking, gateway, openwrt, nat, dhcp, dns, lan, wan, v
 - [第九部分：全新的网关模式——融会贯通](#第九部分全新的网关模式融会贯通)
     - [为什么要有网关模式？](#为什么要有网关模式)
     - [架构总览](#架构总览)
-    - [逐步说明——启动网关模式容器时会发生什么](#逐步说明启动网关模式容器时会发生什么)
+    - [逐步说明——启动网关模式容器时发生了什么](#逐步说明启动网关模式容器时发生了什么)
     - ["延迟挂接"的含义](#延迟挂接的含义)
     - [为什么网关模式下不修改 resolv.conf](#为什么网关模式下不修改-resolvconf)
     - [为什么 bridge-nf-call-iptables 要设为 0](#为什么-bridge-nf-call-iptables-要设为-0)
@@ -506,6 +506,11 @@ OpenWRT 的防火墙看到 Kali 的全部流量，并可以应用任何规则：
 在 NAT 模式中，Droidspaces 会在容器内写入 `/etc/resolv.conf`，指向 `1.1.1.1` 或 `8.8.8.8`。
 
 在网关模式中，Droidspaces **不**写入 `resolv.conf`（除非你显式传入 `--dns`）。这是因为 OpenWRT 的 `dnsmasq` 会通过 DHCP 租约将 DNS 服务器地址分发给容器。如果 Droidspaces 也写入了 `resolv.conf`，就会与 dnsmasq 提供的内容冲突——容器将使用错误的 DNS，完全绕过 OpenWRT 的 DNS 过滤/缓存。
+
+如何接线取决于客户端使用的 init 系统：
+
+- **systemd 容器：** `/etc/resolv.conf` 是指向 `/run/systemd/resolve/resolv.conf` 的符号链接，由 systemd-resolved 根据 DHCP 租约填充。
+- **非 systemd 容器：** Droidspaces 完全不碰 `/etc/resolv.conf`，由容器自己的 DHCP 客户端（udhcpc/dhclient）根据网关的租约写入 nameserver。早期版本会在这里硬编码写入 `1.1.1.1`/`8.8.8.8`，静默绕过了网关的 DNS；该问题已修复。如果精简 rootfs 没有自带 DHCP 的 resolv.conf 钩子，可传入 `--dns` 显式设置。
 
 ### 为什么 bridge-nf-call-iptables 要设为 0
 

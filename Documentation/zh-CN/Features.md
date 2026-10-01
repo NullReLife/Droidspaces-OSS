@@ -419,6 +419,39 @@ Android 的文件级加密将文件系统密钥存储在内核会话密钥环中
 > **旧内核网络：** 在旧内核上的 Droidspaces 内运行 Docker/Podman 时，现代 `nftables` 可能无法正确路由流量。我们建议使用 Droidspaces 的 NAT 模式，并将容器的网络栈切换到 `iptables-legacy` 和 `ip6tables-legacy`。
 
 
+<a id="sandboxing"></a>
+
+## 沙箱支持 (`--allow-sandboxing`)
+
+默认关闭。当容器内的程序需要构建自己的沙箱时再打开它：非特权 Docker 或 Podman（`userns-remap`、rootless）、Flatpak、bwrap、Firefox 和 Chromium。它们都会创建用户命名空间，然后在其中挂载自己的 `proc` 和 `sysfs`，而默认配置的 Droidspaces 容器会同时拦截这两步。
+
+### 它改变了什么
+
+1. **允许用户命名空间。** seccomp 过滤器不再对 `unshare(CLONE_NEWUSER)` 和 `clone(CLONE_NEWUSER)` 返回 `EPERM`，`clone3` 也不再被隐藏。
+2. **在 `/run/droidspaces/` 下挂载一份干净的 `proc` 和一份只读的 `sysfs`。** 内核只允许子用户命名空间挂载 `proc` 或 `sysfs`，前提是该挂载命名空间中存在该文件系统的一个"完全可见"实例：必须是文件系统的根、内部没有覆盖真实文件的 bind 挂载、且新挂载为读写时该实例不能是只读。容器自身的 `/proc` 和 `/sys` 永远不满足条件，因为 jail 掩码和虚拟化的 `uptime`、`loadavg`、`meminfo` 等正是这样的 bind 挂载。任意位置有一个合格实例即可，所以 Droidspaces 在不起眼的路径额外放了一份。LXC 在 `nesting.conf` 中通过 `/dev/.lxc/proc` 和 `/dev/.lxc/sys` 做了同样的事。原有掩码和虚拟文件保持原位不变。
+3. **`CAP_SYS_PTRACE` 保留在 bounding set 中。** runc 会打开已切换到重映射 uid 的容器 init 的 `/proc/<pid>/ns/net` 和 `/proc/<pid>/ns/mnt`，而 root 读取另一个 uid 进程的这两个文件只能依靠这个能力。
+
+### 代价
+
+这份干净的 `proc` 必须是可写且未掩码的，否则内核不会承认它。因此 `/run/droidspaces/proc/sys/` 就是宿主实时的 sysctl 树，`/run/droidspaces/proc/sysrq-trigger` 也是真实可用的。正常不会有程序误写这里，`/proc/sys` 在常规路径下仍然只读，但容器内的 root 可以有意访问它。请把该开关视为对容器 root 用户的信任。`sysfs` 副本是只读的，不会暴露任何新内容。
+
+### 使用方法
+
+```bash
+droidspaces --name=mycontainer --rootfs=/path/to/rootfs --allow-sandboxing start
+```
+
+在 App 中对应安全设置里的 **允许用户命名空间**（Allow Sandboxing）开关。内核未启用 `CONFIG_USER_NS` 时该开关置灰，`droidspaces check` 会报告为 "Sandboxing (user namespaces)"。`--allow-userns` 和 `allow_userns=` 配置键是旧名称，仍然有效。
+
+在运行中的容器内快速验证：
+
+```bash
+grep CapBnd /proc/1/status          # bit 19 set
+bwrap --unshare-user --proc /proc --dev /dev --ro-bind / / true
+```
+
+使用 Docker 时，在 `/etc/docker/daemon.json` 中加入 `{"userns-remap": "default"}`，重启守护进程，然后 `docker run --rm alpine cat /proc/self/uid_map` 应输出 `0 100000 65536`。
+
 ---
 
 ## Android 特定调优

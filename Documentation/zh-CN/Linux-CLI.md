@@ -75,8 +75,8 @@ sudo droidspaces --name=web,db,app stop
 | `restart` | 快速重启（200 毫秒内），保留 loop 挂载。 |
 | `enter [user]` | 在运行中的容器内打开交互式 shell。 |
 | `run <cmd>` | 执行单个命令而不打开完整 shell。使用 `-u`/`--user` 以指定容器用户身份运行。 |
-| `info` | 显示容器的详细技术信息。 |
-| `show` | 以表格形式列出所有当前运行中的容器。 |
+| `info` | 显示容器的详细技术信息。配合 `--format` 时以 JSON 输出。 |
+| `show` | 以表格形式列出所有当前运行中的容器。配合 `--format` 时输出 JSON，包含每个容器的 OS、IP、运行时长、CPU 和内存。 |
 | `scan` | 检测并注册孤立/未跟踪的容器。 |
 | `check` | 验证系统和内核要求。 |
 | `docs` | 打开交互式终端文档。 |
@@ -136,6 +136,7 @@ sudo droidspaces --name=web,db,app stop
 | `--hw-access` | `-H` | 暴露主机硬件（GPU、USB 等）。自动检测 GPU 组 ID 并在容器内创建匹配的组。挂载 X11 socket 以支持 GUI 应用（Android 上为 Termux X11，Linux 上为 `/tmp/.X11-unix`）。参见[安全警告](./Features.md#hardware-access-mode)。 |
 | `--gpu` | | 仅启用 GPU 加速。扫描主机 `/dev` 中的已知 GPU 节点，并仅将其安全映射到容器中，不暴露其他主机硬件。（若已传入 `-H`，此选项将被忽略）。 |
 | `--allow-vts` | | 与 `--hw-access` 一起使用时，保留主机虚拟终端（`/dev/tty1`-`tty6`）可见。默认情况下它们会被 `/dev/null` 遮蔽，以免 systemd 容器的 `getty` 接管主机控制台。没有 `-H` 时无效。 |
+| `--allow-sandboxing` | | 允许非特权 Docker、Podman、Flatpak、bwrap 以及浏览器沙箱在容器内运行。会削弱隔离性。参见[沙箱支持](./Features.md#sandboxing) |
 | `--termux-x11`| `-X` | 挂载 X11 socket 以支持 Termux-X11 显示（仅限 Android）。 |
 | `--enable-android-storage`| | 挂载 `/storage/emulated/0`（仅限 Android）。 |
 | `--selinux-permissive` | | 在容器会话期间将主机 SELinux 设置为宽容模式。 |

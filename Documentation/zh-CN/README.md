@@ -2,6 +2,7 @@
 
 ---
 
+[![Website](https://img.shields.io/badge/Website-droidspaces.org-1F6FEB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://www.droidspaces.org)
 [![Latest release](https://img.shields.io/github/v/release/ravindu644/Droidspaces-OSS?label=Latest%20Release&style=for-the-badge)](https://github.com/ravindu644/Droidspaces-OSS/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](../../LICENSE)
 [![Telegram channel](https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/Droidspaces)
@@ -386,6 +387,7 @@ GPU 加速方式、音效配置、桌面环境自动启动原理以及 Linux 桌
 
 | 文档 | 描述 |
 |----------|-------------|
+| [文档站点](https://www.droidspaces.org/docs/) | 以下所有指南的网页版，可在网站上阅读和搜索。 |
 | [功能深度解析](./Features.md) | 每个主要功能的详细说明。 |
 | [从零开始的网络基础](./Networking-From-Zero.md) | 面向初学者解释 Droidspaces 背后的网络概念——NAT、自动上行检测、`--upstream` 固定以及基于 OpenWRT 的网关模式。 |
 | [显示、音频与桌面指南](./Graphics-and-Audio.md) | Android 和 Linux 上的 GPU 加速、PulseAudio 音效与桌面环境自动启动。 |

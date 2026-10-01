@@ -214,6 +214,8 @@ install_policy_rules(cfg);
 在写任何新东西之前先查这份清单。如果已经有相近的东西，就扩展它，而不是另加一个同类。
 Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路径相对于仓库根目录。
 
+这份清单回答"该用什么"；[DESIGN.md](../../DESIGN.md) 回答"它该长什么样"，用于这里没有东西适用、你必须新建组件的场景。
+
 ### Android：表单与可复用界面
 
 | 符号 | 路径 | 何时使用 |
@@ -227,6 +229,7 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 | `PortForwardingList(portForwards, onPortForwardsChange)` | `ui/component/PortForwardingList.kt` | 可编辑的端口转发列表，自带添加对话框 |
 | `UpstreamInterfaceList(upstreamInterfaces, onInterfacesChange)` | `ui/component/UpstreamInterfaceList.kt` | 可编辑的上行网卡标签列表 |
 | `DsDropdown(label, selected, options, displayName, onSelect, ...)` | `ui/component/DsDropdown.kt` | 任何下拉选择框。不要自己手写 `ExposedDropdownMenuBox` |
+| `DsMenuTheme { }` + `Modifier.dsMenuBorder()` | `ui/component/DsMenuTheme.kt` | 任何需要不透明菜单底色的 `DropdownMenu`。`DsDropdown` 已经内置了它 |
 | `DsTextFieldDefaults.colors()` / `.surfaceColors()` | `ui/component/DsTextFieldDefaults.kt` | 每一个 `OutlinedTextField`。界面用 `colors()`，对话框内用 `surfaceColors()` |
 | `FocusUtils`、`rememberClearFocus()`、`ClearFocusOnClickOutside` | `ui/util/FocusUtils.kt` | 输入法动作，以及点击空白处收起键盘 |
 
@@ -234,7 +237,10 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 
 | 符号 | 路径 | 何时使用 |
 | --- | --- | --- |
-| `DialogFooterRow(dismissLabel, confirmLabel, onDismiss, onConfirm, ...)` | `ui/component/DialogFooterRow.kt` | 每个对话框的取消与确认按钮行。已有十处调用 |
+| `DsDialog(onDismiss, modifier, borderColor, scrollableContent, footer) { }` | `ui/component/DsDialog.kt` | 每个对话框。操作按钮放进 `footer`，绝不要放进内容区，否则在较矮的屏幕上会被挤掉。绝不要设置宽度、内边距或滚动 |
+| `DialogDismissButton(label, onDismiss)` | `ui/component/DialogFooterRow.kt` | 只有"关闭"一个操作的对话框的 `footer` |
+| `DialogCloseButton(onClick, enabled)` | `ui/component/DialogCloseButton.kt` | 对话框标题行上的 36.dp 关闭方块，用于从顶部关闭的信息页（终端日志查看器、关于页） |
+| `DialogFooterRow(dismissLabel, confirmLabel, onDismiss, onConfirm, confirmEnabled, destructive)` | `ui/component/DialogFooterRow.kt` | 每个对话框的取消与确认按钮行，已有十三处调用。删除或清空类操作请传 `destructive = true`，绝不要只改颜色 |
 | `FilePickerDialog(onDismiss, onConfirm, title, showFiles)` | `ui/component/FilePickerDialog.kt` | 选择主机路径或文件 |
 | `EnvironmentVariablesDialog(initialContent, onConfirm, onDismiss, ...)` | `ui/component/EnvironmentVariablesDialog.kt` | 键值形式的环境变量编辑器 |
 | `PrivilegedModeDialog`、`HardwareAccessDialog` | `ui/component/` | 需要手动输入确认短语的开启流程 |
@@ -254,6 +260,7 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 | 符号 | 路径 | 何时使用 |
 | --- | --- | --- |
 | `PrimaryActionBottomBar(label, icon, onClick, ...)` | `ui/component/PrimaryActionBottomBar.kt` | 任何向导或全屏页的"下一步""安装""继续"底栏。已有六个界面在用 |
+| `SaveActionBottomBar(isSaved, isSaving, canSave, onSave, ...)` | `ui/component/SaveActionBottomBar.kt` | 带"保存 / 保存中 / 已保存"状态的保存底栏 |
 | `PullToRefreshWrapper(onRefresh) { ... }` | `ui/component/PullToRefreshWrapper.kt` | 任何下拉刷新的列表或标签页内容 |
 | `showSuccess/showError/showInfo(snackbarHostState, message)` | `ui/util/SnackbarUtils.kt` | 所有 Snackbar。不要直接调用 `showSnackbar` |
 
@@ -275,6 +282,8 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 | 符号 | 路径 | 何时使用 |
 | --- | --- | --- |
 | `StatusPill(label, color)` | `ui/component/StatusPill.kt` | 任何小型状态标签 |
+| `SectionHeader(text)` | `ui/component/SectionHeader.kt` | 卡片分组上方的标题。间距写在修饰符上 |
+| `CardContentPadding`、`CardHeaderHeight` | `ui/component/CardMetrics.kt` | 任何带标题和状态胶囊的卡片。它保证各标签页的分隔线对齐，不要重新抄写这些数值 |
 | `LoadingIndicator(size, color)` + `LoadingSize` | `ui/util/LoadingIndicator.kt` | 行内加载圈。选一个 `LoadingSize`，不要写裸的 `.size(n.dp)` |
 | `FullScreenLoading(message)` | `ui/util/LoadingIndicator.kt` | 全屏加载状态 |
 | `ContainedLoadingIndicator`、`LoadingIndicatorDefaults`、`MaterialShapes` | `ui/util/LoadingIndicator.kt` | 确定进度和形变指示器及其样式常量 |
@@ -289,9 +298,9 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 | `DroidspacesTheme(darkTheme, dynamicColor, amoledMode, themePalette)` | `ui/theme/Theme.kt` | 唯一的主题根，在 `MainActivity` 中应用 |
 | `rememberThemeState()` + `ThemeState` | `ui/theme/ThemeStateHolder.kt` | 读取实时主题偏好 |
 | `ThemePalette` | `ui/theme/Color.kt` | 新增强调色方案。只在这里加 |
-| `MaterialTheme.colorScheme.*` | | 所有颜色。`ui/theme/Color.kt` 里裸的 `PRIMARY`、`GREEN`、`RED` 属于遗留常量，新代码不要用 |
+| `MaterialTheme.colorScheme.*` | | 所有颜色。`ui/theme/Color.kt` 现在只保留 `AMOLED_BLACK` 和调色板 |
 | `MaterialTheme.typography.*`、`JetBrainsMono` | `ui/theme/Type.kt` | 所有文字样式，以及终端、日志和代码文本用的等宽字体 |
-| `ShapeUtils` | `ui/util/DialogUtils.kt` | 圆角半径。`DIALOG_SHAPE`、`CARD_SHAPE`、`BUTTON_SHAPE` 等 |
+| 圆角、间距、字体样式 | [DESIGN.md](../../DESIGN.md) | 所有视觉数值。没有形状常量对象，数值都在 DESIGN.md 里 |
 | `AnimationUtils` | `util/AnimationUtils.kt` | 时长、缓动和 tween 规格。不要写字面量 `tween(300)` |
 | `AccentColorPicker`、`ColorPaletteSwatch` | `ui/component/` | 设置里的配色选择器 |
 
@@ -575,15 +584,12 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 
 以下问题目前确实存在，已列入清理计划。请扩展共享版本，不要再加一份。
 
-- `JetBrainsMono` 被声明了四次：`ui/theme/Type.kt` 里的规范版本，加上 `InitServiceScreen.kt`、
-  `UnitDetailScreen.kt` 和 `OverrideEditorScreen.kt` 里的私有副本。请导入主题里的那个。
-- 没有共享的 `DsDialog`。同样的 `Dialog { Surface { ... } }` 结构在大约十六处被手工重写。
-  如果你需要对话框，参照现有实现并在 PR 中说明，更好的做法是把共享组件抽出来。
-- 四处局部的 `RoundedCornerShape` 对话框常量应该改成 `ShapeUtils.DIALOG_SHAPE`。
 - `ToggleCard` 和 `SwitchItem` 是同一种开关行的两种形态。
 - `ContainersScreen` 里内联了一份输入确认短语的逻辑，而 `ConfirmPhraseField` 已经提供了。
+  它还内联了错误色的输入框配色，因为 `DsTextFieldDefaults` 没有错误态变体。请补上这个变体，而不是再加一份拷贝。
 - `SummaryItem` 在 `InstallationSummaryScreen.kt` 中以三个私有重载存在。在第二个界面需要它
   之前，先把它提升到 `ui/component/`。
+- `PrimaryActionBottomBar` 上的 `labelFontSize` 只有一个调用方 `RootCheckScreen`，它把行动号召文字推到 16sp。要么字体比例覆盖它，要么删掉这个参数。不要增加第二个调用方。
 - 若干安装器和检查器仍然用字面引号甚至不加引号把路径拼进 shell 字符串（`BinaryInstaller`、
   `ContainerInstaller`、`SparseImageInstaller`、`ModuleInstaller`、`SymlinkInstaller`）。
   它们已在清理列表上。不要复制这种写法，请用 `ContainerCommandBuilder.quote()`。
@@ -615,6 +621,8 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
    版本。对于 Linux：发行版、内核版本以及架构。
 
 4. **没有回归。** 用你的改动跑一遍现有行为。如果之前能用的功能现在不行了，先修好再发 PR。
+
+5. **对于 UI 改动，说明你遵循了哪些 DESIGN.md 里的规则。** 如果你偏离了某条规则，说明是哪条以及原因。没有理由说明却与 [DESIGN.md](../../DESIGN.md) 不一致的圆角或颜色会被打回。
 
 ## 代码所有权
 
