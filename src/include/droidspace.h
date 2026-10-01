@@ -617,7 +617,7 @@ int domount_silent(const char *src, const char *tgt, const char *fstype,
 int bind_mount(const char *src, const char *tgt);
 int ds_stage_dev_node(const char *staging, const char *dev_dir, const char *rel,
                       mode_t mode, dev_t dev, gid_t gid);
-int ds_apply_jail_mask(int hw_access, int privileged_mask);
+int ds_apply_jail_mask(int hw_access, int privileged_mask, int sandboxing);
 int setup_dev(const char *rootfs, int hw_access, int gpu_mode, int allow_vts);
 int create_devices(const char *rootfs, const char *staging);
 int setup_devpts(int hw_access);
