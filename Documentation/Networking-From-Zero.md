@@ -46,6 +46,7 @@ keywords: droidspaces, networking, gateway, openwrt, nat, dhcp, dns, lan, wan, v
     - [What --gateway-net does](#what---gateway-net-does)
     - [What --gateway-iface does](#what---gateway-iface-does)
     - [The flag conflict you must avoid](#the-flag-conflict-you-must-avoid)
+    - [IPv6 through the gateway](#ipv6-through-the-gateway)
     - [Validation rules and kernel requirements](#validation-rules-and-kernel-requirements)
 - [Part 11: Comparing all networking modes](#part-11-comparing-all-networking-modes)
 - [Part 12: Real-world use cases for gateway mode](#part-12-real-world-use-cases-for-gateway-mode)
@@ -248,6 +249,7 @@ In NAT mode, Droidspaces does for containers what your home router does for your
 - Droidspaces installs iptables `MASQUERADE` rules (`MASQUERADE` is the Linux name for the NAT target), plus FORWARD-accept and MSS-clamp rules so traffic actually flows.
 - The container can reach the internet, and the internet sees Android's IP, not the container's.
 - Droidspaces runs an embedded DHCP server for the container and configures its DNS.
+- The container also gets IPv6. Droidspaces announces a private prefix (`fd64:7370::/64`) with router advertisements, so the container configures its own address, and translates it on the way out with the IPv6 version of `MASQUERADE`. This needs the IPv6 NAT table in the kernel; without it the container is IPv4 only.
 - On Android, a background route monitor finds the active internet uplink by reading the kernel's routing rules, and re-points container traffic as soon as the active network changes (for example, a handoff from Wi-Fi to mobile data).
 
 ### How NAT mode picks the WAN uplink (automatic)
@@ -664,6 +666,95 @@ When the second command runs, Droidspaces tries to move a new veth peer into Ope
 --gateway-net=vpn  --gateway-iface=eth2   ->  eth2 inside OpenWRT (VPN segment)
 ```
 
+### IPv6 through the gateway
+
+NAT mode gives a container IPv6 as well as IPv4: Droidspaces announces a private IPv6 prefix (`fd64:7370::/64`) with router advertisements and translates it on the way out, the same idea as IPv4 NAT. The gateway container's WAN is a NAT interface, so OpenWRT can have IPv6 too. It does not pick it up by itself, and there are two things to understand before the steps:
+
+- **Droidspaces hands OpenWRT one address, not a block of addresses to pass on.** OpenWRT therefore numbers its own LAN from a private prefix of its own (a ULA) and does IPv6 NAT a second time on its WAN. Client traffic is translated twice, once by OpenWRT and once by Droidspaces. It works, it is just not how IPv6 is used on a real ISP line.
+- **The host kernel does the work for both.** A container shares the host's kernel, so both Droidspaces and OpenWRT need `CONFIG_IP6_NF_NAT` and `CONFIG_IP6_NF_TARGET_MASQUERADE` in it. `droidspaces check` reports this as "IPv6 NAT support".
+
+The OpenWRT image from the Droidspaces rootfs repository already ships steps 1, 2 and 4. With it you only need step 3 for each LAN. On any other OpenWRT image, do all of them, inside the gateway container.
+
+**1. Add an IPv6 WAN on `eth0`**
+
+```bash
+uci set network.wan6=interface
+uci set network.wan6.device='eth0'
+uci set network.wan6.proto='dhcpv6'
+uci set network.wan6.sourcefilter='0'
+```
+
+`sourcefilter '0'` matters. By default OpenWRT installs its IPv6 default route as "only for packets from my WAN prefix". Two things break with that: Android kernels are built without `CONFIG_IPV6_SUBTREES`, so the route silently fails to install, and LAN clients carry a different source address anyway, so the route would not apply to them.
+
+**2. Make sure OpenWRT has a private prefix of its own**
+
+```bash
+uci get network.globals.ula_prefix
+```
+
+If that prints a prefix starting with `fd`, you are done. If it says "Entry not found", set one. Any `fd` prefix with 10 random hex digits is fine:
+
+```bash
+uci set network.globals=globals
+uci set network.globals.ula_prefix='fd3a:91c2:7b4e::/48'
+```
+
+**3. Turn IPv6 on for each LAN**
+
+Replace `lan` with the name of your interface. Do this once for every LAN segment you want IPv6 on.
+
+```bash
+uci set network.lan.ip6assign='64'
+uci set dhcp.lan.ra='server'
+uci set dhcp.lan.dhcpv6='server'
+uci set dhcp.lan.ra_default='1'
+```
+
+`ip6assign` gives the interface a `/64` out of the private prefix. `ra` and `dhcpv6` make OpenWRT announce it to clients. `ra_default '1'` tells clients to use OpenWRT as their IPv6 gateway even though the prefix is a private one, which OpenWRT would otherwise refuse to do.
+
+**4. Firewall: let IPv6 in, and translate it on the way out**
+
+Put `wan6` in the same zone as `wan`, so the same forwarding rules cover it. If your zones reject input, also allow ICMPv6 and DHCPv6, because IPv6 cannot find its neighbours or its router without them.
+
+On an image with the iptables firewall (fw3, which is what Android needs), IPv6 NAT goes in through a small script:
+
+```bash
+cat > /etc/firewall.nat6 <<'EOF'
+ip6tables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null ||
+	ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+EOF
+uci set firewall.nat6=include
+uci set firewall.nat6.path='/etc/firewall.nat6'
+uci set firewall.nat6.reload='1'
+```
+
+On an image with the nftables firewall (fw4, the OpenWRT default on a Linux host), it is one option on the `wan` zone instead: `option masq6 '1'`.
+
+**5. Apply and check**
+
+```bash
+uci commit
+/etc/init.d/network reload
+/etc/init.d/firewall restart
+/etc/init.d/odhcpd restart
+```
+
+Give it about twenty seconds, then:
+
+```bash
+ip -6 addr show eth0        # an fd64:7370:: address
+ip -6 route | grep default  # default via fe80::1 dev eth0
+ping6 -c3 google.com
+```
+
+A client container on the LAN then gets an address from OpenWRT's private prefix and can `ping6` the internet.
+
+Three things to expect:
+
+- **Clients still prefer IPv4** for sites that have both. Operating systems rank a private IPv6 source below IPv4, so IPv6 is used for destinations that are IPv6 only.
+- **Mirror your isolation rules.** If your firewall blocks clients from reaching the Droidspaces NAT network `172.28.0.0/16`, add the same rule for `fd64:7370::/48` with `option family 'ipv6'`, or clients can reach other NAT containers over IPv6.
+- **`--disable-ipv6` on the gateway container turns all of this off**, and on a client container it turns IPv6 off for that client only.
+
 ### Validation rules and kernel requirements
 
 Droidspaces checks a few rules at startup and refuses to boot if any is broken:
@@ -689,6 +780,7 @@ Two more things to know:
 | Who manages DNS? | Droidspaces | Android | Nobody | OpenWRT dnsmasq |
 | Container isolated from host network? | Yes | No | Yes | Yes |
 | Internet access? | Yes | Yes | No | Yes (via gateway container) |
+| IPv6? | Yes, with NAT66 (needs kernel support) | Whatever Android has | Loopback only | Yes, once OpenWRT is set up for it (see Part 10) |
 | Needs a second container to function? | No | No | No | Yes (the gateway container) |
 | Good for | Simple internet access | Maximum performance, no veth or bridge in the path | Offline / sandboxed workloads | Router appliance, VPN gateway, segmented LANs |
 
@@ -737,6 +829,9 @@ OpenWRT's `tc` (traffic control) and `sqm-scripts` can shape bandwidth per conta
 | **netifd** | OpenWRT's network interface daemon - manages interfaces and DHCP |
 | **dnsmasq** | Lightweight DHCP and DNS server used by OpenWRT |
 | **MASQUERADE** | The Linux iptables rule that implements NAT (rewrites source IPs) |
+| **NAT66** | NAT for IPv6: private IPv6 addresses rewritten to the uplink's address on the way out |
+| **ULA** | A private IPv6 prefix starting with `fd`, the IPv6 counterpart of `192.168.x.x` |
+| **Router advertisement** | The message an IPv6 router sends so devices can configure their own address and gateway, IPv6's replacement for most of DHCP |
 | **Delegated LAN** | The bridge network Droidspaces creates in gateway mode - policy owned by the gateway container, not Droidspaces |
 | **Segment** | One isolated LAN identified by `--gateway-net` - each segment gets its own bridge and its own interface inside the gateway container |
 | **Lazy attachment** | The gateway's LAN-side veth is only created when the first client container starts, not when the gateway container starts |

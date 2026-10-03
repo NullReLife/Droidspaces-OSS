@@ -271,7 +271,9 @@ Droidspaces 提供四种不同的网络模式，以便于在使用便捷性和�
 - **自动上行链路检测**：无需任何配置。Droidspaces 直接读取内核的路由状态来确定提供互联网访问的接口——在 Android 上读取 netd 为活跃默认网络安装的策略路由规则；在标准 Linux 上读取主路由表的默认路由。纯 IPv6 移动网络上的 CLAT (464xlat) 接口也会被自动处理。
 
 > [!IMPORTANT]
-> NAT 模式仅支持 **IPv4**。如果宿主的上行链路缺少 IPv4 地址（纯 IPv6 网络），互联网访问将无法正常工作。请参阅[IPv4 NAT 常见问题](./Troubleshooting.md#ipv4-quirks)以获取变通方案。
+> NAT 模式为**双栈**。容器通过 DHCP 获取 IPv4 地址，通过路由通告 (RA) 获取 IPv6 地址，IPv6 流量经 NAT66 转发，方式与 IPv4 的 NAT 相同。网关模式同样受益，因为网关容器的 WAN 口就是一个 NAT 接口。
+>
+> IPv6 需要内核启用 `CONFIG_IP6_NF_NAT` 和 `CONFIG_IP6_NF_TARGET_MASQUERADE`。缺少时容器仅使用 IPv4，`droidspaces check` 会显示缺少 IPv6 NAT 支持。端口转发 (`--port`) 仅支持 IPv4。使用 `--disable-ipv6` 可为容器关闭 IPv6。
 
 ### 3. 无网络模式 (`--net=none`)
 容器获得一个私有网络命名空间，仅启用 loopback (`lo`) 接口。

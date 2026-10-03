@@ -275,7 +275,9 @@ The container gets a private network namespace (`CLONE_NEWNET`) and is connected
 - **Automatic uplink detection**: No configuration needed. Droidspaces asks the kernel which interface provides internet access: on Android, the policy-routing rule netd installs for the active default network; on standard Linux, the main routing table's default route. CLAT (464xlat) interfaces on IPv6-only mobile networks are handled automatically.
 
 > [!IMPORTANT]
-> NAT mode is **IPv4 only**. If the host's uplink has no IPv4 address (IPv6-only network), internet access will not work.
+> NAT mode is **dual-stack**. Containers get an IPv4 address over DHCP and an IPv6 address over router advertisements, and IPv6 leaves through NAT66 the same way IPv4 leaves through NAT. Gateway mode inherits this, because the gateway container's WAN is a NAT interface.
+>
+> IPv6 needs `CONFIG_IP6_NF_NAT` and `CONFIG_IP6_NF_TARGET_MASQUERADE` in the kernel. Without them the container stays IPv4 only, and `droidspaces check` shows IPv6 NAT support as missing. Port forwarding (`--port`) is IPv4 only. Pass `--disable-ipv6` to turn IPv6 off for a container.
 
 ### 3. None mode (`--net=none`)
 

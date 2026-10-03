@@ -91,7 +91,7 @@ To make the container **ignore the active network** and pin its internet to spec
 Leave it empty to auto-detect the active uplink. This is the default and the right choice for most users.
 
 > [!NOTE]
-> NAT mode is IPv4 only. If your carrier only provides IPv6, the container has no internet access in NAT mode.
+> NAT mode carries both IPv4 and IPv6. IPv6 needs NAT66 support in the kernel (`CONFIG_IP6_NF_NAT`); without it the container quietly stays IPv4 only. Use the **Disable IPv6** toggle to turn it off for a container.
 
 ### Port forwarding
 

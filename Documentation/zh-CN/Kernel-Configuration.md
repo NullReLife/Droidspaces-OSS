@@ -119,6 +119,19 @@ CONFIG_NF_CONNTRACK_IPV4=y
 CONFIG_NF_NAT_IPV4=y
 CONFIG_IP_NF_NAT=y
 
+# NAT 模式下的 IPv6 (NAT66)。可选：缺少这些选项时，NAT 容器仅支持 IPv4
+CONFIG_IPV6=y
+CONFIG_IPV6_MULTIPLE_TABLES=y
+CONFIG_IP6_NF_IPTABLES=y
+CONFIG_IP6_NF_FILTER=y
+CONFIG_IP6_NF_MANGLE=y
+CONFIG_IP6_NF_NAT=y
+CONFIG_IP6_NF_TARGET_MASQUERADE=y
+
+# 旧版兼容
+CONFIG_NF_CONNTRACK_IPV6=y
+CONFIG_NF_NAT_IPV6=y
+
 # 在旧内核上禁用此选项以使互联网正常工作
 CONFIG_ANDROID_PARANOID_NETWORK=n
 
@@ -252,6 +265,10 @@ CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
 # 修复 Docker unsafe procfs 错误
 CONFIG_USER_NS=y
 
+# NAT 模式下的 IPv6 (NAT66)
+CONFIG_IP6_NF_NAT=y
+CONFIG_IP6_NF_TARGET_MASQUERADE=y
+
 # UFW 支持
 CONFIG_NETFILTER_XT_TARGET_REJECT=y
 CONFIG_NETFILTER_XT_TARGET_LOG=y
@@ -310,6 +327,7 @@ su -c droidspaces check
 - devtmpfs 支持
 - OverlayFS 支持（可选，用于易失模式）
 - VETH 和 Bridge 支持（可选，用于 NAT 模式）
+- IPv6 NAT 支持（可选，用于 NAT 模式下的 IPv6）
 - PTY/devpts 支持
 - Loop 设备支持
 - ext4 支持
@@ -335,6 +353,7 @@ su -c droidspaces check
 | OverlayFS | `CONFIG_OVERLAY_FS` | 易失模式不可用。 |
 | 网络命名空间 | `CONFIG_NET_NS=y` | NAT 模式和无网络模式不可用。 |
 | VETH / Bridge | `CONFIG_VETH` / `CONFIG_BRIDGE` | NAT 模式不可用。 |
+| IPv6 NAT | `CONFIG_IP6_NF_NAT` / `CONFIG_IP6_NF_TARGET_MASQUERADE` | NAT 容器仅支持 IPv4。 |
 | Seccomp | `CONFIG_SECCOMP=y` | Seccomp 防护盾已禁用。存在安全风险。 |
 
 ---
