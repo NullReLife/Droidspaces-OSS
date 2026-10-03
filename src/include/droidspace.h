@@ -473,6 +473,7 @@ struct ds_status {
   char hostname[256]; /* from the container config, same source as info */
   char os[256];       /* PRETTY_NAME from /proc/<pid>/root/etc/os-release */
   char ip[256];       /* non-loopback IPv4 addresses, comma separated */
+  char ip6[512];      /* global and ULA IPv6 addresses, comma separated */
   long uptime_sec;
   long ram_used_kb;
   long cpu_permill;
