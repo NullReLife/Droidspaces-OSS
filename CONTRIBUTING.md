@@ -510,6 +510,7 @@ influenced, copy the `ds_bind_mount_socket` pattern: open with `O_NOFOLLOW|O_CLO
 | `ds_spawn_daemon(child_fn, user_data, log_file, tag, label)` | Forking a long-lived helper. Verifies `execv` succeeded through a ready pipe and attaches a log relay |
 | `ds_daemon_child_preamble()` | First call inside such a child, while still root |
 | `ds_oom_protect()` | Best effort OOM score protection |
+| `ds_thread_create(tid, fn, arg)` | Starting a helper thread in a process that waits on a signalfd. The thread starts with every signal blocked, so it cannot take a signal meant for the main thread. Never call `pthread_create` directly in the monitor |
 | `ds_daemon_read_pid` / `write_pid` / `remove_pid`, `ds_resolve_daemon_pid` | Pidfile lifecycle. The read form liveness-checks the pid |
 | `ds_global_daemon_stop(...)` | Unified SIGTERM, poll, SIGKILL, reap, unlink teardown |
 | `wait_for_socket_or_death(pid, path, timeout_ms, interval_us)` | Waiting for a socket to appear. Bails early if the server dies. Use instead of a sleep loop |

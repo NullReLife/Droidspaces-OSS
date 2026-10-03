@@ -482,6 +482,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `ds_spawn_daemon(child_fn, user_data, log_file, tag, label)` | fork 一个长期存活的辅助进程。通过 ready 管道确认 `execv` 成功，并挂上日志中继 |
 | `ds_daemon_child_preamble()` | 在这类子进程里第一个调用，此时还是 root |
 | `ds_oom_protect()` | 尽力而为的 OOM 分数保护 |
+| `ds_thread_create(tid, fn, arg)` | 在通过 signalfd 等待信号的进程中启动辅助线程。线程启动时屏蔽所有信号，因此不会抢走发给主线程的信号。不要在监视器中直接调用 `pthread_create` |
 | `ds_daemon_read_pid` / `write_pid` / `remove_pid`、`ds_resolve_daemon_pid` | pid 文件生命周期。读取时会检查进程是否存活 |
 | `ds_global_daemon_stop(...)` | 统一的 SIGTERM、轮询、SIGKILL、回收、删除文件流程 |
 | `wait_for_socket_or_death(pid, path, timeout_ms, interval_us)` | 等待套接字出现，服务端一死就提前返回。用它代替 sleep 轮询 |

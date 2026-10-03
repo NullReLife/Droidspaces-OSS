@@ -648,7 +648,7 @@ void ds_dhcp_server_start(struct ds_config *cfg, const char *veth_host,
    * guarantee the thread has fully exited before the next start() call
    * calls memset(&g_dhcp, 0).  A detached thread could still be running
    * when memset fires, corrupting its own context mid-loop. */
-  if (pthread_create(&g_dhcp.tid, NULL, dhcp_server_loop, &g_dhcp) != 0) {
+  if (ds_thread_create(&g_dhcp.tid, dhcp_server_loop, &g_dhcp) != 0) {
     ds_warn("[DHCP] pthread_create: %s", strerror(errno));
     g_dhcp.sock = -1;
     pthread_mutex_unlock(&g_dhcp_lock);

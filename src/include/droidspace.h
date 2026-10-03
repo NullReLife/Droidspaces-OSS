@@ -555,6 +555,7 @@ void ds_global_daemon_stop(int (*check_fn)(void), pid_t cached_pid,
                            pid_t *pid_out, const char *pidfile,
                            const char *sock_path, const char *tag);
 void ds_oom_protect(void);
+int ds_thread_create(pthread_t *tid, void *(*fn)(void *), void *arg);
 /* Common preamble for a forked long-lived daemon child (audio/GPU/X11 helper):
  * ignore terminal-disconnect signals so it outlives the launching session and
  * protect it from the OOM killer.  Must run while still root. */

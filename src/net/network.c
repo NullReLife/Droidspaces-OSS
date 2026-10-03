@@ -2402,8 +2402,7 @@ void ds_net_start_route_monitor(void) {
 
   pthread_mutex_lock(&g_gw_mutex);
   g_stop_monitor = 0;
-  if (pthread_create(&g_route_monitor_tid, NULL, route_monitor_loop, NULL) !=
-      0) {
+  if (ds_thread_create(&g_route_monitor_tid, route_monitor_loop, NULL) != 0) {
     ds_warn("[NET] Failed to start route monitor thread: %s", strerror(errno));
   } else {
     g_route_monitor_started = 1;
