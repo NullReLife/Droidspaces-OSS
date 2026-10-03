@@ -107,7 +107,6 @@
     <string name="uptime">运行时间</string>
     <string name="unable_to_read_container_info">无法读取容器信息</string>
     <string name="disable_ipv6_description">在此容器中禁用 IPv6。这可能会导致宿主机的 VPN 应用异常。</string>
-    <string name="disable_ipv6_nat_forced">在 NAT 和 None 网络模式下，IPv6 始终被禁用。</string>
     <string name="selinux_permissive">SELinux 宽容模式</string>
     <string name="selinux_permissive_description">将 SELinux 设置为宽容模式</string>
     <string name="run_at_boot">开机自启动</string>

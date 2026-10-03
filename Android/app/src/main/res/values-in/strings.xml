@@ -118,7 +118,6 @@
     <string name="changes_take_effect_after_restart">Perubahan akan berlaku setelah sistem di-restart</string>
     <string name="disable_ipv6">Nonaktifkan IPv6</string>
     <string name="disable_ipv6_description">Nonaktifkan IPv6 di dalam kontainer ini. Menonaktifkan IPv6 dapat menyebabkan aplikasi VPN yang berjalan di host mengalami gangguan.</string>
-    <string name="disable_ipv6_nat_forced">IPv6 selalu dinonaktifkan pada mode jaringan NAT dan None.</string>
     <string name="android_storage">Penyimpanan Android</string>
     <string name="android_storage_description">Mount penyimpanan Android</string>
     <string name="hardware_access">Akses Hardware</string>

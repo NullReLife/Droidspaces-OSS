@@ -151,7 +151,6 @@
     <string name="changes_take_effect_after_restart">ការផ្លាស់ប្ដូរនឹងមានប្រសិទ្ធភាពបន្ទាប់ពីចាប់ផ្ដើមឡើងវិញ</string>
     <string name="disable_ipv6">បិទ IPv6</string>
     <string name="disable_ipv6_description">បិទ IPv6 នៅក្នុងកុងតឺន័រនេះ។ ការបិទ IPv6 អាចធ្វើឱ្យកម្មវិធី VPN ដែលកំពុងដំណើរការនៅក្នុងម៉ាស៊ីនខូច។</string>
-    <string name="disable_ipv6_nat_forced">IPv6 តែងតែត្រូវបានបិទនៅក្នុងរបៀបបណ្តាញ NAT និង None។</string>
     <string name="android_storage">ឧបករណ៍ផ្ទុកទិន្នន័យ Android</string>
     <string name="android_storage_description">ម៉ោនឧបករណ៍ផ្ទុកទិន្នន័យ Android</string>
     <string name="hardware_access">ការចូលប្រើផ្នែករឹង</string>

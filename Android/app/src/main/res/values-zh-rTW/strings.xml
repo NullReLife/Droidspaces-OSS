@@ -276,7 +276,6 @@
     <string name="mask_service">屏蔽服務</string>
     <string name="leave_blank_for_symmetric">留空表示對稱映射</string>
     <string name="size_required">必須指定大小</string>
-    <string name="disable_ipv6_nat_forced">在 NAT 和 None 網路模式下，IPv6 始終被停用。</string>
     <string name="bind_mounts">綁定掛載點</string>
     <string name="error_unknown">錯誤：%1$s</string>
     <string name="cat_advanced">進階選項</string>

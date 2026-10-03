@@ -158,7 +158,6 @@
     <string name="changes_take_effect_after_restart">Změny se projeví po restartování</string>
     <string name="disable_ipv6">Zakázat IPv6</string>
     <string name="disable_ipv6_description">Zakáže v tomto kontejneru IPv6. Zakázání IPv6 může narušit aplikace VPN spuštěné v hostiteli.</string>
-    <string name="disable_ipv6_nat_forced">V režimech sítě NAT a Žádná je IPv6 vždy zakázán.</string>
     <string name="android_storage">Úložiště Androidu</string>
     <string name="android_storage_description">Připojí úložiště Androidu</string>
     <string name="hardware_access">Přístup k hardwaru</string>

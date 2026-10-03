@@ -456,7 +456,6 @@
     <string name="logs_copied">இடைநிலைப்பலகைக்கு பதிவுகள் நகலெடுக்கப்பட்டன</string>
     <string name="size_required">அளவு தேவை</string>
     <string name="error_container_name_empty">கொள்கலனின் பெயர் காலியாக இருக்கக்கூடாது</string>
-    <string name="disable_ipv6_nat_forced">NAT மற்றும் எதுவுமில்லை பிணையம் முறைகளில் IPv6 எப்போதும் முடக்கப்பட்டிருக்கும்.</string>
     <string name="bind_mounts">பைண்ட் மவுண்ட்ச்</string>
     <string name="enable_pulseaudio_description">PulseAudio வழியாக ஆடியோ ஆதரவை இயக்கவும்</string>
     <string name="error_unknown">பிழை: %1$s</string>

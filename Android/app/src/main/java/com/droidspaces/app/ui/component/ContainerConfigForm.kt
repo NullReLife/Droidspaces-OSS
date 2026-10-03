@@ -231,7 +231,7 @@ fun ContainerConfigForm(
             displayName = { context.getString(when (it) { "nat" -> R.string.network_mode_nat; "none" -> R.string.network_mode_none; "gateway" -> R.string.network_mode_gateway; else -> R.string.network_mode_host }) },
             onSelect = { mode ->
                 clearFocus()
-                onStateChange(state.copy(netMode = mode, disableIPv6 = if (mode != "host") false else state.disableIPv6))
+                onStateChange(state.copy(netMode = mode))
             },
             leadingIcon = Icons.Default.Public
         )
@@ -403,14 +403,14 @@ fun ContainerConfigForm(
             leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) }
         )
 
-        val ipv6IsForced = state.netMode != "host"
         ToggleCard(
             icon = Icons.Default.NetworkCheck,
             title = context.getString(R.string.disable_ipv6),
-            description = if (ipv6IsForced) context.getString(R.string.disable_ipv6_nat_forced) else context.getString(R.string.disable_ipv6_description),
-            checked = if (ipv6IsForced) true else state.disableIPv6,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(disableIPv6 = it)) },
-            enabled = !ipv6IsForced
+            // Only host mode shares the host's network stack, so only there can
+            // turning IPv6 off break a VPN app running on the host.
+            description = context.getString(if (state.netMode == "host") R.string.disable_ipv6_description else R.string.disable_ipv6_description_isolated),
+            checked = state.disableIPv6,
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(disableIPv6 = it)) }
         )
 
         SectionHeader(

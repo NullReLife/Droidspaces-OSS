@@ -111,7 +111,6 @@
     <string name="changes_take_effect_after_restart">වෙනස්කම් යාවත්කාලීන වීමට නැවත පණගැන්වීම අවශ්‍ය වේ</string>
     <string name="disable_ipv6">IPv6 අක්‍රීය කරන්න</string>
     <string name="disable_ipv6_description">මෙම කන්ටේනරය තුළ IPv6 අක්‍රීය කරන්න. IPv6 අක්‍රීය කිරීම නිසා ඇන්ඩ්‍රොයිඩ්හි ක්‍රියාත්මක වන VPN යෙදුම්වලට බාධා ඇති විය හැක.</string>
-    <string name="disable_ipv6_nat_forced">NAT සහ None ජාල මාදිලිවලදී සැමවිටම IPv6 අක්‍රීය කර ඇත.</string>
     <string name="android_storage">ඇන්ඩ්‍රොයිඩ් ආචයනය</string>
     <string name="android_storage_description">ඇන්ඩ්‍රොයිඩ් ආචයනය මවුන්ට් කරන්න</string>
     <string name="hardware_access">දෘඩාංග ප්‍රවේශය</string>
