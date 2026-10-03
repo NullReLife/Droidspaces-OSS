@@ -928,6 +928,12 @@ int setup_veth_host_side(struct ds_config *cfg, pid_t child_pid) {
   ds_log("Setting up host-side NAT networking for %s (PID %d)...",
          cfg->container_name, (int)child_pid);
 
+  /* On a reboot cycle the snapshot below still describes the previous one.
+   * Keep its veth name: nobody else is going to delete it. */
+  char prev_veth[IFNAMSIZ];
+  int prev_bridgeless = g_host_bridgeless;
+  safe_strncpy(prev_veth, g_host_veth, sizeof(prev_veth));
+
   /* Snapshot everything install_netfilter_rules() needs, before anything else
    * touches the tables.  The monitor thread replays these to rebuild the rules
    * after a netd flush and must not read cfg directly - the reboot path
@@ -951,6 +957,20 @@ int setup_veth_host_side(struct ds_config *cfg, pid_t child_pid) {
   ds_log("[DEBUG] Cleaning up any stale interfaces: %s, %s", veth_host,
          veth_peer);
   ds_nl_del_link(ctx, veth_host);
+
+  /* The previous boot cycle's veth. The kernel only removes it once the old
+   * network namespace is freed, and a guest that was killed with TCP
+   * connections open keeps that namespace alive for minutes while its
+   * orphaned sockets retransmit into a bridge that now sends the replies to
+   * the new instance. Until then the leftover counts as another running
+   * container, so the last stop would keep the shared rules in place. */
+  if (prev_veth[0] && strcmp(prev_veth, veth_host) != 0) {
+    ds_nl_del_link(ctx, prev_veth);
+    if (prev_bridgeless) {
+      ds_ipt_remove_iface_rules(AF_INET, prev_veth);
+      ds_ipt_remove_iface_rules(AF_INET6, prev_veth);
+    }
+  }
 
   /* 1. Ensure bridge exists (SKIP for bridgeless fallback) */
   if (!cfg->net_bridgeless) {
