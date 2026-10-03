@@ -63,32 +63,18 @@ static int container_cpus(struct ds_config *cfg) {
   return n;
 }
 
-/* Read a cgroup v2 file from the container's delegated slice. */
-static long long read_cg_ll(const char *container_name, const char *file) {
-  char safe_name[256];
-  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
-  char path[PATH_MAX];
-  char buf[64];
-  snprintf(path, sizeof(path), "/sys/fs/cgroup/droidspaces/%s/%s", safe_name,
-           file);
-  if (read_file(path, buf, sizeof(buf)) <= 0)
-    return -1;
-  if (strncmp(buf, "max", 3) == 0)
-    return -1; /* unlimited */
-  char *end;
-  long long v = strtoll(buf, &end, 10);
-  return (end == buf) ? -1 : v;
-}
-
 /* Per-resource content generators
  * Each returns a malloc'd buffer + length. Caller must free(). */
 
 /* /proc/meminfo - virtualized when memory_limit > 0 */
 static char *gen_meminfo(struct ds_config *cfg, size_t *out_len) {
   long long mem_limit = cfg->memory_limit; /* bytes */
-  long long mem_used = read_cg_ll(cfg->container_name, "memory.current");
+  long long mem_used = -1, file_cache = 0;
+  ds_cgroup_get_usage(cfg->container_name, &mem_used, &file_cache, NULL, NULL);
   if (mem_used < 0)
     mem_used = 0;
+  if (file_cache > mem_used)
+    file_cache = mem_used;
 
   FILE *f = fopen("/proc/meminfo", "r");
   if (!f)
@@ -107,21 +93,23 @@ static char *gen_meminfo(struct ds_config *cfg, size_t *out_len) {
   if (mem_limit > 0 && host_total_kb > 0)
     ratio = (double)mem_limit / ((double)host_total_kb * 1024.0);
 
-  /* Read memory.stat for accurate anon/file/slab breakdown */
+  /* Read memory.stat for accurate anon/file/slab breakdown. v1 names the
+   * first two differently and has no slab line. */
   long long cg_anon = -1, cg_file = -1, cg_slab = -1;
   {
-    char safe_name[256];
-    sanitize_container_name(cfg->container_name, safe_name, sizeof(safe_name));
-    char path[PATH_MAX], sbuf[4096];
-    snprintf(path, sizeof(path), "/sys/fs/cgroup/droidspaces/%s/memory.stat",
-             safe_name);
+    char dir[PATH_MAX], path[PATH_MAX + 64], sbuf[4096];
+    int v1 = ds_cgroup_ctrl_dir("memory", cfg->container_name, dir,
+                                sizeof(dir)) == 1;
+    const char *k_anon = v1 ? "total_rss " : "anon ";
+    const char *k_file = v1 ? "total_cache " : "file ";
+    snprintf(path, sizeof(path), "%s/memory.stat", dir);
     if (read_file(path, sbuf, sizeof(sbuf)) > 0) {
       char *p;
-      if ((p = strstr(sbuf, "anon ")))
-        sscanf(p + 5, "%lld", &cg_anon);
-      if ((p = strstr(sbuf, "file ")))
-        sscanf(p + 5, "%lld", &cg_file);
-      if ((p = strstr(sbuf, "slab ")))
+      if ((p = strstr(sbuf, k_anon)))
+        sscanf(p + strlen(k_anon), "%lld", &cg_anon);
+      if ((p = strstr(sbuf, k_file)))
+        sscanf(p + strlen(k_file), "%lld", &cg_file);
+      if (!v1 && (p = strstr(sbuf, "slab ")))
         sscanf(p + 5, "%lld", &cg_slab);
     }
   }
@@ -159,13 +147,16 @@ static char *gen_meminfo(struct ds_config *cfg, size_t *out_len) {
         val = (mem_limit - mem_used) / 1024 > 0 ? (mem_limit - mem_used) / 1024
                                                 : 0;
       else if (!strcmp(key, "MemAvailable")) {
-        /* MemAvailable = MemTotal - actual_cgroup_usage.
-         * Do NOT add cg_file here: host page cache can be huge and pushes
-         * MemAvailable >= MemTotal, triggering fastfetch/free's fallback
-         * guard (memAvailable >= memTotal) which reads raw host fields and
-         * produces completely wrong numbers (e.g. 16 EiB used).
-         * Simple and correct: what the cgroup hasn't consumed is available. */
-        val = lim_kb - mem_used / 1024;
+        /* What the cgroup has not consumed, plus its own file cache, which
+         * the kernel gives back under pressure. free and fastfetch report
+         * "used" as MemTotal - MemAvailable, so without the cache term they
+         * count every file the container has read as used memory.
+         * It must be the cgroup's cache, never the host's Cached, and it must
+         * stay below MemTotal: at memAvailable >= memTotal those tools fall
+         * back to raw fields and print nonsense (e.g. 16 EiB used). */
+        val = lim_kb - (mem_used - file_cache) / 1024;
+        if (val >= lim_kb)
+          val = lim_kb - 1;
         if (val < 0)
           val = 0;
       } else if (!strcmp(key, "SwapTotal") || !strcmp(key, "SwapFree"))

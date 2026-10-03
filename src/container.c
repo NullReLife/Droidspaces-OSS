@@ -1230,7 +1230,7 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
 
     /* cgroup attach before entering namespaces */
     ds_log_silent = 1;
-    ds_cgroup_attach(cfg->container_name, pid);
+    ds_cgroup_attach(cfg->container_name);
     ds_log_silent = 0;
 
     if (enter_namespace(pid, cfg) < 0)
@@ -1461,7 +1461,7 @@ int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
      * crossing into its namespaces, so the command is accounted to the
      * container instead of leaking to the host's cgroup root. */
     ds_log_silent = 1;
-    ds_cgroup_attach(cfg->container_name, pid);
+    ds_cgroup_attach(cfg->container_name);
     ds_log_silent = 0;
 
     if (enter_namespace(pid, cfg) < 0)
@@ -1637,6 +1637,10 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     return -1;
   }
 
+  long long lim_mem, lim_quota, lim_period, lim_pids;
+  ds_cgroup_get_limits(cfg->container_name, &lim_mem, &lim_quota, &lim_period,
+                       &lim_pids);
+
   /* Success - print Host and detailed Container info */
   if (cfg->format_output) {
     struct ds_status st = {0};
@@ -1720,6 +1724,11 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
 
     ds_json_int("volatile_mode", cfg->volatile_mode, &first);
     ds_json_int("force_cgroup_v1", cfg->force_cgroupv1, &first);
+    /* 0 is unlimited */
+    ds_json_int("memory_limit", lim_mem, &first);
+    ds_json_int("cpu_quota", lim_quota, &first);
+    ds_json_int("cpu_period", lim_period, &first);
+    ds_json_int("pids_limit", lim_pids, &first);
     ds_json_int("sandboxing_allowed", cfg->sandboxing_allowed, &first);
     ds_json_int("vts_allowed", cfg->allow_vts, &first);
     ds_json_int("foreground_mode", cfg->foreground, &first);
@@ -1988,43 +1997,39 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     }
   }
 
-  /* Resource limits & live usage. Only show if Cgroup V2 is active,
-   * since we skip resource management entirely on V1. We also skip this
-   * when called during the boot sequence (!trust_cfg_pid). */
-  if (!trust_cfg_pid &&
-      (cfg->memory_limit || cfg->cpu_quota || cfg->pids_limit) &&
-      !cfg->force_cgroupv1 && ds_cgroup_host_is_v2()) {
-    long long mu = -1, cu = -1, pu = -1;
-    ds_cgroup_get_usage(cfg, &mu, &cu, &pu);
+  /* Resource limits in force. Live usage only for the info command: right
+   * after a start or restart there is nothing meaningful to report yet. */
+  if (lim_mem || lim_quota || lim_pids) {
+    long long mu = -1, cache = 0, cu = -1, pu = -1;
+    if (!trust_cfg_pid)
+      ds_cgroup_get_usage(cfg->container_name, &mu, &cache, &cu, &pu);
+    /* Used as free(1) counts it: without the reclaimable file cache */
+    if (mu >= cache)
+      mu -= cache;
     printf("\n" C_GREEN "Resources:" C_RESET "\n");
 
-    if (cfg->memory_limit) {
-      char used[32] = "?", lim[32];
-      if (mu >= 0)
+    if (lim_mem) {
+      char used[32], lim[32];
+      ds_format_size(lim_mem, lim, sizeof(lim));
+      if (mu >= 0) {
         ds_format_size(mu, used, sizeof(used));
-      ds_format_size(cfg->memory_limit, lim, sizeof(lim));
-      printf("  Memory : %s / %s\n", used, lim);
-    }
-    if (cfg->cpu_quota) {
-      long long period = cfg->cpu_period > 0 ? cfg->cpu_period : 100000;
-      double cores = (double)cfg->cpu_quota / period;
-      printf("  CPU    : %.2f cores", cores);
-      if (cu >= 0) {
-        long uptime = ds_get_container_uptime(pid);
-        if (uptime > 0) {
-          /* Average usage as percentage of total capacity (all allocated
-           * cores). cu is in usec, uptime in sec. */
-          double usage_sec = (double)cu / 1e6;
-          double avg_util = (usage_sec / (double)uptime) / cores * 100.0;
-          printf(" (Avg usage: %.1f%%)", avg_util);
-        } else {
-          printf(" (used: %.3fs)", (double)cu / 1e6);
-        }
+        printf("  Memory : %s / %s\n", used, lim);
+      } else {
+        printf("  Memory : %s\n", lim);
       }
+    }
+    if (lim_quota) {
+      double cores = (double)lim_quota / (double)lim_period;
+      printf("  CPU    : %.2f cores", cores);
+      long uptime = cu >= 0 ? ds_get_container_uptime(pid) : 0;
+      /* Average use of the allowed cores since boot. cu is in usec. */
+      if (uptime > 0)
+        printf(" (Avg usage: %.1f%%)",
+               ((double)cu / 1e6 / (double)uptime) / cores * 100.0);
       printf("\n");
     }
-    if (cfg->pids_limit) {
-      printf("  PIDs   : limit %lld", cfg->pids_limit);
+    if (lim_pids) {
+      printf("  PIDs   : %lld", lim_pids);
       if (pu >= 0)
         printf(" (current: %lld)", pu);
       printf("\n");

@@ -401,6 +401,21 @@ int check_requirements_detailed(void) {
                  "and by desktop environments",
                  check_ns(CLONE_NEWUSER, "user"), "OPT");
 
+  /* Asked of the running kernel, not of a config dump. A limit is applied on
+   * whichever cgroup hierarchy owns its controller, so the controller
+   * existing is enough. CPU quota has no controller of its own: its sysctl
+   * is only registered with CONFIG_CFS_BANDWIDTH. */
+  print_ds_check("Memory limit support",
+                 "CONFIG_MEMCG; --memory is skipped if absent",
+                 ds_cgroup_has_controller("memory"), "OPT");
+  print_ds_check(
+      "CPU limit support", "CONFIG_CFS_BANDWIDTH; --cpus is skipped if absent",
+      access("/proc/sys/kernel/sched_cfs_bandwidth_slice_us", F_OK) == 0,
+      "OPT");
+  print_ds_check("Process limit support",
+                 "CONFIG_CGROUP_PIDS; --pids-limit is skipped if absent",
+                 ds_cgroup_has_controller("pids"), "OPT");
+
   /* FINAL SUMMARY */
   check_append("\n" C_BOLD "Summary:" C_RESET "\n\n");
   if (missing_must > 0)

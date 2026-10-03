@@ -67,9 +67,12 @@ static void close_and_forget(int *fd) {
 
 /* Move the monitor back to the root cgroup. It wrote its own PID into
  * /sys/fs/cgroup/droidspaces/<name>/ at start (for cgroup namespace
- * isolation), and while it sits there the kernel refuses to rmdir that
- * cgroup with EBUSY. Safe: the monitor is about to _exit() anyway. */
-static void leave_container_cgroup(void) {
+ * isolation) and into its v1 cgroups, and while it sits there the kernel
+ * refuses to rmdir those with EBUSY. Safe: the monitor is about to _exit()
+ * anyway. */
+static void leave_container_cgroup(const char *container_name) {
+  ds_cgroup_v1_join(container_name, 1);
+
   int root_fd = open("/sys/fs/cgroup/cgroup.procs", O_WRONLY | O_CLOEXEC);
   if (root_fd < 0)
     return;
@@ -124,18 +127,12 @@ void ds_monitor_run(struct ds_config *cfg, int sync_pipe_write) {
    * PID namespace. */
   int ns_flags = CLONE_NEWUTS | CLONE_NEWIPC;
 
-  /* Adaptive Cgroup Namespace (introduced in Linux 4.6).
-   *
-   * CGROUP SELECTION: Only enable cgroupns when V2 is active.
-   * If --force-cgroupv1 is set, we skip cgroupns so setup_cgroups()
-   * has full rights to create named V1 hierarchies from the host context. */
-  int cg_ns_ok = (access("/proc/self/ns/cgroup", F_OK) == 0) &&
-                 (ds_cgroup_host_is_v2() && !cfg->force_cgroupv1);
-  if (cg_ns_ok) {
-    /* To get isolation from a cgroup namespace, we must be in a sub-cgroup
-     * BEFORE we unshare. If we are in the root '/', the namespace root
-     * will be the host's root, providing zero isolation.
-     * We use a container-specific path to avoid conflicts. */
+  /* The container needs a cgroup of its own BEFORE we unshare the cgroup
+   * namespace (Linux 4.6+). If we are still in the root '/', the namespace
+   * root is the host's root and isolates nothing. */
+  if (cfg->force_cgroupv1 || !ds_cgroup_host_is_v2()) {
+    ds_cgroup_v1_setup(cfg);
+  } else {
     if (access("/sys/fs/cgroup/cgroup.procs", F_OK) == 0) {
       char safe_name[256];
       sanitize_container_name(cfg->container_name, safe_name,
@@ -200,19 +197,14 @@ void ds_monitor_run(struct ds_config *cfg, int sync_pipe_write) {
         fclose(f);
       }
     }
-    ns_flags |= CLONE_NEWCGROUP;
-  } else {
-    /* Legacy kernel without force flag - skip cgroupns, run in host
-     * cgroupns with full rights so setup_cgroups() can create named
-     * v1 hierarchies. */
   }
+  if (access("/proc/self/ns/cgroup", F_OK) == 0)
+    ns_flags |= CLONE_NEWCGROUP;
 
-  /* Apply resource limits. On v2 hosts this writes memory.max / cpu.max /
-   * pids.max into the delegated cgroup. On v1 or --force-cgroupv1 the
-   * function skips with a warning since v1 delegation is unreliable. */
-  if (ds_cgroup_apply_limits(cfg) < 0 &&
-      (cfg->memory_limit || cfg->cpu_quota || cfg->pids_limit))
-    ds_warn("[CGROUP] Some resource limits could not be enforced.");
+  /* Apply resource limits, each on the hierarchy that owns its controller.
+   * Must come before unshare(): the monitor joins any v1 limit cgroup here,
+   * the container inherits it, and the cgroup namespace gets rooted there. */
+  ds_cgroup_apply_limits(cfg);
 
   if (unshare(ns_flags) < 0)
     ds_die("unshare failed: %s", strerror(errno));
@@ -713,7 +705,7 @@ reboot_loop:;
       /* All but one thing: the command could not remove our cgroup while we
        * were still sitting in it. On kernels with cgroup.kill it killed us
        * instead and we never get here. */
-      leave_container_cgroup();
+      leave_container_cgroup(cfg->container_name);
       ds_cgroup_cleanup_container(cfg->container_name);
       goto monitor_cleanup_and_exit;
     }
@@ -814,7 +806,7 @@ reboot_loop:;
   /* Normal exit - monitor does cleanup */
   write_monitor_debug_log(cfg->container_name, "Monitor performing cleanup");
 
-  leave_container_cgroup();
+  leave_container_cgroup(cfg->container_name);
   cleanup_container_resources(cfg, 0, 0, 0);
 
 monitor_cleanup_and_exit:

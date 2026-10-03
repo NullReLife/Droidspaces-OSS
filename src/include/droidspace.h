@@ -477,6 +477,10 @@ struct ds_status {
   long uptime_sec;
   long ram_used_kb;
   long cpu_permill;
+  /* Limits in force, 0 when unlimited. cpu_limit_permill is the share of the
+   * host the container may use, the same scale as cpu_permill. */
+  long ram_limit_kb;
+  long cpu_limit_permill;
 };
 
 /* Caller fills name, pid and hostname. Fills the rest for every entry in one
@@ -661,15 +665,24 @@ int is_mountpoint(const char *path);
 int ds_cgroup_v2_usable(void);
 int ds_cgroup_kernel_supports_v2(void);
 int ds_cgroup_host_is_v2(void);
+int ds_cgroup_has_controller(const char *name);
 int setup_cgroups(int is_systemd, int force_cgroupv1);
 void ds_cgroup_host_bootstrap(int force_cgroupv1);
-int ds_cgroup_attach(const char *container_name, pid_t target_pid);
+int ds_cgroup_attach(const char *container_name);
 /* Remove the entire /sys/fs/cgroup/droidspaces/<name>/ subtree on stop. */
 void ds_cgroup_cleanup_container(const char *container_name);
 void print_cgroup_status(struct ds_config *cfg);
-int ds_cgroup_apply_limits(struct ds_config *cfg);
-int ds_cgroup_get_usage(struct ds_config *cfg, long long *mem,
-                        long long *cpu_us, long long *pids);
+void ds_cgroup_apply_limits(struct ds_config *cfg);
+int ds_cgroup_ctrl_dir(const char *ctrl, const char *container_name, char *dir,
+                       size_t size);
+void ds_cgroup_v1_join(const char *container_name, int leave);
+void ds_cgroup_v1_setup(struct ds_config *cfg);
+void ds_cgroup_get_limits(const char *container_name, long long *mem,
+                          long long *cpu_quota, long long *cpu_period,
+                          long long *pids);
+int ds_cgroup_get_usage(const char *container_name, long long *mem,
+                        long long *file_cache, long long *cpu_us,
+                        long long *pids);
 long long ds_parse_size(const char *str);
 void ds_format_size(long long bytes, char *buf, size_t sz);
 /* Word-boundary controller name check (used by container.c for subtree_control

@@ -257,6 +257,24 @@ long ds_collect_status(struct ds_status *st, int n) {
       delta = 0;
     long permill = delta_host > 0 ? (long)(delta * 1000 / delta_host) : 0;
     st[i].cpu_permill = permill > 1000 ? 1000 : permill;
+
+    /* A container with a memory cgroup is charged there, and that is the
+     * figure its own /proc/meminfo and `info` report: usage without the
+     * reclaimable file cache. The RSS sum above counts shared pages once per
+     * process and misses kernel memory, so it only stands in when there is no
+     * cgroup to ask. */
+    long long mem, cache;
+    ds_cgroup_get_usage(st[i].name, &mem, &cache, NULL, NULL);
+    if (mem >= 0 && mem >= cache)
+      st[i].ram_used_kb = (long)((mem - cache) / 1024);
+
+    long long lim_mem, quota, period, lim_pids;
+    ds_cgroup_get_limits(st[i].name, &lim_mem, &quota, &period, &lim_pids);
+    st[i].ram_limit_kb = (long)(lim_mem / 1024);
+    long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
+    long cpu_lim =
+        quota > 0 && ncpu > 0 ? (long)(quota * 1000 / (period * ncpu)) : 0;
+    st[i].cpu_limit_permill = cpu_lim > 1000 ? 1000 : cpu_lim;
   }
 
   free(ns);
@@ -300,4 +318,6 @@ void ds_json_status(const struct ds_status *st, int *first) {
   ds_json_str("uptime", uptime, first);
   ds_json_int("ram_used_kb", st->ram_used_kb, first);
   ds_json_int("cpu_permill", st->cpu_permill, first);
+  ds_json_int("ram_limit_kb", st->ram_limit_kb, first);
+  ds_json_int("cpu_limit_permill", st->cpu_limit_permill, first);
 }
