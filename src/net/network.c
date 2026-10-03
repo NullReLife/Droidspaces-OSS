@@ -245,6 +245,7 @@ static int netns_has_link(const char *netns_path, const char *ifname) {
 /* Uplink routing globals - shared by android routing setup and monitor */
 
 static int g_current_gw_table = 0;
+static int g_current_gw6_table = 0; /* same, for the uplink's IPv6 routes */
 static pthread_mutex_t g_gw_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int g_route_monitor_sock = -1;
 static volatile sig_atomic_t g_stop_monitor = 0;
@@ -275,6 +276,7 @@ static char g_host_veth[IFNAMSIZ];
 static struct ds_port_forward g_host_port_forwards[DS_MAX_PORT_FORWARDS];
 static int g_host_port_forward_count = 0;
 static char g_host_container_ip[INET_ADDRSTRLEN];
+static int g_host_nat6 = 0; /* NAT66 is set up, replay its rules too */
 
 /* Returns 1 if ifname exists and is both UP and RUNNING.
  * On Android, the active data interface has IFF_RUNNING set; an interface
@@ -631,7 +633,60 @@ static int install_policy_rules(ds_nl_ctx_t *ctx) {
                                       gw_table, DS_RULE_PRIO_FROM_SUBNET) < 0)
     ret = -1;
 
+  /* The same TO and FROM pair for the NAT66 prefix. No tether rule: hotspot
+   * clients reach forwarded ports over IPv4, and --port is IPv4 only. */
+  if (g_host_nat6) {
+    struct in6_addr net6;
+    inet_pton(AF_INET6, DS_NAT6_PREFIX, &net6);
+
+    pthread_mutex_lock(&g_gw_mutex);
+    int gw6_table = g_current_gw6_table;
+    pthread_mutex_unlock(&g_gw_mutex);
+
+    if (ds_nl_rule6(ctx, 1, &net6, DS_NAT6_PREFIX_LEN, 0, RT_TABLE_MAIN,
+                    DS_RULE_PRIO_TO_SUBNET) < 0)
+      ret = -1;
+    if (gw6_table > 0 && ds_nl_rule6(ctx, 1, &net6, DS_NAT6_PREFIX_LEN, 1,
+                                     gw6_table, DS_RULE_PRIO_FROM_SUBNET) < 0)
+      ret = -1;
+  }
+
   return ret;
+}
+
+/* Point the IPv6 FROM rule at the table of the uplink IPv4 just settled on.
+ * On an IPv6-only carrier the IPv4 uplink is the CLAT device v4-rmnetX, whose
+ * IPv6 routes live in the table of the real rmnetX underneath, so the prefix
+ * is stripped. An uplink with no IPv6 route (or iface == NULL) clears the
+ * rule, and the container simply keeps using IPv4. */
+static void sync_uplink6(ds_nl_ctx_t *ctx, const char *iface) {
+  if (!g_host_nat6)
+    return;
+
+  int table = 0;
+  if (iface) {
+    if (strncmp(iface, "v4-", 3) == 0)
+      iface += 3;
+    ds_nl_get_iface_table(ctx, AF_INET6, iface, &table);
+  }
+
+  pthread_mutex_lock(&g_gw_mutex);
+  int old = g_current_gw6_table;
+  g_current_gw6_table = table;
+  pthread_mutex_unlock(&g_gw_mutex);
+  if (old == table)
+    return;
+
+  struct in6_addr net6;
+  inet_pton(AF_INET6, DS_NAT6_PREFIX, &net6);
+  if (old > 0)
+    ds_nl_rule6(ctx, 0, &net6, DS_NAT6_PREFIX_LEN, 1, old,
+                DS_RULE_PRIO_FROM_SUBNET);
+  if (table > 0)
+    ds_nl_rule6(ctx, 1, &net6, DS_NAT6_PREFIX_LEN, 1, table,
+                DS_RULE_PRIO_FROM_SUBNET);
+  ds_log("[NET] IPv6 uplink table %d → %d (from %s, prio %d)", old, table,
+         DS_NAT6_SUBNET, DS_RULE_PRIO_FROM_SUBNET);
 }
 
 static void ds_net_setup_android_routing(ds_nl_ctx_t *ctx) {
@@ -650,6 +705,7 @@ static void ds_net_setup_android_routing(ds_nl_ctx_t *ctx) {
     pthread_mutex_lock(&g_gw_mutex);
     g_current_gw_table = gw_table;
     pthread_mutex_unlock(&g_gw_mutex);
+    sync_uplink6(ctx, active_iface);
   }
 
   if (install_policy_rules(ctx) < 0)
@@ -710,9 +766,117 @@ static void install_netfilter_rules(void) {
 
   ds_ipt_ensure_mss_clamp();
 
+  if (g_host_nat6 && iface[0])
+    ds_ipt6_ensure(iface);
+
   if (g_host_port_forward_count > 0 && g_host_container_ip[0])
     ds_ipt_add_portforwards(g_host_port_forwards, g_host_port_forward_count,
                             g_host_container_ip);
+}
+
+/* Turning on IPv6 forwarding makes the kernel ignore Router Advertisements on
+ * every interface left at accept_ra=1. A host that got its own address by
+ * SLAAC would then lose its default route when the current one expires. 2
+ * means "accept even while forwarding". Android already runs its uplinks at 2,
+ * and if forwarding is already on, whoever enabled it has dealt with this. */
+static void keep_host_slaac(void) {
+  char val[4] = {0};
+  if (read_file("/proc/sys/net/ipv6/conf/all/forwarding", val, sizeof(val)) >
+          0 &&
+      val[0] == '1')
+    return;
+
+  DIR *d = opendir("/proc/sys/net/ipv6/conf");
+  if (!d)
+    return;
+  struct dirent *e;
+  while ((e = readdir(d))) {
+    if (e->d_name[0] == '.' || !strcmp(e->d_name, "all") ||
+        !strcmp(e->d_name, "lo") || !strncmp(e->d_name, "ds-", 3))
+      continue;
+    char path[PATH_MAX];
+    snprintf(path, sizeof(path), "/proc/sys/net/ipv6/conf/%s/accept_ra",
+             e->d_name);
+    if (read_file(path, val, sizeof(val)) > 0 && val[0] == '1')
+      write_file(path, "2");
+  }
+  closedir(d);
+}
+
+/* NAT66 host side: the IPv6 mirror of steps 1, 2 and 5 below, modelled on
+ * LXC's lxc-net (ULA on the bridge, forwarding, one MASQUERADE rule, RAs).
+ *
+ * Runs once the bridge or the bridgeless veth is up. Fills *prefix with the
+ * /64 this container should be advertised and returns 1, or returns 0 when
+ * IPv6 stays off: the user disabled it, the kernel has no IPv6, or it has no
+ * ip6tables nat table. In that last case the container keeps a link-local
+ * address only and everything goes over IPv4 as before. */
+static int setup_nat6_host(ds_nl_ctx_t *ctx, struct ds_config *cfg,
+                           struct in6_addr *prefix) {
+  g_host_nat6 = 0;
+  if (cfg->disable_ipv6 ||
+      access("/proc/sys/net/ipv6/conf/all/forwarding", F_OK) != 0)
+    return 0;
+
+  /* Not a warning: stock GKI kernels have no IPv6 nat table, and telling
+   * every one of those users on every start would be noise. `droidspaces
+   * check` reports it. */
+  if (!ds_ipt6_available()) {
+    ds_log("[NET] IPv6 NAT unavailable (no ip6tables binary, or the kernel "
+           "lacks CONFIG_IP6_NF_NAT / CONFIG_IP6_NF_TARGET_MASQUERADE) - "
+           "container stays IPv4 only");
+    return 0;
+  }
+
+  /* Our end is a router: it must have IPv6 on even if the host default is
+   * off, and it must never autoconfigure itself from a container's RA. */
+  const char *iface = host_filter_iface();
+  static const char *const knobs[][2] = {
+      {"disable_ipv6", "0"}, {"accept_ra", "0"}, {"autoconf", "0"}};
+  for (size_t i = 0; i < sizeof(knobs) / sizeof(knobs[0]); i++) {
+    char path[128];
+    snprintf(path, sizeof(path), "/proc/sys/net/ipv6/conf/%s/%s", iface,
+             knobs[i][0]);
+    write_file(path, knobs[i][1]);
+  }
+
+  struct in6_addr gw_ll;
+  inet_pton(AF_INET6, DS_NAT6_GW_LL, &gw_ll);
+  inet_pton(AF_INET6, DS_NAT6_PREFIX, prefix);
+
+  int err = ds_nl_add_addr6(ctx, iface, &gw_ll, 64);
+  if (cfg->net_bridgeless) {
+    /* No shared segment, so each container gets its own /64 routed at its
+     * veth. Reusing the last two octets of the IPv4 address means the IPv4
+     * allocator's uniqueness check covers this prefix too. */
+    struct in_addr v4;
+    if (inet_pton(AF_INET, cfg->static_nat_ip, &v4) != 1)
+      return 0;
+    memcpy(&prefix->s6_addr[6], (uint8_t *)&v4 + 2, 2);
+    if (err == 0)
+      err = ds_nl_add_route6(ctx, prefix, 64, ds_nl_get_ifindex(ctx, iface));
+  } else if (err == 0) {
+    struct in6_addr gw = *prefix;
+    gw.s6_addr[15] = 1;
+    err = ds_nl_add_addr6(ctx, iface, &gw, 64);
+  }
+  if (err < 0) {
+    ds_warn("[NET] IPv6 setup on %s failed (%d) - container stays IPv4 only",
+            iface, err);
+    return 0;
+  }
+
+  keep_host_slaac();
+  write_file("/proc/sys/net/ipv6/conf/all/forwarding", "1");
+
+  g_host_nat6 = 1;
+  ds_ipt6_ensure(iface);
+
+  char pfx[INET6_ADDRSTRLEN];
+  inet_ntop(AF_INET6, prefix, pfx, sizeof(pfx));
+  ds_log("[NET] IPv6 NAT enabled: advertising %s/64 via %s", pfx,
+         DS_NAT6_GW_LL);
+  return 1;
 }
 
 /* setup_veth_host_side
@@ -859,6 +1023,11 @@ int setup_veth_host_side(struct ds_config *cfg, pid_t child_pid) {
     write_file(sysctl_path, "0");
   }
 
+  /* 5b. IPv6. Before the Android routing step, which adds the IPv6 policy
+   * rules only when this succeeded. */
+  struct in6_addr ra_prefix;
+  int nat6 = setup_nat6_host(ctx, cfg, &ra_prefix);
+
   /* 6. Move peer veth into container's network namespace */
   char netns_path[PATH_MAX];
   snprintf(netns_path, sizeof(netns_path), "/proc/%d/ns/net", child_pid);
@@ -928,7 +1097,8 @@ int setup_veth_host_side(struct ds_config *cfg, pid_t child_pid) {
      * to sibling veth ports; isolation is enforced by peer_mac filter in
      * the DHCP server loop, not by the socket bind alone. */
     const char *dhcp_iface = veth_host;
-    ds_dhcp_server_start(cfg, dhcp_iface, offer_ip, inet_addr(DS_NAT_GW_IP));
+    ds_dhcp_server_start(cfg, dhcp_iface, offer_ip, inet_addr(DS_NAT_GW_IP),
+                         nat6 ? &ra_prefix : NULL);
 
     /* Store the container IP string (plain dotted-decimal) for port-forward
      * cleanup later.  static_nat_ip is already in that exact format. */
@@ -1562,12 +1732,9 @@ int fix_networking_rootfs(struct ds_config *cfg) {
   char hosts_content[1024];
   const char *hostname = (cfg->hostname[0]) ? cfg->hostname : "localhost";
 
-  /* IPv6 is enabled in host mode and gateway mode unless explicitly disabled.
-   * Gateway mode is policy-owned by OpenWrt, so IPv6 RA/DHCPv6 should be able
-   * to operate inside the application container netns. */
-  int ipv6_enabled =
-      ((cfg->net_mode == DS_NET_HOST || cfg->net_mode == DS_NET_GATEWAY) &&
-       !cfg->disable_ipv6);
+  /* IPv6 is on in every mode unless explicitly disabled. NAT gets it from
+   * our Router Advertisements, gateway mode from whatever OpenWrt hands out. */
+  int ipv6_enabled = !cfg->disable_ipv6;
   if (ipv6_enabled) {
     snprintf(hosts_content, sizeof(hosts_content),
              "127.0.0.1\tlocalhost\n"
@@ -1597,6 +1764,12 @@ int fix_networking_rootfs(struct ds_config *cfg) {
     }
     write_file("/proc/sys/net/ipv6/conf/all/disable_ipv6", "1");
     write_file("/proc/sys/net/ipv6/conf/default/disable_ipv6", "1");
+  } else if (cfg->net_mode == DS_NET_NAT) {
+    /* Docker and friends turn on forwarding inside the container, and the
+     * kernel then ignores our RAs unless accept_ra is 2. Without this the
+     * IPv6 default route quietly expires half an hour after dockerd starts. */
+    write_file("/proc/sys/net/ipv6/conf/default/accept_ra", "2");
+    write_file("/proc/sys/net/ipv6/conf/eth0/accept_ra", "2");
   }
 
   /* 5. unprivileged ICMP sockets: new network namespaces reset
@@ -1605,21 +1778,6 @@ int fix_networking_rootfs(struct ds_config *cfg) {
   write_file("/proc/sys/net/ipv4/ping_group_range", "0 2147483647");
 
   return 0;
-}
-
-/* Runtime introspection */
-
-int detect_ipv6_in_container(pid_t pid) {
-  char path[PATH_MAX];
-  build_proc_root_path(pid, "/proc/sys/net/ipv6/conf/all/disable_ipv6", path,
-                       sizeof(path));
-
-  char buf[16];
-  if (read_file(path, buf, sizeof(buf)) < 0)
-    return -1;
-
-  /* 0 means enabled, 1 means disabled */
-  return (buf[0] == '0') ? 1 : 0;
 }
 
 /* Uplink Route Monitor
@@ -1701,7 +1859,7 @@ static int scan_uplink_whitelist(ds_nl_ctx_t *ctx, char *iface_out,
       if (!uplink_candidate_ok(all_ifaces[j]))
         continue;
       int tbl = 0;
-      if (ds_nl_get_iface_table(ctx, all_ifaces[j], &tbl) != 0)
+      if (ds_nl_get_iface_table(ctx, AF_INET, all_ifaces[j], &tbl) != 0)
         continue;
       if (iface_out)
         safe_strncpy(iface_out, all_ifaces[j], IFNAMSIZ);
@@ -1732,7 +1890,8 @@ static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
 
     if (!is_wild) {
       int tbl = 0;
-      if (iface_is_running(pat) && ds_nl_get_iface_table(ctx, pat, &tbl) == 0) {
+      if (iface_is_running(pat) &&
+          ds_nl_get_iface_table(ctx, AF_INET, pat, &tbl) == 0) {
         if (iface_out)
           safe_strncpy(iface_out, pat, IFNAMSIZ);
         if (table_out)
@@ -1749,7 +1908,7 @@ static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
         continue;
       int tbl = 0;
       if (!iface_is_running(all_ifaces[j]) ||
-          ds_nl_get_iface_table(ctx, all_ifaces[j], &tbl) != 0)
+          ds_nl_get_iface_table(ctx, AF_INET, all_ifaces[j], &tbl) != 0)
         continue;
       if (iface_out)
         safe_strncpy(iface_out, all_ifaces[j], IFNAMSIZ);
@@ -1882,6 +2041,7 @@ static void do_uplink_reprobe(void) {
   if (find_active_uplink(ctx, new_iface, &new_table) != 0) {
     /* No uplink available. */
     if (g_upstream_count > 0) {
+      sync_uplink6(ctx, NULL);
       /* Pinned mode: the forced interface is gone.  Tear the FROM rule down so
        * container traffic is NOT silently re-routed onto a table the kernel may
        * recycle for a different network (no hopping / no leak).  When the
@@ -1907,6 +2067,8 @@ static void do_uplink_reprobe(void) {
     ds_nl_close(ctx);
     return;
   }
+
+  sync_uplink6(ctx, new_iface);
 
   pthread_mutex_lock(&g_gw_mutex);
   int old_table = g_current_gw_table;
@@ -2000,6 +2162,14 @@ static void *route_monitor_loop(void *arg) {
         ds_log("[NET] Route monitor: ip_forward was disabled - re-enabling...");
         write_file("/proc/sys/net/ipv4/ip_forward", "1\n");
       }
+    }
+
+    if (g_host_nat6) {
+      char val[4] = {0};
+      if (read_file("/proc/sys/net/ipv6/conf/all/forwarding", val,
+                    sizeof(val)) > 0 &&
+          val[0] == '0')
+        write_file("/proc/sys/net/ipv6/conf/all/forwarding", "1\n");
     }
 
     /* Same treatment for route_localnet - required for localhost port-forward
@@ -2308,8 +2478,10 @@ void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid) {
            "keeping shared iptables and routing rules",
            surviving);
     ds_ipt_remove_portforwards(cfg);
-    if (cfg->net_bridgeless && veth_host[0] != '\0')
+    if (cfg->net_bridgeless && veth_host[0] != '\0') {
       ds_ipt_remove_iface_rules(veth_host);
+      ds_ipt6_remove(veth_host, 0);
+    }
     ds_nl_close(ctx);
     return;
   }
@@ -2338,6 +2510,13 @@ void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid) {
       ds_nl_del_rule4(ctx, 0, 0, subnet, DS_NAT_PREFIX, 0, prios[i]);
       ds_nl_del_rule4(ctx, subnet, DS_NAT_PREFIX, 0, 0, 0, prios[i]);
     }
+
+    struct in6_addr net6;
+    inet_pton(AF_INET6, DS_NAT6_PREFIX, &net6);
+    ds_nl_rule6(ctx, 0, &net6, DS_NAT6_PREFIX_LEN, 0, 0,
+                DS_RULE_PRIO_TO_SUBNET);
+    ds_nl_rule6(ctx, 0, &net6, DS_NAT6_PREFIX_LEN, 1, 0,
+                DS_RULE_PRIO_FROM_SUBNET);
   }
 
   ds_nl_close(ctx);
@@ -2348,4 +2527,8 @@ void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid) {
   }
   ds_ipt_remove_portforwards(cfg);
   ds_ipt_remove_ds_rules();
+  /* Unconditional: the stop may run in a process that never set g_host_nat6,
+   * and deleting a rule that is not there is silent. */
+  ds_ipt6_remove(
+      cfg->net_bridgeless && veth_host[0] ? veth_host : DS_NAT_BRIDGE, 1);
 }

@@ -582,22 +582,24 @@ shell-out on the fast path.
 | --- | --- |
 | `ds_nl_open` / `ds_nl_close` | Opening the netlink context every link, address, route, and rule call needs |
 | `ds_nl_create_bridge`, `ds_nl_create_veth`, `ds_nl_set_master`, `ds_nl_link_up/down`, `ds_nl_del_link`, `ds_nl_rename`, `ds_nl_set_mac` | Link operations |
-| `ds_nl_add_addr4`, `ds_nl_add_route4` | Addresses and routes |
+| `ds_nl_add_addr4`, `ds_nl_add_route4`, `ds_nl_add_addr6`, `ds_nl_add_route6` | Addresses and routes. The IPv6 route is link scope only |
 | `ds_nl_move_to_netns`, `ds_nl_move_to_netns_named` | Moving an interface into a namespace |
-| `ds_nl_add_rule4`, `ds_nl_del_rule4` | FIB policy rules. Priorities come from `DS_RULE_PRIO_TO_SUBNET`, `DS_RULE_PRIO_TETHER`, `DS_RULE_PRIO_FROM_SUBNET`, which must sit above the OEM reserved range and below Android's VPN range |
-| `ds_nl_get_iface_table`, `ds_nl_get_table_default_oif`, `ds_nl_get_android_default` | Routing table introspection |
+| `ds_nl_add_rule4`, `ds_nl_del_rule4`, `ds_nl_rule6` | FIB policy rules. Priorities come from `DS_RULE_PRIO_TO_SUBNET`, `DS_RULE_PRIO_TETHER`, `DS_RULE_PRIO_FROM_SUBNET`, which must sit above the OEM reserved range and below Android's VPN range |
+| `ds_nl_get_iface_table`, `ds_nl_get_table_default_oif`, `ds_nl_get_android_default` | Routing table introspection. `ds_nl_get_iface_table` takes the address family |
 | `ds_nl_flush_stale_veths`, `ds_nl_list_ifaces`, `ds_nl_count_ifaces_with_prefix` | Enumeration and garbage collection |
 | `ds_ipt_ensure_masquerade`, `ds_ipt_ensure_forward_accept`, `ds_ipt_ensure_input_accept`, `ds_ipt_ensure_mss_clamp` | Installing netfilter rules |
 | `ds_ipt_host_rules_present(iface, src_cidr, expect_dnat)` | The fork-free probe for the whole host rule set. The route monitor gates reinstallation on it |
 | `ds_ipt_remove_iface_rules`, `ds_ipt_remove_ds_rules` | Teardown |
+| `ds_ipt6_available`, `ds_ipt6_ensure`, `ds_ipt6_remove` | The NAT66 rule set, through the `ip6tables` binary. `ds_ipt6_available` is the one capability probe, shared with `droidspaces check` |
 | `ds_ipt_add_portforwards`, `ds_ipt_remove_portforwards` | Port forwarding |
 | `parse_cidr(cidr, ip_out, mask_out)` | The shared CIDR splitter |
 | `fix_networking_host`, `fix_networking_rootfs`, `setup_veth_host_side`, `setup_veth_child_side_named`, `setup_gateway_veth_side` | Network bring-up |
 | `ds_net_start_route_monitor`, `ds_net_mark_local_forward_active` | The reconciler that re-asserts our rules after netd wipes them |
 | `ds_net_cleanup`, `ds_net_gateway_teardown`, `ds_net_rewire_gateway_clients` | Teardown and gateway client rewiring |
 | `ds_net_validate_static_ip`, `ds_net_check_ip_collision`, `ds_net_resolve_static_ip` | Static NAT IP handling. After `resolve`, the config must be saved to persist the result |
-| `ds_dhcp_server_start`, `ds_dhcp_server_stop` | The single-lease DHCP server. Stop it before veth teardown so the receive unblocks |
-| `ds_get_dns_servers`, `detect_ipv6_in_container`, `ds_net_disable_tx_checksum` | DNS, IPv6 detection, checksum offload |
+| `ds_dhcp_server_start`, `ds_dhcp_server_stop` | The single-lease DHCP server. Stop it before veth teardown so the receive unblocks. Given an IPv6 prefix it also sends Router Advertisements |
+| `ds_ra_build`, `ds_ra_is_solicit` | The Router Advertisement frame and the solicitation test the DHCP thread uses. No link-layer option, on purpose |
+| `ds_get_dns_servers`, `ds_net_disable_tx_checksum` | DNS, checksum offload |
 
 ### C backend: security guards
 

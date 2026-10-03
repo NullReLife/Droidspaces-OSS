@@ -222,6 +222,26 @@ struct ds_net_handshake {
 #define DS_NAT_PREFIX 16
 #endif
 
+/* NAT66. One ULA /48 for everything we masquerade. RFC 4193 wants the global
+ * ID random; ours is fixed (64:73:70 is "dsp") for the same reason the IPv4
+ * side is a fixed 172.28.0.0/16: the monitor, the cleanup path and the docs
+ * all need to name it without reading state.
+ *   Bridge mode:  ds-br0 is fd64:7370::1 and containers share fd64:7370::/64.
+ *   Bridgeless:   each container gets fd64:7370:0:XXYY::/64, where XX.YY are
+ *                 the last two octets of its 172.28.XX.YY address.
+ * Containers always route through fe80::1, which sits on the bridge or on the
+ * bridgeless host veth. */
+#define DS_NAT6_SUBNET "fd64:7370::/48"
+#define DS_NAT6_PREFIX "fd64:7370::"
+#define DS_NAT6_PREFIX_LEN 48
+#define DS_NAT6_GW_LL "fe80::1"
+
+/* Router Advertisement frame: ethernet + IPv6 + RA with a prefix option. The
+ * router lifetime is 30 minutes and the DHCP thread re-announces every 5. */
+#define DS_RA_FRAME_LEN 102
+#define DS_RA_ROUTER_LIFETIME 1800
+#define DS_RA_INTERVAL_SEC 300
+
 /* Android ip rule priorities for DS subnet routing.
  *
  * Must be < 10000 so they are evaluated BEFORE Android's VPN rule range
@@ -720,7 +740,6 @@ int ds_net_disable_tx_checksum(const char *ifname);
 void parse_cidr(const char *cidr, uint32_t *ip_out, uint32_t *mask_out);
 
 int ds_get_dns_servers(const char *custom_dns, char *out, size_t size);
-int detect_ipv6_in_container(pid_t pid);
 
 /* ds_netlink.c */
 
@@ -740,10 +759,17 @@ int ds_nl_add_addr4(ds_nl_ctx_t *ctx, const char *ifname, uint32_t ip_be,
                     uint8_t prefix);
 int ds_nl_add_route4(ds_nl_ctx_t *ctx, uint32_t dst_be, uint8_t dst_len,
                      uint32_t gw_be, int oif_idx);
+int ds_nl_add_addr6(ds_nl_ctx_t *ctx, const char *ifname,
+                    const struct in6_addr *ip, uint8_t prefix);
+int ds_nl_add_route6(ds_nl_ctx_t *ctx, const struct in6_addr *dst,
+                     uint8_t dst_len, int oif_idx);
+int ds_nl_rule6(ds_nl_ctx_t *ctx, int add, const struct in6_addr *net,
+                uint8_t len, int from_net, int table, int priority);
 int ds_nl_move_to_netns(ds_nl_ctx_t *ctx, const char *ifname, int netns_fd);
 int ds_nl_move_to_netns_named(ds_nl_ctx_t *ctx, const char *ifname,
                               int netns_fd, const char *newname);
-int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, const char *ifname, int *table_out);
+int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, int family, const char *ifname,
+                          int *table_out);
 int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int table, char *ifname_out);
 int ds_nl_get_android_default(ds_nl_ctx_t *ctx, char *ifname_out,
                               int *table_out);
@@ -774,6 +800,9 @@ int ds_ipt_remove_ds_rules(void);
 int ds_ipt_add_portforwards(struct ds_port_forward *pfs, int count,
                             const char *container_ip);
 int ds_ipt_remove_portforwards(struct ds_config *cfg);
+int ds_ipt6_available(void);
+void ds_ipt6_ensure(const char *iface);
+void ds_ipt6_remove(const char *iface, int shared);
 
 /* Static NAT IP management (network.c) */
 
@@ -806,7 +835,14 @@ void ds_net_resolve_static_ip(struct ds_config *cfg);
  * Isolation is enforced by AF_PACKET bind to veth_host's ifindex; no MAC
  * filter is needed or used (see ds_dhcp.c for rationale). */
 void ds_dhcp_server_start(struct ds_config *cfg, const char *veth_host,
-                          uint32_t offer_ip_be, uint32_t gw_ip_be);
+                          uint32_t offer_ip_be, uint32_t gw_ip_be,
+                          const struct in6_addr *ra_prefix);
+
+/* ra.c: the Router Advertisement the DHCP thread sends when ra_prefix (a /64)
+ * is given, so the container also configures IPv6 by itself. */
+int ds_ra_is_solicit(const uint8_t *frame, size_t len);
+void ds_ra_build(uint8_t *out, const uint8_t mac[6],
+                 const struct in6_addr *prefix);
 
 /* Stop the DHCP server and unblock its recv() loop. Call before veth teardown.
  */

@@ -1163,6 +1163,79 @@ int ds_ipt_ensure_mss_clamp(void) {
   return run_command_quiet(add);
 }
 
+/* NAT66 rules, the IPv6 mirror of the IPv4 set above.
+ *
+ * ponytail: ip6tables binary only. The raw socket path above exists so the
+ * route monitor can probe IPv4 rules without forking; IPv6 rides on that same
+ * probe (netd flushes both families together), so a second blob parser for
+ * ip6_tables would buy nothing. Write one if the binary ever goes missing on
+ * a device that has the kernel side. */
+
+/* argv[3] is the operation slot: -C, -I or -D. */
+static int ip6t(char *op, char **rule) {
+  rule[3] = op;
+  return run_command_quiet(rule);
+}
+
+/* The per-interface rules come first so shared=0 can stop before the two
+ * that every NAT container relies on: MASQUERADE and the MSS clamp. The clamp
+ * matters more here than on IPv4, because routers never fragment IPv6 and a
+ * mobile uplink is often well under the veth's 1500. */
+static void ip6t_rules(const char *iface, int add, int shared) {
+  char dev[IFNAMSIZ];
+  safe_strncpy(dev, iface, sizeof(dev));
+  char *fwd_in[] = {"ip6tables", "-t", "filter", NULL,     "FORWARD",
+                    "-i",        dev,  "-j",     "ACCEPT", NULL};
+  char *fwd_out[] = {"ip6tables", "-t", "filter", NULL,     "FORWARD",
+                     "-o",        dev,  "-j",     "ACCEPT", NULL};
+  char *input[] = {"ip6tables", "-t", "filter", NULL,     "INPUT",
+                   "-i",        dev,  "-j",     "ACCEPT", NULL};
+  char *masq[] = {"ip6tables", "-t",           "nat", NULL, "POSTROUTING",
+                  "-s",        DS_NAT6_SUBNET, "!",   "-d", DS_NAT6_SUBNET,
+                  "-j",        "MASQUERADE",   NULL};
+  char *mss[] = {"ip6tables",
+                 "-t",
+                 "mangle",
+                 NULL,
+                 "POSTROUTING",
+                 "-p",
+                 "tcp",
+                 "--tcp-flags",
+                 "SYN,RST",
+                 "SYN",
+                 "-j",
+                 "TCPMSS",
+                 "--clamp-mss-to-pmtu",
+                 NULL};
+  char **rules[] = {fwd_in, fwd_out, input, masq, mss};
+  size_t count = shared ? 5 : 3;
+
+  for (size_t i = 0; i < count; i++) {
+    if (!add)
+      ip6t("-D", rules[i]);
+    else if (ip6t("-C", rules[i]) != 0 && ip6t("-I", rules[i]) != 0)
+      ds_warn("[IPT] ip6tables %s rule failed on %s", rules[i][4], iface);
+  }
+}
+
+/* Listing the nat table is the whole capability test: it fails when the
+ * ip6tables binary is missing and when the kernel has no CONFIG_IP6_NF_NAT
+ * (stock GKI does not), and where the table is a module it loads it. Both
+ * the runtime and `droidspaces check` ask through here, so they cannot
+ * disagree about whether a container gets IPv6. */
+int ds_ipt6_available(void) {
+  char *probe[] = {"ip6tables", "-t", "nat", "-L", "POSTROUTING", "-n", NULL};
+  return run_command_quiet(probe) == 0;
+}
+
+void ds_ipt6_ensure(const char *iface) { ip6t_rules(iface, 1, 1); }
+
+/* shared=0 leaves MASQUERADE and the MSS clamp for the containers still
+ * running. */
+void ds_ipt6_remove(const char *iface, int shared) {
+  ip6t_rules(iface, 0, shared);
+}
+
 int ds_ipt_remove_iface_rules(const char *iface) {
   if (!iface || !iface[0])
     return 0;

@@ -387,6 +387,14 @@ int check_requirements_detailed(void) {
   print_ds_check("Veth pair support",
                  "Required for --net=nat; no fallback exists if absent",
                  check_veth_support(), "OPT");
+  /* "IPv6 support" above only says the kernel has an IPv6 stack. NAT mode
+   * also needs the ip6tables nat table, and this is the exact probe the
+   * runtime uses to decide whether a container gets IPv6. */
+  print_ds_check("IPv6 NAT support",
+                 "ip6tables with CONFIG_IP6_NF_NAT and "
+                 "CONFIG_IP6_NF_TARGET_MASQUERADE; --net=nat containers are "
+                 "IPv4 only if absent",
+                 is_root && ds_ipt6_available(), "OPT");
   print_ds_check("Sandboxing (user namespaces)",
                  "CONFIG_USER_NS; enable per container with "
                  "--allow-sandboxing. Needed by unprivileged Docker and "

@@ -552,22 +552,24 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | --- | --- |
 | `ds_nl_open` / `ds_nl_close` | 打开所有链路、地址、路由和规则调用都需要的 netlink 上下文 |
 | `ds_nl_create_bridge`、`ds_nl_create_veth`、`ds_nl_set_master`、`ds_nl_link_up/down`、`ds_nl_del_link`、`ds_nl_rename`、`ds_nl_set_mac` | 链路操作 |
-| `ds_nl_add_addr4`、`ds_nl_add_route4` | 地址与路由 |
+| `ds_nl_add_addr4`、`ds_nl_add_route4`、`ds_nl_add_addr6`、`ds_nl_add_route6` | 地址与路由。IPv6 路由仅支持链路范围 |
 | `ds_nl_move_to_netns`、`ds_nl_move_to_netns_named` | 把网卡移入命名空间 |
-| `ds_nl_add_rule4`、`ds_nl_del_rule4` | FIB 策略路由规则。优先级取自 `DS_RULE_PRIO_TO_SUBNET`、`DS_RULE_PRIO_TETHER`、`DS_RULE_PRIO_FROM_SUBNET`，必须高于 OEM 保留区间、低于 Android 的 VPN 区间 |
-| `ds_nl_get_iface_table`、`ds_nl_get_table_default_oif`、`ds_nl_get_android_default` | 路由表信息读取 |
+| `ds_nl_add_rule4`、`ds_nl_del_rule4`、`ds_nl_rule6` | FIB 策略路由规则。优先级取自 `DS_RULE_PRIO_TO_SUBNET`、`DS_RULE_PRIO_TETHER`、`DS_RULE_PRIO_FROM_SUBNET`，必须高于 OEM 保留区间、低于 Android 的 VPN 区间 |
+| `ds_nl_get_iface_table`、`ds_nl_get_table_default_oif`、`ds_nl_get_android_default` | 路由表信息读取。`ds_nl_get_iface_table` 需要传入地址族 |
 | `ds_nl_flush_stale_veths`、`ds_nl_list_ifaces`、`ds_nl_count_ifaces_with_prefix` | 枚举与回收 |
 | `ds_ipt_ensure_masquerade`、`ds_ipt_ensure_forward_accept`、`ds_ipt_ensure_input_accept`、`ds_ipt_ensure_mss_clamp` | 写入 netfilter 规则 |
 | `ds_ipt_host_rules_present(iface, src_cidr, expect_dnat)` | 对整套主机规则的不 fork 探测。路由监视器据此决定是否重新写入 |
 | `ds_ipt_remove_iface_rules`、`ds_ipt_remove_ds_rules` | 清理 |
+| `ds_ipt6_available`、`ds_ipt6_ensure`、`ds_ipt6_remove` | NAT66 规则集，通过 `ip6tables` 二进制实现。`ds_ipt6_available` 是唯一的能力探测，`droidspaces check` 也使用它 |
 | `ds_ipt_add_portforwards`、`ds_ipt_remove_portforwards` | 端口转发 |
 | `parse_cidr(cidr, ip_out, mask_out)` | 共享的 CIDR 拆分函数 |
 | `fix_networking_host`、`fix_networking_rootfs`、`setup_veth_host_side`、`setup_veth_child_side_named`、`setup_gateway_veth_side` | 网络建立 |
 | `ds_net_start_route_monitor`、`ds_net_mark_local_forward_active` | 在 netd 清掉规则后重新写回的对账器 |
 | `ds_net_cleanup`、`ds_net_gateway_teardown`、`ds_net_rewire_gateway_clients` | 拆除与网关客户端重连 |
 | `ds_net_validate_static_ip`、`ds_net_check_ip_collision`、`ds_net_resolve_static_ip` | 静态 NAT IP 处理。调用 resolve 之后必须保存配置才能持久化结果 |
-| `ds_dhcp_server_start`、`ds_dhcp_server_stop` | 单租约 DHCP 服务。拆除 veth 之前先停它，否则接收会阻塞 |
-| `ds_get_dns_servers`、`detect_ipv6_in_container`、`ds_net_disable_tx_checksum` | DNS、IPv6 检测、校验和卸载 |
+| `ds_dhcp_server_start`、`ds_dhcp_server_stop` | 单租约 DHCP 服务。拆除 veth 之前先停它，否则接收会阻塞。传入 IPv6 前缀时还会发送路由通告 |
+| `ds_ra_build`、`ds_ra_is_solicit` | DHCP 线程使用的路由通告帧及路由请求判断。有意不携带链路层地址选项 |
+| `ds_get_dns_servers`、`ds_net_disable_tx_checksum` | DNS、校验和卸载 |
 
 ### C 后端：安全守卫
 
