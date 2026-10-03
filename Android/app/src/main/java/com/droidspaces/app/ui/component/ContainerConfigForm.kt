@@ -1,5 +1,6 @@
 package com.droidspaces.app.ui.component
 
+import kotlin.math.roundToInt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -42,8 +43,11 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.ripple.rememberRipple
@@ -61,6 +65,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,6 +86,8 @@ import com.droidspaces.app.util.Constants
 import com.droidspaces.app.util.ContainerConfigState
 import com.droidspaces.app.util.ContainerInfo
 import com.droidspaces.app.util.GatewayErrors
+import com.droidspaces.app.util.LimitSupport
+import com.droidspaces.app.util.ResourceLimits
 import com.droidspaces.app.util.ValidationUtils
 
 /**
@@ -539,6 +546,119 @@ fun ContainerConfigForm(
         )
 
         SectionHeader(
+            text = context.getString(R.string.cat_resource_limits),
+            modifier = Modifier.padding(top = 16.dp)
+        )
+
+        val totalMemMb = remember { ResourceLimits.totalMemoryMb(context) }
+        val cpuCores = remember { ResourceLimits.cpuCores() }
+        val limitSupport by produceState(LimitSupport()) { value = ResourceLimits.probe() }
+        val mb = 1024L * 1024L
+        val memStep = ResourceLimits.MEMORY_STEP_MB
+
+        val memMb = (state.memoryLimit / mb).toInt()
+        ToggleCard(
+            icon = Icons.Default.SdCard,
+            title = context.getString(R.string.limit_memory),
+            description = when {
+                !limitSupport.memory -> context.getString(R.string.limit_not_supported, "CONFIG_MEMCG")
+                memMb > 0 -> context.getString(R.string.limit_memory_on, ResourceLimits.formatMemory(context, totalMemMb))
+                else -> context.getString(R.string.limit_memory_off, ResourceLimits.formatMemory(context, totalMemMb))
+            },
+            checked = memMb > 0,
+            enabled = limitSupport.memory,
+            onCheckedChange = { on ->
+                clearFocus()
+                // Half the device is a sane place to start dragging from
+                val half = (totalMemMb / 2 / memStep * memStep).coerceAtLeast(memStep)
+                onStateChange(state.copy(memoryLimit = if (on) half * mb else 0))
+            },
+            expandedContent = {
+                LimitSlider(
+                    value = memMb.coerceIn(memStep, totalMemMb).toFloat(),
+                    valueRange = memStep.toFloat()..totalMemMb.toFloat(),
+                    minLabel = ResourceLimits.formatMemory(context, memStep),
+                    valueLabel = ResourceLimits.formatMemory(context, memMb),
+                    maxLabel = ResourceLimits.formatMemory(context, totalMemMb),
+                    onValueChange = {
+                        val snapped = ((it / memStep).roundToInt() * memStep).coerceIn(memStep, totalMemMb)
+                        onStateChange(state.copy(memoryLimit = snapped * mb))
+                    }
+                )
+            }
+        )
+
+        val cpuLimit = state.cpuQuota.toFloat() / ResourceLimits.CPU_PERIOD_US
+        ToggleCard(
+            icon = Icons.Default.Speed,
+            title = context.getString(R.string.limit_cpu),
+            description = when {
+                !limitSupport.cpu -> context.getString(R.string.limit_not_supported, "CONFIG_CFS_BANDWIDTH")
+                cpuLimit > 0 -> context.getString(R.string.limit_cpu_on, ResourceLimits.formatCores(context, cpuCores.toFloat()))
+                else -> context.getString(R.string.limit_cpu_off, ResourceLimits.formatCores(context, cpuCores.toFloat()))
+            },
+            checked = cpuLimit > 0,
+            enabled = limitSupport.cpu,
+            onCheckedChange = { on ->
+                clearFocus()
+                // Half the device, as for memory. Always a multiple of half a core.
+                val half = (cpuCores / 2f).coerceAtLeast(0.5f)
+                onStateChange(state.copy(cpuQuota = if (on) (half * ResourceLimits.CPU_PERIOD_US).toLong() else 0))
+            },
+            expandedContent = {
+                LimitSlider(
+                    value = cpuLimit.coerceIn(0.5f, cpuCores.toFloat()),
+                    valueRange = 0.5f..cpuCores.toFloat(),
+                    minLabel = ResourceLimits.formatCores(context, 0.5f),
+                    valueLabel = ResourceLimits.formatCores(context, cpuLimit),
+                    maxLabel = ResourceLimits.formatCores(context, cpuCores.toFloat()),
+                    onValueChange = {
+                        // Half-core steps
+                        val snapped = ((it * 2).roundToInt() / 2f).coerceIn(0.5f, cpuCores.toFloat())
+                        onStateChange(state.copy(cpuQuota = (snapped * ResourceLimits.CPU_PERIOD_US).toLong()))
+                    }
+                )
+            }
+        )
+
+        // Its own flag, not pidsLimit > 0: emptying the field while retyping a
+        // number must not flip the switch off and fold the field away mid-edit.
+        var pidsOn by remember { mutableStateOf(state.pidsLimit > 0) }
+        LaunchedEffect(state.pidsLimit) { if (state.pidsLimit > 0) pidsOn = true }
+        ToggleCard(
+            icon = Icons.Default.Tag,
+            title = context.getString(R.string.limit_pids),
+            description = when {
+                !limitSupport.pids -> context.getString(R.string.limit_not_supported, "CONFIG_CGROUP_PIDS")
+                pidsOn -> context.getString(R.string.limit_pids_on)
+                else -> context.getString(R.string.limit_pids_off)
+            },
+            checked = pidsOn,
+            enabled = limitSupport.pids,
+            onCheckedChange = { on ->
+                clearFocus()
+                pidsOn = on
+                onStateChange(state.copy(pidsLimit = if (on) ResourceLimits.DEFAULT_PIDS else 0))
+            },
+            expandedContent = {
+                OutlinedTextField(
+                    value = if (state.pidsLimit > 0) state.pidsLimit.toString() else "",
+                    onValueChange = { text ->
+                        val n = text.filter { it.isDigit() }.take(7).toLongOrNull() ?: 0
+                        onStateChange(state.copy(pidsLimit = n.coerceAtMost(ResourceLimits.MAX_PIDS)))
+                    },
+                    label = { Text(context.getString(R.string.limit_pids_label)) },
+                    supportingText = { Text(context.getString(R.string.limit_pids_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = modernFieldShape,
+                    colors = modernFieldColors,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+        )
+
+        SectionHeader(
             text = context.getString(R.string.cat_advanced),
             modifier = Modifier.padding(top = 16.dp)
         )
@@ -686,5 +806,35 @@ fun ContainerConfigForm(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+/** Min, current value and max over a [DsSlider], as the body of a limit [ToggleCard]. */
+@Composable
+private fun LimitSlider(
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    minLabel: String,
+    valueLabel: String,
+    maxLabel: String,
+    onValueChange: (Float) -> Unit
+) {
+    val quiet = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(minLabel, style = MaterialTheme.typography.bodySmall, color = quiet)
+            Text(
+                valueLabel,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(maxLabel, style = MaterialTheme.typography.bodySmall, color = quiet)
+        }
+        DsSlider(value = value, onValueChange = onValueChange, valueRange = valueRange)
     }
 }

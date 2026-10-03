@@ -136,12 +136,16 @@ CONFIG_SECCOMP_FILTER=y
 # Control groups support
 CONFIG_CGROUPS=y
 CONFIG_CGROUP_DEVICE=y
-CONFIG_CGROUP_PIDS=y
-CONFIG_MEMCG=y
 CONFIG_CGROUP_SCHED=y
 CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_NET_PRIO=y
+
+# Resource limits: --memory, --cpus, --pids-limit, in that order.
+# Optional: a limit whose option is missing is skipped with a warning
+CONFIG_MEMCG=y
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y
 
 # Device filesystem support
 CONFIG_DEVTMPFS=y
@@ -253,7 +257,13 @@ CONFIG_NETFILTER_XT_SET=y
 # Enable xattr, posix acl support on tmpfs
 # For NixOS support
 CONFIG_TMPFS_POSIX_ACL=y
-CONFIG_TMPFS_XATTR=y""",
+CONFIG_TMPFS_XATTR=y
+
+# Resource limits: --cpus and --pids-limit. CONFIG_MEMCG is already on in GKI.
+# Not covered by the kABI patches: both resize scheduler and cgroup structures
+# that vendor modules read. Enable one at a time and be ready for a bootloop
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y""",
                     guideUrl = "https://github.com/ravindu644/Droidspaces-OSS/blob/main/Documentation/Kernel-Configuration.md#configuring-gki-kernels",
                     snackbarHostState = snackbarHostState
                 )

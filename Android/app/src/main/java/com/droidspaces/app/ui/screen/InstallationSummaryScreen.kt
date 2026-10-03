@@ -25,7 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import com.droidspaces.app.R
+import androidx.compose.ui.platform.LocalContext
 import com.droidspaces.app.util.ContainerInfo
+import com.droidspaces.app.util.ResourceLimits
 import com.droidspaces.app.util.Constants
 import androidx.compose.ui.res.stringResource
 
@@ -135,6 +137,13 @@ fun InstallationSummaryScreen(
                     if (config.runAtBoot) SummaryItem(stringResource(R.string.run_at_boot), stringResource(R.string.enabled_legend), Icons.Default.PowerSettingsNew)
                     if (config.forceCgroupv1) SummaryItem(stringResource(R.string.force_cgroupv1), stringResource(R.string.enabled_legend), Icons.Default.Layers)
                     if (config.privileged.isNotEmpty()) SummaryItem(stringResource(R.string.privileged_mode), config.privileged, Icons.Default.GppMaybe)
+                    val context = LocalContext.current
+                    val memoryLabel = ResourceLimits.memoryLabel(context, config)
+                    val cpuLabel = ResourceLimits.cpuLabel(context, config)
+                    val pidsLabel = ResourceLimits.pidsLabel(context, config)
+                    if (memoryLabel != null) SummaryItem(stringResource(R.string.limit_memory), memoryLabel, Icons.Default.SdCard)
+                    if (cpuLabel != null) SummaryItem(stringResource(R.string.limit_cpu), cpuLabel, Icons.Default.Speed)
+                    if (pidsLabel != null) SummaryItem(stringResource(R.string.limit_pids), pidsLabel, Icons.Default.Tag)
 
                     val envCount = com.droidspaces.app.util.ValidationUtils.countEnvVars(config.envFileContent)
                     if (envCount > 0) {
@@ -163,6 +172,7 @@ fun InstallationSummaryScreen(
                         !config.runAtBoot && !config.disableIPv6 &&
                         !config.enableTermuxX11 && !config.enableVirgl && !config.enablePulseaudio &&
                         !config.forceCgroupv1 &&
+                        config.memoryLimit == 0L && config.cpuQuota == 0L && config.pidsLimit == 0L &&
                         config.upstreamInterfaces.isEmpty() && config.portForwards.isEmpty() &&
                         config.envFileContent.isNullOrBlank()) {
                         Text(

@@ -60,6 +60,10 @@ data class ContainerInfo(
     val gatewayBridge: String = "",
     val privileged: String = "",
     val customInit: String = "",
+    /** Bytes, cpu_quota microseconds per [ResourceLimits.CPU_PERIOD_US], process count. 0 is unlimited. */
+    val memoryLimit: Long = 0,
+    val cpuQuota: Long = 0,
+    val pidsLimit: Long = 0,
     val uuid: String = ""
 ) {
     val isRunning: Boolean
@@ -126,6 +130,12 @@ data class ContainerInfo(
         if (privileged.isNotEmpty()) {
             appendLine("privileged=$privileged")
         }
+        if (memoryLimit > 0) appendLine("memory_limit=$memoryLimit")
+        if (cpuQuota > 0) {
+            appendLine("cpu_quota=$cpuQuota")
+            appendLine("cpu_period=${ResourceLimits.CPU_PERIOD_US}")
+        }
+        if (pidsLimit > 0) appendLine("pids_limit=$pidsLimit")
         if (customInit.isNotEmpty()) {
             appendLine("custom_init=$customInit")
         }
@@ -413,6 +423,11 @@ object ContainerManager {
                 gatewayBridge = configMap["gateway_bridge"] ?: "",
                 privileged = configMap["privileged"] ?: "",
                 customInit = configMap["custom_init"] ?: "",
+                memoryLimit = configMap["memory_limit"]?.toLongOrNull() ?: 0,
+                // The CLI can set any period, we always write the default one.
+                cpuQuota = (configMap["cpu_quota"]?.toLongOrNull() ?: 0) * ResourceLimits.CPU_PERIOD_US /
+                    (configMap["cpu_period"]?.toLongOrNull()?.takeIf { it > 0 } ?: ResourceLimits.CPU_PERIOD_US),
+                pidsLimit = configMap["pids_limit"]?.toLongOrNull() ?: 0,
                 uuid = configMap["uuid"] ?: ""
             )
         } catch (e: Exception) {
