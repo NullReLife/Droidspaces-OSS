@@ -114,7 +114,7 @@ sudo droidspaces --name=web,db,app stop
 | `--upstream=IFACE` | | 将 NAT WAN 固定到指定接口；禁用自动上行链路检测。逗号分隔、按优先级排序，并支持通配符。示例：`--upstream=wlan0,rmnet*`。仅 NAT 模式有效。 |
 | `--port HOST:CONT[/proto]` | | 将主机端口转发到容器（NAT 模式）。支持 TCP/UDP。 |
 | `--dns=SERVERS` | `-d` | 自定义 DNS 服务器，逗号分隔。示例：`--dns=1.1.1.1,8.8.8.8` |
-| `--disable-ipv6` | | 禁用 IPv6 网络支持（仅限主机模式）。 |
+| `--disable-ipv6` | | 在容器内禁用 IPv6。适用于所有网络模式。在主机模式下也会禁用宿主的 IPv6。 |
 
 #### 网关模式
 

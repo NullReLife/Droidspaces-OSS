@@ -117,7 +117,7 @@ sudo droidspaces --name=web,db,app stop
 | `--upstream=IFACE` | | Pin the NAT WAN to specific interface(s). Turns off automatic uplink detection. Comma-separated, priority-ordered, supports wildcards. Example: `--upstream=wlan0,rmnet*`. NAT mode only. |
 | `--port HOST:CONT[/proto]` | | Forward a host port to the container (NAT mode). TCP and UDP. |
 | `--dns=SERVERS` | `-d` | Custom DNS servers, comma-separated. Example: `--dns=1.1.1.1,8.8.8.8` |
-| `--disable-ipv6` | | Disable IPv6 networking support (Host mode only). |
+| `--disable-ipv6` | | Disable IPv6 inside the container. Works in every network mode. In host mode this disables IPv6 on the host too. |
 
 #### Gateway mode
 

@@ -115,9 +115,9 @@ Tailscale gives you an encrypted P2P tunnel to the container, so any device in y
 
 ### Step 4: Secure the container with UFW (firewall)
 
-Droidspaces NAT mode currently supports IPv4 only, so disable IPv6 in UFW to avoid initialization errors.
+NAT mode is dual-stack, so UFW can manage IPv6 as well. Skip the first step unless the container runs with `--disable-ipv6`, in which case UFW fails to initialise its IPv6 rules.
 
-1. **Disable IPv6 in UFW**:
+1. **Disable IPv6 in UFW** (only with `--disable-ipv6`):
    ```bash
    sed -i 's/IPV6=yes/IPV6=no/' /etc/default/ufw
    ```

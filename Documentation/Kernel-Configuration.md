@@ -118,6 +118,19 @@ CONFIG_NF_CONNTRACK_IPV4=y
 CONFIG_NF_NAT_IPV4=y
 CONFIG_IP_NF_NAT=y
 
+# IPv6 in NAT mode (NAT66). Optional: without these, NAT containers are IPv4 only
+CONFIG_IPV6=y
+CONFIG_IPV6_MULTIPLE_TABLES=y
+CONFIG_IP6_NF_IPTABLES=y
+CONFIG_IP6_NF_FILTER=y
+CONFIG_IP6_NF_MANGLE=y
+CONFIG_IP6_NF_NAT=y
+CONFIG_IP6_NF_TARGET_MASQUERADE=y
+
+# legacy compat
+CONFIG_NF_CONNTRACK_IPV6=y
+CONFIG_NF_NAT_IPV6=y
+
 # Disable this on older kernels to make internet work
 CONFIG_ANDROID_PARANOID_NETWORK=n
 
@@ -250,6 +263,10 @@ CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y
 # Fix for docker unsafe procfs error
 CONFIG_USER_NS=y
 
+# IPv6 in NAT mode (NAT66)
+CONFIG_IP6_NF_NAT=y
+CONFIG_IP6_NF_TARGET_MASQUERADE=y
+
 # UFW support
 CONFIG_NETFILTER_XT_TARGET_REJECT=y
 CONFIG_NETFILTER_XT_TARGET_LOG=y
@@ -309,6 +326,7 @@ It checks for:
 - devtmpfs support
 - OverlayFS support (optional, for volatile mode)
 - VETH and Bridge support (optional, for NAT mode)
+- IPv6 NAT support (optional, for IPv6 in NAT mode)
 - PTY/devpts support
 - Loop device support
 - ext4 support
@@ -334,6 +352,7 @@ It checks for:
 | OverlayFS | `CONFIG_OVERLAY_FS` | Volatile mode unavailable. |
 | Network namespace | `CONFIG_NET_NS=y` | NAT and None modes unavailable. |
 | VETH / Bridge | `CONFIG_VETH` / `CONFIG_BRIDGE` | NAT mode unavailable. |
+| IPv6 NAT | `CONFIG_IP6_NF_NAT` / `CONFIG_IP6_NF_TARGET_MASQUERADE` | NAT containers are IPv4 only. |
 | Seccomp | `CONFIG_SECCOMP=y` | Seccomp shield disabled. Security risk. |
 
 ---
