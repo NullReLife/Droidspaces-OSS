@@ -276,29 +276,7 @@ static int auto_resolve_container_name(struct ds_config *cfg) {
 
 /* Command Dispatch */
 
-static void enforce_nat_safety(struct ds_config *cfg, int argc, char **argv) {
-  int is_nat = (cfg->net_mode == DS_NET_NAT);
-  int is_disable_ipv6 = cfg->disable_ipv6;
-
-  /* Nuke config reliance: parse argv directly to guarantee the warning
-   * triggers regardless of what ds_config_load() wiped during restart. */
-  if (argv != NULL) {
-    for (int i = 1; i < argc; i++) {
-      if (strcmp(argv[i], "--net=nat") == 0)
-        is_nat = 1;
-      if (strcmp(argv[i], "--net") == 0 && i + 1 < argc &&
-          strcmp(argv[i + 1], "nat") == 0)
-        is_nat = 1;
-      if (strcmp(argv[i], "-I") == 0 || strcmp(argv[i], "--disable-ipv6") == 0)
-        is_disable_ipv6 = 1;
-    }
-  }
-
-  if (is_nat && is_disable_ipv6) {
-    ds_log(
-        "IPv6 is already inactive in NAT mode - --disable-ipv6 has no effect.");
-  }
-
+static void enforce_nat_safety(struct ds_config *cfg) {
   if (cfg->net_mode == DS_NET_NAT || cfg->net_mode == DS_NET_NONE ||
       cfg->net_mode == DS_NET_GATEWAY) {
     if (!check_ns(CLONE_NEWNET, "net")) {
@@ -1156,7 +1134,7 @@ int main(int argc, char **argv) {
       ret = 1;
       goto cleanup;
     }
-    enforce_nat_safety(&cfg, argc, argv);
+    enforce_nat_safety(&cfg);
     print_ds_banner();
     ds_cgroup_host_bootstrap(cfg.force_cgroupv1);
     if (cfg.container_name[0] == '\0' && cfg.rootfs_path[0])
@@ -1182,7 +1160,7 @@ int main(int argc, char **argv) {
       ret = 1;
       goto cleanup;
     }
-    enforce_nat_safety(&cfg, argc, argv);
+    enforce_nat_safety(&cfg);
     ds_cgroup_host_bootstrap(cfg.force_cgroupv1);
     ret = restart_rootfs(&cfg, argc, argv);
     goto cleanup;

@@ -588,6 +588,64 @@ int ds_nl_add_route4(ds_nl_ctx_t *ctx, uint32_t dst_be, uint8_t dst_len,
   return ds_nl_talk(ctx, &req.n);
 }
 
+/* IPv6 siblings of the two helpers above, for NAT66.
+ *
+ * IFA_F_NODAD: these are our own router addresses on a link we created, so
+ * there is nobody to collide with, and waiting out duplicate address detection
+ * would leave the address unusable for the first second of every boot. It is
+ * the old 8-bit flag, so it works on the 3.10 floor.
+ *
+ * The route is always link scope (no gateway): the only caller points a
+ * container's /64 at its point-to-point veth. */
+
+int ds_nl_add_addr6(ds_nl_ctx_t *ctx, const char *ifname,
+                    const struct in6_addr *ip, uint8_t prefix) {
+  int idx = ds_nl_get_ifindex(ctx, ifname);
+  if (idx <= 0)
+    return -ENODEV;
+
+  struct {
+    struct nlmsghdr n;
+    struct ifaddrmsg ifa;
+    char buf[256];
+  } req;
+  memset(&req, 0, sizeof(req));
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+  req.n.nlmsg_type = RTM_NEWADDR;
+  req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE | NLM_F_ACK;
+  req.ifa.ifa_family = AF_INET6;
+  req.ifa.ifa_prefixlen = prefix;
+  req.ifa.ifa_index = (unsigned int)idx;
+  req.ifa.ifa_flags = IFA_F_NODAD;
+
+  nl_addattr(&req.n, (int)sizeof(req), IFA_LOCAL, ip, sizeof(*ip));
+  nl_addattr(&req.n, (int)sizeof(req), IFA_ADDRESS, ip, sizeof(*ip));
+  return ds_nl_talk(ctx, &req.n);
+}
+
+int ds_nl_add_route6(ds_nl_ctx_t *ctx, const struct in6_addr *dst,
+                     uint8_t dst_len, int oif_idx) {
+  struct {
+    struct nlmsghdr n;
+    struct rtmsg r;
+    char buf[256];
+  } req;
+  memset(&req, 0, sizeof(req));
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  req.n.nlmsg_type = RTM_NEWROUTE;
+  req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_REPLACE | NLM_F_ACK;
+  req.r.rtm_family = AF_INET6;
+  req.r.rtm_dst_len = dst_len;
+  req.r.rtm_table = RT_TABLE_MAIN;
+  req.r.rtm_protocol = RTPROT_BOOT;
+  req.r.rtm_scope = RT_SCOPE_LINK;
+  req.r.rtm_type = RTN_UNICAST;
+
+  nl_addattr(&req.n, (int)sizeof(req), RTA_DST, dst, sizeof(*dst));
+  nl_addattr(&req.n, (int)sizeof(req), RTA_OIF, &oif_idx, (int)sizeof(int));
+  return ds_nl_talk(ctx, &req.n);
+}
+
 /* Move an interface into a network namespace (by fd) */
 
 int ds_nl_move_to_netns(ds_nl_ctx_t *ctx, const char *ifname, int netns_fd) {
@@ -902,12 +960,15 @@ member_done:
 
 /* Per-interface route table lookup
  *
- * Finds the routing table that carries a specific named interface's IPv4
- * egress routes. This is the core primitive used by the uplink monitor:
- * rather than guessing the active internet table from all routes (which is
- * ambiguous on Android where multiple interfaces can have simultaneous
- * default routes in separate per-interface tables), we ask directly:
- * "what table does wlan0 / rmnet0 / ccmni1 use?"
+ * Finds the routing table that carries a specific named interface's egress
+ * routes for `family` (AF_INET or AF_INET6; the /8 cut-off below holds for
+ * both, since a connected IPv6 subnet is a /64 and the internet-bearing
+ * routes are ::/0 or 2000::/3).
+ * This is the core primitive used by the uplink monitor: rather than guessing
+ * the active internet table from all routes (which is ambiguous on Android
+ * where multiple interfaces can have simultaneous default routes in separate
+ * per-interface tables), we ask directly: "what table does wlan0 / rmnet0 /
+ * ccmni1 use?"
  *
  * The route with the shortest prefix wins. A real default route (/0) always
  * does, but split-tunnel VPNs on Android (NordVPN, Tailscale, WireGuard with
@@ -919,7 +980,7 @@ member_done:
  * Returns 0 and fills *table_out on success.
  * Returns -ENODEV if the interface doesn't exist.
  * Returns -ENOENT if no unicast route is found for that interface. */
-int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, const char *ifname,
+int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, int family, const char *ifname,
                           int *table_out) {
   unsigned int target_idx = if_nametoindex(ifname);
   if (target_idx == 0)
@@ -933,7 +994,7 @@ int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, const char *ifname,
   req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
   req.n.nlmsg_type = RTM_GETROUTE;
   req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  req.r.rtm_family = AF_INET;
+  req.r.rtm_family = (unsigned char)family;
   req.n.nlmsg_seq = ++ctx->seq;
   req.n.nlmsg_pid = (uint32_t)ctx->pid;
 
@@ -963,7 +1024,7 @@ int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, const char *ifname,
         continue;
 
       struct rtmsg *r = NLMSG_DATA(h);
-      if (r->rtm_family != AF_INET || r->rtm_type != RTN_UNICAST ||
+      if (r->rtm_family != family || r->rtm_type != RTN_UNICAST ||
           r->rtm_dst_len >= best_len)
         continue;
 
@@ -1217,11 +1278,13 @@ rule_dump_done:
   return ds_nl_get_table_default_oif(ctx, best_table, ifname_out);
 }
 
-/* IPv4 policy rule management (RTM_NEWRULE / RTM_DELRULE) */
+/* Policy rule management (RTM_NEWRULE / RTM_DELRULE), either family.
+ * src and dst point at an in_addr or in6_addr matching `family`. */
 
-static int ds_nl_rule_op(ds_nl_ctx_t *ctx, int cmd, uint32_t src_be,
-                         uint8_t src_len, uint32_t dst_be, uint8_t dst_len,
+static int ds_nl_rule_op(ds_nl_ctx_t *ctx, int cmd, int family, const void *src,
+                         uint8_t src_len, const void *dst, uint8_t dst_len,
                          int table, int priority) {
+  int alen = (family == AF_INET6) ? 16 : 4;
   struct {
     struct nlmsghdr n;
     struct rtmsg r;
@@ -1238,7 +1301,7 @@ static int ds_nl_rule_op(ds_nl_ctx_t *ctx, int cmd, uint32_t src_be,
                                                      * by the idempotency
                                                      * handler below */
 
-  req.r.rtm_family = AF_INET;
+  req.r.rtm_family = (unsigned char)family;
   req.r.rtm_protocol = 0; /* res1 in fib_rule_hdr */
   req.r.rtm_scope = 0;    /* res2 in fib_rule_hdr */
   req.r.rtm_type = 1;     /* FR_ACT_TO_TBL (1) == RTN_UNICAST */
@@ -1248,9 +1311,9 @@ static int ds_nl_rule_op(ds_nl_ctx_t *ctx, int cmd, uint32_t src_be,
       (table > 0 && table < 256) ? (uint8_t)table : 0; /* RT_TABLE_UNSPEC */
 
   if (src_len > 0)
-    nl_addattr(&req.n, (int)sizeof(req), FRA_SRC, &src_be, 4);
+    nl_addattr(&req.n, (int)sizeof(req), FRA_SRC, src, alen);
   if (dst_len > 0)
-    nl_addattr(&req.n, (int)sizeof(req), FRA_DST, &dst_be, 4);
+    nl_addattr(&req.n, (int)sizeof(req), FRA_DST, dst, alen);
   if (table > 0) {
     uint32_t t = (uint32_t)table;
     nl_addattr(&req.n, (int)sizeof(req), FRA_TABLE, &t, sizeof(uint32_t));
@@ -1267,12 +1330,22 @@ static int ds_nl_rule_op(ds_nl_ctx_t *ctx, int cmd, uint32_t src_be,
 
 int ds_nl_add_rule4(ds_nl_ctx_t *ctx, uint32_t src_be, uint8_t src_len,
                     uint32_t dst_be, uint8_t dst_len, int table, int priority) {
-  return ds_nl_rule_op(ctx, RTM_NEWRULE, src_be, src_len, dst_be, dst_len,
-                       table, priority);
+  return ds_nl_rule_op(ctx, RTM_NEWRULE, AF_INET, &src_be, src_len, &dst_be,
+                       dst_len, table, priority);
 }
 
 int ds_nl_del_rule4(ds_nl_ctx_t *ctx, uint32_t src_be, uint8_t src_len,
                     uint32_t dst_be, uint8_t dst_len, int table, int priority) {
-  return ds_nl_rule_op(ctx, RTM_DELRULE, src_be, src_len, dst_be, dst_len,
-                       table, priority);
+  return ds_nl_rule_op(ctx, RTM_DELRULE, AF_INET, &src_be, src_len, &dst_be,
+                       dst_len, table, priority);
+}
+
+/* IPv6 rules only ever match on one side, so `net` is the source when
+ * from_net is set and the destination otherwise. */
+int ds_nl_rule6(ds_nl_ctx_t *ctx, int add, const struct in6_addr *net,
+                uint8_t len, int from_net, int table, int priority) {
+  return ds_nl_rule_op(ctx, add ? RTM_NEWRULE : RTM_DELRULE, AF_INET6,
+                       from_net ? net : NULL, from_net ? len : 0,
+                       from_net ? NULL : net, from_net ? 0 : len, table,
+                       priority);
 }
