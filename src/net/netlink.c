@@ -217,11 +217,17 @@ int ds_nl_probe_nat_capability(char *reason, size_t rsz) {
     return -1;
   }
 
+  /* The probe interfaces have fixed names, so two starts probing at the same
+   * moment collide, and a crashed probe can leave one behind. Either way the
+   * interface existing is the proof we were after. It is just not ours to
+   * delete. */
+
   /* Step 2: CONFIG_BRIDGE */
   int has_bridge = 1;
   const char *probe_br = "ds-cap-br0";
   ret = ds_nl_create_bridge(ctx, probe_br);
-  if (ret < 0) {
+  int own_bridge = (ret == 0);
+  if (ret < 0 && ret != -EEXIST) {
     if (ret == -EOPNOTSUPP) {
       has_bridge = 0;
       ds_log("[NET] CONFIG_BRIDGE not supported - will fallback to bridgeless "
@@ -236,13 +242,14 @@ int ds_nl_probe_nat_capability(char *reason, size_t rsz) {
 
   /* Step 3: CONFIG_VETH */
   ret = ds_nl_create_veth(ctx, "ds-cap-h0", "ds-cap-p0");
-  int has_veth = (ret == 0);
+  int own_veth = (ret == 0);
+  int has_veth = (ret == 0 || ret == -EEXIST);
   int veth_err = ret;
 
   /* Cleanup Probe Interfaces */
-  if (has_bridge)
+  if (own_bridge)
     ds_nl_del_link(ctx, probe_br);
-  if (has_veth)
+  if (own_veth)
     ds_nl_del_link(ctx, "ds-cap-h0");
 
   ds_nl_close(ctx);
