@@ -2505,6 +2505,12 @@ void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid) {
   if (!ctx)
     return;
 
+  /* Bridge or bridgeless is a property of the kernel, and ds-br0 is never
+   * deleted once it exists, so ask the kernel instead of trusting a flag that
+   * only start and restart ever probe for. A plain stop never set it, and
+   * left the per-veth rules of a bridgeless container behind. */
+  int bridgeless = !ds_nl_link_exists(ctx, DS_NAT_BRIDGE);
+
   /* 1. Delete host-side veth - peer in dead netns is already gone */
   char veth_host[IFNAMSIZ] = {0};
   pid_t effective_pid = container_pid > 0 ? container_pid : cfg->container_pid;
@@ -2526,7 +2532,7 @@ void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid) {
            "keeping shared iptables and routing rules",
            surviving);
     ds_ipt_remove_portforwards(cfg);
-    if (cfg->net_bridgeless && veth_host[0] != '\0') {
+    if (bridgeless && veth_host[0] != '\0') {
       ds_ipt_remove_iface_rules(AF_INET, veth_host);
       ds_ipt_remove_iface_rules(AF_INET6, veth_host);
     }
@@ -2572,7 +2578,7 @@ void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid) {
   /* 3. Remove iptables rules. IPv6 unconditionally: the stop may run in a
    * process that never set g_host_nat6, and removing rules that are not there
    * is a no-op. */
-  if (cfg->net_bridgeless && veth_host[0] != '\0') {
+  if (bridgeless && veth_host[0] != '\0') {
     ds_ipt_remove_iface_rules(AF_INET, veth_host);
     ds_ipt_remove_iface_rules(AF_INET6, veth_host);
   }

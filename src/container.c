@@ -864,17 +864,61 @@ int start_rootfs(struct ds_config *cfg) {
   return ret;
 }
 
+/* Load the config a running container actually booted with, from the
+ * snapshot it keeps in its own /run. Returns 0 and fills *out, which the
+ * caller releases with ds_config_free(), or -1 if there is no readable
+ * snapshot. */
+static int load_booted_config(const struct ds_config *cfg, pid_t pid,
+                              struct ds_config *out) {
+  char run_path[PATH_MAX];
+  if (build_proc_root_path(pid, "/run/droidspaces/container.config", run_path,
+                           sizeof(run_path)) != 0)
+    return -1;
+
+  memset(out, 0, sizeof(*out));
+  out->net_ready_pipe[0] = out->net_ready_pipe[1] = -1;
+  out->net_done_pipe[0] = out->net_done_pipe[1] = -1;
+  out->net_mode = DS_NET_NAT; /* zero is host, see main() */
+  safe_strncpy(out->container_name, cfg->container_name,
+               sizeof(out->container_name));
+  safe_strncpy(out->prog_name, cfg->prog_name, sizeof(out->prog_name));
+
+  if (ds_config_load(run_path, out) < 0) {
+    ds_config_free(out);
+    return -1;
+  }
+
+  /* The pidfile is how the caller found this instance, and it may have come
+   * from --pidfile, which no config file records. */
+  safe_strncpy(out->pidfile, cfg->pidfile, sizeof(out->pidfile));
+  return 0;
+}
+
 /* The body of a stop. The caller holds the lifecycle lock. */
-static int stop_rootfs_locked(struct ds_config *cfg, int skip_unmount,
+static int stop_rootfs_locked(struct ds_config *caller_cfg, int skip_unmount,
                               int timeout_seconds) {
   if (timeout_seconds < 0)
     timeout_seconds = DS_STOP_TIMEOUT;
 
   pid_t pid = 0;
-  if (!is_container_running(cfg, &pid) || pid <= 0) {
-    ds_error("Container '%s' is not running or invalid.", cfg->container_name);
+  if (!is_container_running(caller_cfg, &pid) || pid <= 0) {
+    ds_error("Container '%s' is not running or invalid.",
+             caller_cfg->container_name);
     return -1;
   }
+
+  /* Tear down what is running, not what the caller is holding. The caller's
+   * config describes what the container should be next: on a restart it is
+   * the edited config file or the snapshot with new flags applied on top. If
+   * that changed the network mode, cleaning up with it runs the wrong
+   * teardown, e.g. the gateway cleanup for a container wired as NAT, and
+   * leaves its veth, port forwards and shared rules behind. The instance's
+   * own snapshot is the only description of what it was booted as. Without a
+   * readable one (a container from before snapshots existed) the caller's
+   * config is the best we have. */
+  struct ds_config booted;
+  int have_booted = (load_booted_config(caller_cfg, pid, &booted) == 0);
+  struct ds_config *cfg = have_booted ? &booted : caller_cfg;
 
   ds_log("Stopping container '%s' (PID %d)...", cfg->container_name, pid);
 
@@ -1031,6 +1075,8 @@ static int stop_rootfs_locked(struct ds_config *cfg, int skip_unmount,
   if (!cfg->foreground)
     ds_log("Container '%s' stopped.", cfg->container_name);
 
+  if (have_booted)
+    ds_config_free(&booted);
   return 0;
 }
 
