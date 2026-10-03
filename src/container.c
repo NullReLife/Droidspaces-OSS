@@ -363,20 +363,32 @@ int is_valid_container_pid(pid_t pid) {
 
 /* Start */
 
-/* True once the container's init has pivoted into its rootfs, which is when
- * every other command starts seeing it as running. Gives up after 5 seconds,
- * or as soon as the PID is gone. */
-static int wait_for_boot(pid_t pid) {
-  char marker[PATH_MAX];
-  snprintf(marker, sizeof(marker), "/proc/%d/root/run/droidspaces", pid);
-  for (int i = 0; i < 50; i++) {
-    if (access(marker, F_OK) == 0)
-      return 1;
-    if (kill(pid, 0) < 0 && errno == ESRCH)
-      break;
-    usleep(100000); /* 100ms */
-  }
-  return 0;
+/* True once the container's init has exec'd the real init, false if it died
+ * first or hung.
+ *
+ * fd is the read end of the sync pipe. Init holds the only write end left, and
+ * it is close-on-exec, so the kernel closes it at the exact moment init stops
+ * running our code. Nothing here guesses at how far the boot has got: every
+ * line internal_boot() logs is out before this returns, and no later change to
+ * the order of the boot steps can break that.
+ *
+ * End of file is also what a dead init looks like. Its executable settles it:
+ * still ours means it never exec'd, gone means it died. The timeout only guards
+ * against a boot that hangs, a healthy one never gets near it. */
+static int wait_for_boot(int fd, pid_t pid) {
+  struct pollfd pfd = {.fd = fd, .events = POLLIN};
+  int r;
+  while ((r = poll(&pfd, 1, 30000)) < 0 && errno == EINTR)
+    ;
+  if (r <= 0)
+    return 0;
+
+  char path[PATH_MAX];
+  struct stat self, init;
+  snprintf(path, sizeof(path), "/proc/%d/exe", pid);
+  if (stat("/proc/self/exe", &self) < 0 || stat(path, &init) < 0)
+    return 0;
+  return self.st_dev != init.st_dev || self.st_ino != init.st_ino;
 }
 
 /* The body of a start. The caller holds the lifecycle lock in *lock_fd.
@@ -733,8 +745,7 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
     ds_error("Monitor failed to send container PID.");
     goto cleanup;
   }
-  close(sync_pipe[0]);
-  sync_pipe[0] = -1;
+  /* The read end stays open: wait_for_boot() watches it for init's exec. */
 
   ds_log("Container started with PID %d (Monitor: %d)", cfg->container_pid,
          monitor_pid);
@@ -776,7 +787,8 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
     /* We stay attached for the container's whole life, so let go of the lock
      * here, but not before the container is visible as running: a start that
      * raced in before that would not see it and would boot a second one. */
-    wait_for_boot(cfg->container_pid);
+    wait_for_boot(sync_pipe[0], cfg->container_pid);
+    close(sync_pipe[0]);
     ds_container_unlock(*lock_fd);
     *lock_fd = -1;
 
@@ -784,9 +796,12 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
     free_config_env_vars(cfg);
     return ret;
   } else {
-    /* Wait for container to finish pivot_root before showing info.
-     * The boot sequence writes /run/droidspaces after pivot_root. */
-    int booted = wait_for_boot(cfg->container_pid);
+    /* Do not show the info or return until init has exec'd. A command that
+     * returned earlier left init still logging to a terminal nobody was reading
+     * any more, and its last lines, "Booting ..." among them, went missing. */
+    int booted = wait_for_boot(sync_pipe[0], cfg->container_pid);
+    close(sync_pipe[0]);
+    sync_pipe[0] = -1;
 
     if (!booted) {
       ds_error("Container failed to boot correctly.");

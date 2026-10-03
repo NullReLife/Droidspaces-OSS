@@ -502,8 +502,8 @@ int internal_boot(struct ds_config *cfg) {
            cfg->custom_init[0] ? cfg->custom_init : DS_DEFAULT_INIT);
   }
 
-  /* 20b. Write identity markers for PID discovery (AFTER logs to ensure CLI
-   * parent sees them before exiting background mode). */
+  /* 20b. Write identity markers for PID discovery. The command that started us
+   * does not watch for these, it waits for the exec at the end. */
   mkdir("run/droidspaces", 0755);
   if (cfg->sandboxing_allowed)
     mount_pristine_proc_sys();

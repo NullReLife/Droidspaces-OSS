@@ -358,7 +358,9 @@ reboot_loop:;
         if (mid_sync_pipe[1] >= 0)
           close(mid_sync_pipe[1]);
       }
-      close(sync_pipe[1]);
+      /* Init keeps the sync pipe's write end, and it is close-on-exec. The
+       * command that started us reads end of file on it when init execs, which
+       * is how it knows the boot is over. Do not close it here. */
       _exit(internal_boot(cfg));
     }
 
