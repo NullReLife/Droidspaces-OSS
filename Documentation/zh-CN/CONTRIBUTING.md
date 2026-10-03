@@ -488,7 +488,9 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `wait_for_socket_or_death(pid, path, timeout_ms, interval_us)` | 等待套接字出现，服务端一死就提前返回。用它代替 sleep 轮询 |
 | `ds_send_fd` / `ds_recv_fd` | SCM_RIGHTS 文件描述符传递 |
 | `collect_pids`、`read_and_validate_pid` | 快照 `/proc`，以及读取 pid 文件并检查存活 |
-| `is_external_lock_active(name)` | 检查锁文件，持有者已死的陈旧锁会被自动清除 |
+| `ds_container_lock(name, wait)` / `ds_container_unlock(fd)` | 每个容器的生命周期锁，基于 `flock`。**任何**修改容器磁盘状态（pidfile、附属文件、挂载、cgroup）的操作都必须持有它，监视器也不例外。命令传入 `wait=0` 并在忙时报错；监视器传入 `wait=1`。持锁后根据实际状态决定要做什么 |
+| `ds_container_lock_orphan(name)` | 同一把锁，但仅在该名称没有存活的监视器时才会获得。用于清理残留。返回 -1 时不要动这个容器 |
+| `ds_container_claim_supervision(name)` | 由监视器调用一次。`ds_container_lock_orphan` 检查的正是它 |
 | `DS_SIG_STOP`、`ds_init_type_t`、`detect_container_init()` | 优雅停止。每种 init 都有自己的停止和重启信号，在 procd 下 `SIGTERM` 表示重启 |
 
 ### C 后端：平台判定

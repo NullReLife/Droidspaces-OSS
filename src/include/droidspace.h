@@ -525,7 +525,10 @@ int get_user_shell(const char *user, char *shell_buf, size_t size);
 void check_kernel_recommendation(void);
 void write_monitor_debug_log(const char *name, const char *fmt, ...);
 void ds_monitor_run(struct ds_config *cfg, int sync_pipe_write);
-int is_external_lock_active(const char *name);
+int ds_container_lock(const char *name, int wait);
+void ds_container_unlock(int fd);
+int ds_container_lock_orphan(const char *name);
+void ds_container_claim_supervision(const char *name);
 int wait_for_socket_or_death(pid_t pid, const char *path, int timeout_ms,
                              int interval_us);
 void cleanup_container_resources(struct ds_config *cfg, pid_t pid,
@@ -724,6 +727,7 @@ void ds_net_derive_handshake(pid_t init_pid, struct ds_config *cfg,
                              struct ds_net_handshake *hs);
 void ds_net_cleanup(struct ds_config *cfg, pid_t container_pid);
 void ds_net_start_route_monitor(void);
+void ds_net_stop_route_monitor(void);
 /* Marks route_localnet as required; route monitor re-asserts it every cycle
  * (same pattern as ip_forward). Called once port-forward rules with localhost
  * DNAT are installed. Sticky for process lifetime - never cleared. */

@@ -516,7 +516,9 @@ influenced, copy the `ds_bind_mount_socket` pattern: open with `O_NOFOLLOW|O_CLO
 | `wait_for_socket_or_death(pid, path, timeout_ms, interval_us)` | Waiting for a socket to appear. Bails early if the server dies. Use instead of a sleep loop |
 | `ds_send_fd` / `ds_recv_fd` | SCM_RIGHTS descriptor passing |
 | `collect_pids`, `read_and_validate_pid` | Snapshotting `/proc`, and reading a pidfile with a liveness check |
-| `is_external_lock_active(name)` | Checking the lock sidecar. Auto-removes a stale lock whose holder is dead |
+| `ds_container_lock(name, wait)` / `ds_container_unlock(fd)` | The per-container lifecycle lock, a `flock`. **Anything** that changes a container's on-disk state (pidfile, sidecars, mount, cgroup) must hold it, the monitor included. Commands pass `wait=0` and report busy; the monitor passes `wait=1`. Decide what to do from the state you find while holding it |
+| `ds_container_lock_orphan(name)` | Same lock, but only granted when no monitor is alive for the name. For pruning leftovers. On -1, leave the container alone |
+| `ds_container_claim_supervision(name)` | Called once by a monitor. It is what `ds_container_lock_orphan` checks |
 | `DS_SIG_STOP`, `ds_init_type_t`, `detect_container_init()` | Graceful stop. Each init family has its own stop and reboot signal, and under procd `SIGTERM` means reboot |
 
 ### C backend: platform gates
