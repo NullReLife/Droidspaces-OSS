@@ -382,7 +382,7 @@ droidspaces --name=ubuntu --rootfs-img=/path/to/rootfs.img --volatile start
 
 Droidspaces creates a cgroup tree per container at `/sys/fs/cgroup/droidspaces/<name>` on the host. Together with the cgroup namespace, each container sees its own clean cgroup hierarchy.
 
-**Note:** Cgroup isolation is not available in `--force-cgroupv1` mode.
+In `--force-cgroupv1` mode the same is done in every v1 hierarchy: the container gets `droidspaces/<name>` in each one, wherever the host mounts it (`/dev/memcg`, `/dev/cpuctl` and so on for Android).
 
 ### Why it matters
 
@@ -411,6 +411,49 @@ Droidspaces supports both cgroup versions:
 On legacy Android kernels (3.18, 4.4, or 4.9), the host may have no cgroup v2 support at all, or a partial one without the controllers (CPU, memory, etc.) that modern `systemd` needs. That often makes `systemd` misidentify the environment and fail to boot.
 
 The `--force-cgroupv1` flag is an escape hatch for experts. It makes Droidspaces use only the legacy v1 hierarchy, even if v2 appears to be available on the host. Distributions with modern `systemd` versions then run reliably on older kernels.
+
+### Resource limits
+
+`--memory`, `--cpus` and `--pids-limit` cap a container's RAM, CPU time and process count.
+
+A cgroup controller belongs to one hierarchy at a time. Android binds `memory` and `cpu` to v1 hierarchies (`/dev/memcg`, `/dev/cpuctl`), which removes them from cgroup v2, and that cannot be undone while Android is running. So Droidspaces applies each limit on whichever hierarchy owns the controller, v2 or v1, and the container itself can stay on cgroup v2.
+
+What each limit needs from the kernel, on either cgroup version:
+
+| Limit | Kernel option | Typical Android kernel |
+|---|---|---|
+| `--memory` | `CONFIG_MEMCG` | Present |
+| `--cpus` | `CONFIG_CFS_BANDWIDTH` | Missing before the android16-6.12 GKI |
+| `--pids-limit` | `CONFIG_CGROUP_PIDS` | Missing in GKI |
+
+If an option is missing, the limit is skipped at start with a warning that names it. See [Kernel Configuration](Kernel-Configuration.md) to add them.
+
+`--memory` limits RAM only. A container that goes over it is pushed into swap (zram on Android) before anything is killed.
+
+#### Where a limit is applied
+
+For each limit Droidspaces looks for the controller in the container's cgroup v2 directory first. If it is not there, it finds the v1 hierarchy that owns the controller, wherever the host mounted it, and puts the container in `droidspaces/<name>` inside it. On a typical Android phone that means memory at `/dev/memcg/droidspaces/<name>`, while the container's own view, the one systemd manages, stays cgroup v2. `enter` and `run` sessions join the same cgroups, so they are held to the same limits.
+
+#### Reading limits and usage
+
+`droidspaces info` prints the limits that are actually in force, read back from the cgroup, so a limit the kernel could not apply is not listed:
+
+```
+Resources:
+  Memory : 94.14 MB / 512.00 MB
+  CPU    : 2.00 cores (Avg usage: 3.1%)
+  PIDs   : 1024 (current: 12)
+```
+
+The same block, without the usage figures, is printed after `start` and `restart`.
+
+`info --format` adds `memory_limit` (bytes), `cpu_quota`, `cpu_period` (microseconds) and `pids_limit`. `show --format` and `info --format` add `ram_limit_kb` and `cpu_limit_permill` per container, on the same scale as `ram_used_kb` and `cpu_permill`. All are 0 when unlimited.
+
+Memory use means one thing everywhere for a container with a memory cgroup: what the cgroup is charged, minus its file cache, which the kernel reclaims on its own. `info`, `show --format` and `free` or fastfetch inside the container all report that figure. The limit itself still counts the cache, so a container can be pushed to reclaim before "used" reaches the limit.
+
+#### In the Android app
+
+The container settings have a **Resource Limits** section with a switch per limit. Memory and CPU open a slider bounded by the device's real RAM and core count, the process limit a number field. A limit the kernel cannot enforce is greyed out with the missing option named. The limits also show on the container's card and in the installation summary, and the Panel tab shows usage against the limit, for example `94/512 MB (18%)`.
 
 ### The `su` fix
 

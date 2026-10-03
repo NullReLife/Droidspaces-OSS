@@ -70,12 +70,16 @@ CONFIG_SECCOMP_FILTER=y
 # 控制组支持
 CONFIG_CGROUPS=y
 CONFIG_CGROUP_DEVICE=y
-CONFIG_CGROUP_PIDS=y
-CONFIG_MEMCG=y
 CONFIG_CGROUP_SCHED=y
 CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_NET_PRIO=y
+
+# 资源限制：依次对应 --memory、--cpus、--pids-limit。
+# 可选：缺少某个选项时，对应的限制会被跳过并给出警告
+CONFIG_MEMCG=y
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y
 
 # 设备文件系统支持
 CONFIG_DEVTMPFS=y
@@ -284,6 +288,12 @@ CONFIG_NETFILTER_XT_SET=y
 # 用于 NixOS 支持
 CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
+
+# 资源限制：--cpus 和 --pids-limit。GKI 已默认开启 CONFIG_MEMCG。
+# 不在 kABI 补丁的覆盖范围内：两者都会改变供应商模块读取的调度器和 cgroup
+# 结构体大小。请逐个开启，并做好设备无限重启的准备
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y
 ```
 
 **工作流程规则：**
@@ -328,6 +338,7 @@ su -c droidspaces check
 - OverlayFS 支持（可选，用于易失模式）
 - VETH 和 Bridge 支持（可选，用于 NAT 模式）
 - IPv6 NAT 支持（可选，用于 NAT 模式下的 IPv6）
+- 内存、CPU 和进程数限制支持（可选，用于 `--memory`、`--cpus` 和 `--pids-limit`）
 - PTY/devpts 支持
 - Loop 设备支持
 - ext4 支持

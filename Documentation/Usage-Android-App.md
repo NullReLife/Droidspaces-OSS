@@ -99,6 +99,22 @@ In NAT mode, the **Port Forwarding** section maps host ports to container ports 
 
 ---
 
+## Resource limits
+
+The container settings have a **Resource Limits** section, above **Advanced Options**:
+
+- **Limit memory**: a slider from 128 MB up to the device's total RAM.
+- **Limit CPU**: a slider from half a core up to the device's core count.
+- **Limit processes**: the most processes and threads the container may have at once.
+
+Turn a switch off for no limit. Changes apply the next time the container starts.
+
+A switch that is greyed out means the kernel cannot enforce that limit, and the card names the missing option, for example `CONFIG_CFS_BANDWIDTH` for CPU. Most stock Android kernels lack the CPU and process options, see [Resource limits](Features.md#resource-limits).
+
+Limits that are set appear on the container's card next to the hostname and network mode.
+
+---
+
 ## Panel tab (active environments)
 
 The **Panel** tab shows only running containers. Tap a running container's card to open its **Details Screen**.
@@ -108,6 +124,7 @@ The **Panel** tab shows only running containers. Tap a running container's card 
 This screen shows what is going on inside the running container:
 
 - **Distribution Info**: the pretty name, version, per-container uptime, hostname and **IP Address (IPv4)**.
+- **CPU and RAM usage**: for a container with a limit, shown against that limit, for example `94/512 MB (18%)`. Without one, as a share of the whole device.
 - **Available Users**: the users found in the rootfs.
 - **Copy Login**: pick a user from the dropdown and tap this to copy a command like `su -c 'droidspaces enter [user]'`.
 - **Terminal**: open an interactive terminal emulator inside the container, in the Droidspaces app itself.

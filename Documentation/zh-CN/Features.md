@@ -372,7 +372,7 @@ droidspaces --name=ubuntu --rootfs-img=/path/to/rootfs.img --volatile start
 
 Droidspaces 在宿主的 `/sys/fs/cgroup/droidspaces/<name>` 路径下为每个容器创建 cgroup 树。结合 cgroup 命名空间，每个容器看到自己干净的 cgroup 层次结构。
 
-**注意：** Cgroup 隔离在 `--force-cgroupv1` 模式下不可用。
+在 `--force-cgroupv1` 模式下，每个 v1 层级中同样会创建 `droidspaces/<name>`，无论宿主把它挂载在哪里（Android 上为 `/dev/memcg`、`/dev/cpuctl` 等）。
 
 ### 为什么它很重要
 

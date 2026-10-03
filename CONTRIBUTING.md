@@ -67,7 +67,9 @@ This is a hard floor, not a suggestion. If your implementation depends on a sysc
 will not be merged into core.
 
 - Do not use `openat2(2)`, not available before 5.6.
-- Do not rely on cgroup v2 exclusively. cgroup v1 must remain functional.
+- Do not rely on cgroup v2 exclusively. cgroup v1 must remain functional. A controller
+  lives on one hierarchy at a time, and Android keeps memory and cpu on v1, so anything
+  that touches a controller file resolves it with `ds_cgroup_ctrl_dir()`.
 - Do not assume `clone3(2)`, `pidfd_*`, or any API gated behind 5.x.
 - If a fallback path exists, implement it. If it does not, the feature does not belong in
   core.
@@ -291,8 +293,9 @@ the language and about dialogs in `ui/screen/SettingsScreen.kt`). Do not import 
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `SettingsCard(title, onClick, icon, subtitleContent, trailing, ...)` | `ui/component/SettingsCard.kt` | The base for every settings or option row. Build new variants on top of it |
-| `SettingsRowCard`, `ToggleCard` | `ui/component/` | Clickable row, or switch row. Both are thin wrappers over `SettingsCard` |
+| `SettingsCard(title, onClick, icon, subtitleContent, trailing, below, ...)` | `ui/component/SettingsCard.kt` | The base for every settings or option row. Build new variants on top of it |
+| `SettingsRowCard`, `ToggleCard` | `ui/component/` | Clickable row, or switch row. Both are thin wrappers over `SettingsCard`. `ToggleCard(expandedContent = ...)` opens a body inside the card while the switch is on |
+| `DsSlider(value, onValueChange, valueRange, ...)` | `ui/component/DsSlider.kt` | Any slider. Never restyle a raw `Slider` at the call site |
 | `SwitchItem` | `ui/component/SwitchItem.kt` | Flat `ListItem` switch row, used on the Settings screen. See the duplicates note below |
 | `ContainerCard(container, actions, ...)` + `ContainerCardActions` | `ui/component/ContainerCard.kt` | The expandable container row. Add new actions to `ContainerCardActions`, not as new parameters |
 | `RunningContainerCard(container, onEnter, onTerminalClick, osInfo)` | `ui/component/RunningContainerCard.kt` | Compact running container card on the control panel |
@@ -392,6 +395,7 @@ boundary.
 | `SystemInfoManager` | `util/SystemInfoManager.kt` | Kernel version, architecture, Android version, SELinux status, root provider version, backend version and mode. All cached |
 | `RootChecker` / `RootStatus` | `util/RootChecker.kt` | Root availability |
 | `StorageChecker` | `util/StorageChecker.kt` | Free space checks |
+| `ResourceLimits` + `LimitSupport` | `util/ResourceLimits.kt` | Device RAM and core totals, which limits the running kernel can enforce (`probe()`), and the display strings for memory, cores and PIDs. Format a limit through it, never by hand |
 | `DroidspacesChecker` / `DroidspacesBackendStatus` | `util/DroidspacesChecker.kt` | Backend install state and update availability |
 | `LocaleHelper` | `util/LocaleHelper.kt` | Language listing and switching |
 | `SELinuxChecker` | `util/SELinuxChecker.kt` | Overlaps `SystemInfoManager.getSELinuxStatus()`. Prefer the latter, it caches |
@@ -409,7 +413,7 @@ All three init managers share the same shape. The container name is always quote
 | `ContainerProcdManager` | `util/ContainerProcdManager.kt` | procd services. The only manager that also allow-lists the action |
 | `ContainerProcessManager` | `util/ContainerProcessManager.kt` | Process list and kill inside a container |
 | `ContainerUsersManager` | `util/ContainerUsersManager.kt` | Container user list, cached |
-| `ContainerOSInfoManager` | `util/ContainerOSInfoManager.kt` | Distro name, version, icon |
+| `ContainerOSInfoManager` | `util/ContainerOSInfoManager.kt` | Distro name, version, icon, and live usage. `OSInfo.ramLabel(context)` is the one formatter for the RAM text, limit aware |
 | `ContainerUsageCollector` | `util/ContainerUsageCollector.kt` | CPU, RAM, uptime, IP in one call |
 | `ContainerDiskUsageManager` | `util/ContainerDiskUsageManager.kt` | Sparse image disk usage |
 
@@ -565,8 +569,10 @@ an unknown line.
 | `setup_volatile_overlay`, `cleanup_volatile_overlay`, `check_volatile_mode` | Volatile mode |
 | `mount_rootfs_img`, `unmount_rootfs_img` | Sparse image loop device lifecycle |
 | `setup_cgroups`, `ds_cgroup_host_bootstrap` | cgroup setup |
-| `ds_cgroup_attach`, `ds_cgroup_cleanup_container` | Moving a process in, and cleanup |
-| `ds_cgroup_apply_limits`, `ds_cgroup_get_usage`, `print_cgroup_status` | Limits and usage |
+| `ds_cgroup_attach`, `ds_cgroup_cleanup_container` | Moving a process in, and cleanup. Both cover the cgroup v2 dir and every v1 hierarchy the container has a cgroup in |
+| `ds_cgroup_ctrl_dir(ctrl, name, dir, size)` | Finding where a container's files for one controller live: its cgroup v2 dir, or the v1 hierarchy that owns the controller, wherever it is mounted. Returns the version. Never hardcode `/sys/fs/cgroup/...` or `/dev/memcg` for a controller file |
+| `ds_cgroup_apply_limits`, `ds_cgroup_get_limits`, `ds_cgroup_get_usage`, `print_cgroup_status` | Setting limits, reading back the ones in force, and usage. Report limits from `ds_cgroup_get_limits`, not from the config, which only says what was asked for |
+| `ds_cgroup_v1_setup`, `ds_cgroup_v1_join` | Giving a v1 container its own cgroup in every v1 hierarchy before the namespace is unshared, and moving the monitor in or out of them |
 | `ds_cg_word_in_list(list, name)` | Testing for a controller name. Do not `strstr` a controller list |
 | `get_workspace_dir`, `get_pids_dir`, `get_net_dir`, `get_logs_dir` | The only sanctioned way to build a workspace path. They switch between the Android and Linux roots |
 | `ensure_workspace` | Creating the tree |

@@ -69,12 +69,16 @@ CONFIG_SECCOMP_FILTER=y
 # Control groups support
 CONFIG_CGROUPS=y
 CONFIG_CGROUP_DEVICE=y
-CONFIG_CGROUP_PIDS=y
-CONFIG_MEMCG=y
 CONFIG_CGROUP_SCHED=y
 CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_NET_PRIO=y
+
+# Resource limits: --memory, --cpus, --pids-limit, in that order.
+# Optional: a limit whose option is missing is skipped with a warning
+CONFIG_MEMCG=y
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y
 
 # Device filesystem support
 CONFIG_DEVTMPFS=y
@@ -239,6 +243,8 @@ These options are tested on all GKI kernels and do not break the ABI.
 > [!WARNING]
 >
 > **Do not** enable anything beyond the GKI configuration below. These specific options are kABI-safe only in combination with the Step 1 patch.
+>
+> The **Resource limits** group at the end is the exception: it is not kABI-tested. Leave it out unless you need CPU or process limits, and test each option on its own.
 
 ```makefile
 # Kernel configurations for full DroidSpaces support for GKI
@@ -282,6 +288,12 @@ CONFIG_NETFILTER_XT_SET=y
 # For NixOS support
 CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
+
+# Resource limits: --cpus and --pids-limit. CONFIG_MEMCG is already on in GKI.
+# Not covered by the kABI patches: both resize scheduler and cgroup structures
+# that vendor modules read. Enable one at a time and be ready for a bootloop
+CONFIG_CFS_BANDWIDTH=y
+CONFIG_CGROUP_PIDS=y
 ```
 
 **How to edit the file:**
@@ -327,6 +339,7 @@ It checks for:
 - OverlayFS support (optional, for volatile mode)
 - VETH and Bridge support (optional, for NAT mode)
 - IPv6 NAT support (optional, for IPv6 in NAT mode)
+- Memory, CPU and process limit support (optional, for `--memory`, `--cpus` and `--pids-limit`)
 - PTY/devpts support
 - Loop device support
 - ext4 support
@@ -354,6 +367,9 @@ It checks for:
 | VETH / Bridge | `CONFIG_VETH` / `CONFIG_BRIDGE` | NAT mode unavailable. |
 | IPv6 NAT | `CONFIG_IP6_NF_NAT` / `CONFIG_IP6_NF_TARGET_MASQUERADE` | NAT containers are IPv4 only. |
 | Seccomp | `CONFIG_SECCOMP=y` | Seccomp shield disabled. Security risk. |
+| Memory limit | `CONFIG_MEMCG=y` | `--memory` is skipped. |
+| CPU limit | `CONFIG_CFS_BANDWIDTH=y` | `--cpus` is skipped. |
+| Process limit | `CONFIG_CGROUP_PIDS=y` | `--pids-limit` is skipped. |
 
 ---
 

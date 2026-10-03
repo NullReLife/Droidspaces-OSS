@@ -146,6 +146,16 @@ Hand a container's LAN to another running container (for example OpenWRT), which
 | `--force-cgroupv1` | | Force the legacy cgroup v1 hierarchy. Required if the host kernel has a broken or partial cgroup v2 implementation (common on older Android 4.x kernels). |
 | `--privileged=TAGS` | | Relax security protections. Takes a comma-separated list of tags: `nomask`, `nocaps`, `noseccomp`, `shared`, `full`. Use with extreme caution. |
 
+### Resource limits
+
+| Option | Description |
+|--------|-------------|
+| `--memory=SIZE` | Most RAM the container may use. Takes `K`, `M`, `G` or `T` suffixes, for example `--memory=2G`. Minimum 4M. |
+| `--cpus=COUNT` | Most CPU time, in cores. Fractions are fine, for example `--cpus=1.5`. |
+| `--pids-limit=N` | Most processes and threads at once. |
+
+Each limit needs kernel support and is skipped with a warning that names the missing option if the kernel lacks it. A limit is saved in the container's config, so it applies on every later start. See [Resource limits](Features.md#resource-limits).
+
 ### Bind mounts
 
 | Option | Short | Description |
@@ -220,6 +230,14 @@ volatile_mode=1
 
 # Run the container in the foreground instead of forking
 foreground=0
+
+# Resource limits. Leave a key out for no limit.
+# memory_limit is in bytes, pids_limit is a process count.
+# CPU time is cpu_quota microseconds per cpu_period: 200000 / 100000 = 2 cores.
+memory_limit=2147483648
+cpu_quota=200000
+cpu_period=100000
+pids_limit=1024
 
 # ----------------------------------------
 # Android App Configuration
