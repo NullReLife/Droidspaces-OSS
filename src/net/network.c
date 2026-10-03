@@ -1267,6 +1267,13 @@ static int gateway_ensure_lan_uplink_locked(struct ds_config *cfg,
       return -1;
     }
   }
+  /* IP-less has to hold for IPv6 too. Android leaves accept_ra at 2, so the
+   * host would otherwise take an address and a default route from the
+   * gateway's own router advertisements and sit on the LAN it only switches. */
+  char v6_off[128];
+  snprintf(v6_off, sizeof(v6_off), "/proc/sys/net/ipv6/conf/%s/disable_ipv6",
+           bridge);
+  write_file(v6_off, "1");
   if (ds_nl_link_up(ctx, bridge) < 0)
     ds_warn("[NET] Gateway: failed to bring up bridge %s", bridge);
   write_file("/proc/sys/net/bridge/bridge-nf-call-iptables", "0");
