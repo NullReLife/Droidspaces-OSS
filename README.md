@@ -246,7 +246,7 @@ Droidspaces supports Android devices running Linux kernel **3.10 and above**:
 
 | Kernel Version | Support Level | Notes |
 |----------------|---------------|-------|
-| 3.10 | Supported | **Legacy.** Minimum floor. Basic namespace support. systemd-based distros may be unstable; **Alpine** is recommended. |
+| 3.10 - 3.18 | Supported | **Legacy.** Minimum floor. Basic namespace support. systemd-based distros may be unstable; **Alpine** is recommended. |
 | 4.4 - 4.19 | Stable | **Hardened.** [Full support upto modern distros with systemd older than v258](./Documentation/Troubleshooting.md#modern-distros). Nested containers (Docker/Podman) are natively supported. |
 | 5.4 - 5.10 | Recommended | **Mainline.** Full feature support including nested containers and Cgroup v2. |
 | 5.15+ | Premium | **Full.** Best performance and maximum compatibility with all modern distributions. |
