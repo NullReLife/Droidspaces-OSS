@@ -120,7 +120,6 @@
     <string name="changes_take_effect_after_restart">Değişiklikler, sistemi yeniden başlattıktan sonra geçerli olacaktır</string>
     <string name="disable_ipv6">IPv6\'yı devre dışı bırak</string>
     <string name="disable_ipv6_description">Bu konteynerde IPv6\'yı devre dışı bırakın. IPv6\'yı devre dışı bırakmak, hostta çalışan VPN uygulamalarının çalışmamasına neden olabilir.</string>
-    <string name="disable_ipv6_nat_forced">IPv6, NAT ve “None” ağ modlarında her zaman devre dışıdır.</string>
     <string name="android_storage">Android Depolaması</string>
     <string name="android_storage_description">Android Depolama Alanını Bağla</string>
     <string name="hardware_access">Donanım Erişimi</string>

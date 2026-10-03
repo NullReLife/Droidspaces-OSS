@@ -101,7 +101,6 @@
     <string name="changes_take_effect_after_restart">Schimbările vor avea loc după repornire</string>
     <string name="disable_ipv6">Dezactivează IPv6</string>
     <string name="disable_ipv6_description">Dezactivează IPv6 în acest container. Dezactivarea a IPv6 poate interfera cu funcționalitatea aplicațiilor VPN care rulează pe gazdă.</string>
-    <string name="disable_ipv6_nat_forced">IPv6 este întotdeauna dezactivat în modurile de rețea NAT și Niciunul.</string>
     <string name="android_storage">Stocarea Android</string>
     <string name="android_storage_description">Montează stocarea Android</string>
     <string name="hardware_access">Acces la hardware</string>

@@ -245,7 +245,6 @@
     <string name="file_picker_error">「%1$s」が選択されました。.tar.xz か .tar.gz 形式のファイルを選択してください。</string>
     <string name="file_picker_error_unknown">ファイル形式を検出できませんでした。.tar.xz か .tar.gz 形式のファイルを選択してください。</string>
     <string name="distribution">ディストリビューション</string>
-    <string name="disable_ipv6_nat_forced">ネットワークの方式がNATやNoneであるときには、IPv6は常に無効です。</string>
     <string name="gpu_access_description">GPUのノードを隔離された/dev にミラーリングする (完全なるハードウェア透過はしない)</string>
     <string name="upstream_interface_title">上流インタフェース（任意）</string>
     <string name="upstream_interface_hint">インターネット接続を特定のインタフェースに固定します。空欄にすると、アクティブな上流回線を自動検出します。</string>
