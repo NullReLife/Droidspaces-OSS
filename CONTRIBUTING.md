@@ -565,7 +565,7 @@ an unknown line.
 | `setup_volatile_overlay`, `cleanup_volatile_overlay`, `check_volatile_mode` | Volatile mode |
 | `mount_rootfs_img`, `unmount_rootfs_img` | Sparse image loop device lifecycle |
 | `setup_cgroups`, `ds_cgroup_host_bootstrap` | cgroup setup |
-| `ds_cgroup_attach`, `ds_cgroup_detach`, `ds_cgroup_cleanup_container` | Moving a process in, and cleanup |
+| `ds_cgroup_attach`, `ds_cgroup_cleanup_container` | Moving a process in, and cleanup |
 | `ds_cgroup_apply_limits`, `ds_cgroup_get_usage`, `print_cgroup_status` | Limits and usage |
 | `ds_cg_word_in_list(list, name)` | Testing for a controller name. Do not `strstr` a controller list |
 | `get_workspace_dir`, `get_pids_dir`, `get_net_dir`, `get_logs_dir` | The only sanctioned way to build a workspace path. They switch between the Android and Linux roots |

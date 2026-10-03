@@ -242,16 +242,37 @@ int setup_cgroups(int is_systemd, int force_cgroupv1) {
   return 0;
 }
 
-/**
- * Move a process (usually self) into the same cgroup hierarchy as target_pid.
- * This is used by 'enter' to ensure the process is physically inside the
- * container's cgroup subtree on the host, which is required for D-Bus/logind
- * inside the container to correctly move the process into session scopes.
- */
-int ds_cgroup_attach(pid_t target_pid) {
-  /* On unified v2 hosts, we only need to write to the root v2 hierarchy.
-   * On hybrid hosts, we might need to iterate through mounted v1 controllers.
-   * For simplicity and correctness, we scan sys/fs/cgroup for directories. */
+/* Put the calling process inside the container's cgroup subtree before it
+ * setns()es in, the way lxc-attach does. logind inside the container can only
+ * move a session into its scope if the process is already under its root.
+ *
+ * The target is the cgroup we created for the container, never the one its
+ * init sits in now: systemd moves PID 1 into init.scope, and nothing else
+ * belongs in there. */
+int ds_cgroup_attach(const char *container_name, pid_t target_pid) {
+  char pid_s[32];
+  snprintf(pid_s, sizeof(pid_s), "%d", (int)getpid());
+
+  char safe_name[256], own[PATH_MAX];
+  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
+  snprintf(own, sizeof(own), "/sys/fs/cgroup/droidspaces/%s/cgroup.procs",
+           safe_name);
+  if (access(own, F_OK) == 0) {
+    /* systemd enables controllers on the container root, which then cannot
+     * hold processes, so every session shares one leaf beside init.scope
+     * (LXC's ".lxc"). It goes away with the container's tree at stop. The
+     * name has no leading dot because rmdir_cgroup_tree() skips dot entries.
+     * ponytail: no ds-enter-N retry on EBUSY like LXC has, that only hits if
+     * the container makes child cgroups inside our leaf. */
+    snprintf(own, sizeof(own), "/sys/fs/cgroup/droidspaces/%s/ds-enter",
+             safe_name);
+    mkdir(own, 0755);
+    strncat(own, "/cgroup.procs", sizeof(own) - strlen(own) - 1);
+    return write_file(own, pid_s);
+  }
+
+  /* No cgroup of our own (v1, or no cgroup namespace). The container root is
+   * then whatever cgroup init was started in, per hierarchy. */
   DIR *d = opendir("/sys/fs/cgroup");
   if (!d)
     return -1;
@@ -314,25 +335,19 @@ int ds_cgroup_attach(pid_t target_pid) {
     if (subpath[0] == '\0')
       continue;
 
-    /* 2. Create leaf and move self - same logic as before but uses local sysfs
-     */
-    char leaf_dir[PATH_MAX * 2 + 512];
-    snprintf(leaf_dir, sizeof(leaf_dir), "%s%s/ds-enter-%d", cg_root, subpath,
-             (int)getpid());
+    /* 2. systemd has moved PID 1 into init.scope since then, so drop that
+     * component to get back to the container root, and join it directly.
+     * Best-effort: a hierarchy that refuses us is not worth failing enter. */
+    static const char scope[] = "/init.scope";
+    size_t sl = strlen(subpath);
+    if (sl >= sizeof(scope) - 1 &&
+        strcmp(subpath + sl - (sizeof(scope) - 1), scope) == 0)
+      subpath[sl - (sizeof(scope) - 1)] = '\0';
 
-    if (mkdir_p(leaf_dir, 0755) < 0 && errno != EEXIST)
-      continue;
-
-    char procs_path[sizeof(leaf_dir) + 32];
-    snprintf(procs_path, sizeof(procs_path), "%s/cgroup.procs", leaf_dir);
-    int pfd = open(procs_path, O_WRONLY | O_CLOEXEC);
-    if (pfd >= 0) {
-      char pid_s[32];
-      int len = snprintf(pid_s, sizeof(pid_s), "%d", (int)getpid());
-      if (write(pfd, pid_s, len) < 0) {
-        /* best-effort, ignore */
-      }
-      close(pfd);
+    char procs_path[PATH_MAX * 2 + 32];
+    snprintf(procs_path, sizeof(procs_path), "%s%s/cgroup.procs", cg_root,
+             subpath);
+    if (write_file(procs_path, pid_s) < 0) {
     }
 
     if (strcmp(de->d_name, "cgroup.procs") == 0)
@@ -340,77 +355,6 @@ int ds_cgroup_attach(pid_t target_pid) {
   }
   closedir(d);
   return 0;
-}
-
-/* ds_cgroup_detach
- *
- * Removes ds-enter-<pid> leaf cgroup dirs created by ds_cgroup_attach().
- * Must be called after waitpid() so the leaf is guaranteed empty.
- *
- * The old implementation reconstructed the path manually and got the depth
- * wrong (missed intermediate scopes like init.scope), causing stale dirs.
- * This version does a recursive scan of /sys/fs/cgroup and removes every
- * dir named "ds-enter-<pid>" regardless of depth - works for both v1 and v2. */
-
-/* Wait up to 500ms for cgroup.events populated=0 (cgroupv2),
- * or tasks file empty (cgroupv1), before rmdir. */
-static void wait_cgroup_empty(const char *leaf_path) {
-  /* cgroupv2: poll cgroup.events */
-  char events[PATH_MAX + 32];
-  snprintf(events, sizeof(events), "%s/cgroup.events", leaf_path);
-  if (access(events, R_OK) == 0) {
-    for (int i = 0; i < 50; i++) {
-      char buf[256] = {0};
-      if (read_file(events, buf, sizeof(buf)) > 0 && strstr(buf, "populated 0"))
-        return;
-      usleep(10000);
-    }
-    return;
-  }
-
-  /* cgroupv1: poll tasks file */
-  char tasks[PATH_MAX + 32];
-  snprintf(tasks, sizeof(tasks), "%s/tasks", leaf_path);
-  for (int i = 0; i < 50; i++) {
-    char buf[64] = {0};
-    if (read_file(tasks, buf, sizeof(buf)) > 0 && buf[0] == '\0')
-      return;
-    usleep(10000);
-  }
-}
-
-/* Recursively walk 'dir_path'; rmdir any entry named 'target'. */
-static void find_and_rmdir(const char *dir_path, const char *target) {
-  DIR *d = opendir(dir_path);
-  if (!d)
-    return;
-
-  struct dirent *de;
-  while ((de = readdir(d)) != NULL) {
-    if (de->d_name[0] == '.')
-      continue;
-    if (de->d_type != DT_DIR)
-      continue;
-
-    char child[PATH_MAX];
-    snprintf(child, sizeof(child), "%s/%s", dir_path, de->d_name);
-
-    if (strcmp(de->d_name, target) == 0) {
-      wait_cgroup_empty(child);
-      rmdir(child);
-    } else {
-      find_and_rmdir(child, target);
-    }
-  }
-  closedir(d);
-}
-
-void ds_cgroup_detach(pid_t child_pid, const char *container_name) {
-  (void)container_name;
-
-  char target[64];
-  snprintf(target, sizeof(target), "ds-enter-%d", (int)child_pid);
-  find_and_rmdir("/sys/fs/cgroup", target);
 }
 
 /* ds_cgroup_cleanup_container

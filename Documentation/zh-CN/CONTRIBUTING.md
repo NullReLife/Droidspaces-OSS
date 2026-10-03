@@ -536,7 +536,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `setup_volatile_overlay`、`cleanup_volatile_overlay`、`check_volatile_mode` | 易失模式 |
 | `mount_rootfs_img`、`unmount_rootfs_img` | 稀疏镜像的 loop 设备生命周期 |
 | `setup_cgroups`、`ds_cgroup_host_bootstrap` | cgroup 初始化 |
-| `ds_cgroup_attach`、`ds_cgroup_detach`、`ds_cgroup_cleanup_container` | 把进程移入，以及清理 |
+| `ds_cgroup_attach`、`ds_cgroup_cleanup_container` | 把进程移入，以及清理 |
 | `ds_cgroup_apply_limits`、`ds_cgroup_get_usage`、`print_cgroup_status` | 资源限制与用量 |
 | `ds_cg_word_in_list(list, name)` | 判断控制器名是否在列表中。不要对控制器列表用 `strstr` |
 | `get_workspace_dir`、`get_pids_dir`、`get_net_dir`、`get_logs_dir` | 构造工作目录路径的唯一认可方式。它们会在 Android 与 Linux 根目录之间切换 |

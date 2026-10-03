@@ -1230,7 +1230,7 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
 
     /* cgroup attach before entering namespaces */
     ds_log_silent = 1;
-    ds_cgroup_attach(pid);
+    ds_cgroup_attach(cfg->container_name, pid);
     ds_log_silent = 0;
 
     if (enter_namespace(pid, cfg) < 0)
@@ -1377,7 +1377,6 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
   if (master_fd < 0) {
     ds_error("Failed to receive PTY master from child");
     waitpid(child, NULL, 0);
-    ds_cgroup_detach(child, cfg->container_name);
     return -1;
   }
 
@@ -1402,7 +1401,6 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
 
   close(master_fd);
   waitpid(child, NULL, 0);
-  ds_cgroup_detach(child, cfg->container_name);
   free_config_env_vars(cfg);
   return 0;
 }
@@ -1460,10 +1458,10 @@ int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
 
   if (child == 0) {
     /* Mirror enter_rootfs: attach to the container's cgroup subtree before
-     * crossing into its namespaces, so the command is properly accounted
-     * under systemd's hierarchy instead of leaking to the cgroup root. */
+     * crossing into its namespaces, so the command is accounted to the
+     * container instead of leaking to the host's cgroup root. */
     ds_log_silent = 1;
-    ds_cgroup_attach(pid);
+    ds_cgroup_attach(cfg->container_name, pid);
     ds_log_silent = 0;
 
     if (enter_namespace(pid, cfg) < 0)
@@ -1554,7 +1552,6 @@ int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
 
   int status;
   waitpid(child, &status, 0);
-  ds_cgroup_detach(child, cfg->container_name);
   free_config_env_vars(cfg);
   return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
