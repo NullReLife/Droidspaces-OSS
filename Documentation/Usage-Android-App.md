@@ -101,7 +101,7 @@ In NAT mode, the **Port Forwarding** section maps host ports to container ports 
 
 ## Resource limits
 
-The container settings have a **Resource Limits** section, above **Advanced Options**:
+The container settings have a **Resource Limits** section, after **Integration & Hardware**:
 
 - **Limit memory**: a slider from 128 MB up to the device's total RAM.
 - **Limit CPU**: a slider from half a core up to the device's core count.

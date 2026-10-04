@@ -481,71 +481,6 @@ fun ContainerConfigForm(
         )
 
         SectionHeader(
-            text = context.getString(R.string.cat_security),
-            modifier = Modifier.padding(top = 16.dp)
-        )
-
-        ToggleCard(
-            icon = Icons.Default.Security,
-            title = context.getString(R.string.selinux_permissive),
-            description = context.getString(R.string.selinux_permissive_description),
-            checked = state.selinuxPermissive,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(selinuxPermissive = it)) }
-        )
-
-        val isSeccompDisabled = state.privileged.contains("noseccomp") || state.privileged.contains("full")
-        // /proc/self/setgroups only exists when CONFIG_USER_NS is enabled.
-        val usernsSupported = remember { java.io.File("/proc/self/setgroups").exists() }
-
-        LaunchedEffect(isSeccompDisabled, usernsSupported) {
-            var s = state
-            if (isSeccompDisabled && usernsSupported) s = s.copy(allowSandboxing = true)
-            if (!usernsSupported) s = s.copy(allowSandboxing = false)
-            if (s != state) onStateChange(s)
-        }
-
-        ToggleCard(
-            icon = Icons.Default.Groups,
-            title = context.getString(R.string.allow_userns),
-            description = if (usernsSupported) context.getString(R.string.allow_userns_description) else context.getString(R.string.allow_userns_description_not_supported),
-            checked = state.allowSandboxing,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(allowSandboxing = it)) },
-            enabled = !isSeccompDisabled && usernsSupported
-        )
-
-        ToggleCard(
-            icon = Icons.Default.AutoDelete,
-            title = context.getString(R.string.volatile_mode),
-            description = context.getString(R.string.volatile_mode_description),
-            checked = state.volatileMode,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(volatileMode = it)) }
-        )
-
-        ToggleCard(
-            icon = Icons.Default.Cyclone,
-            title = context.getString(R.string.force_cgroupv1),
-            description = context.getString(R.string.force_cgroupv1_description),
-            checked = state.forceCgroupv1,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(forceCgroupv1 = it)) }
-        )
-
-        SettingsRowCard(
-            title = context.getString(R.string.privileged_mode),
-            subtitle = if (state.privileged.isEmpty()) context.getString(R.string.not_configured) else state.privileged,
-            description = context.getString(R.string.privileged_mode_description),
-            icon = Icons.Default.GppMaybe,
-            onClick = { clearFocus(); showPrivilegedDialog = true }
-        )
-
-        ToggleCard(
-            icon = Icons.Default.PowerSettingsNew,
-            title = context.getString(R.string.run_at_boot),
-            description = context.getString(R.string.run_at_boot_description),
-            checked = state.runAtBoot,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(runAtBoot = it)) }
-        )
-
-        SectionHeader(
             text = context.getString(R.string.cat_resource_limits),
             modifier = Modifier.padding(top = 16.dp)
         )
@@ -666,6 +601,71 @@ fun ContainerConfigForm(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
+        )
+
+        SectionHeader(
+            text = context.getString(R.string.cat_security),
+            modifier = Modifier.padding(top = 16.dp)
+        )
+
+        ToggleCard(
+            icon = Icons.Default.Security,
+            title = context.getString(R.string.selinux_permissive),
+            description = context.getString(R.string.selinux_permissive_description),
+            checked = state.selinuxPermissive,
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(selinuxPermissive = it)) }
+        )
+
+        val isSeccompDisabled = state.privileged.contains("noseccomp") || state.privileged.contains("full")
+        // /proc/self/setgroups only exists when CONFIG_USER_NS is enabled.
+        val usernsSupported = remember { java.io.File("/proc/self/setgroups").exists() }
+
+        LaunchedEffect(isSeccompDisabled, usernsSupported) {
+            var s = state
+            if (isSeccompDisabled && usernsSupported) s = s.copy(allowSandboxing = true)
+            if (!usernsSupported) s = s.copy(allowSandboxing = false)
+            if (s != state) onStateChange(s)
+        }
+
+        ToggleCard(
+            icon = Icons.Default.Groups,
+            title = context.getString(R.string.allow_userns),
+            description = if (usernsSupported) context.getString(R.string.allow_userns_description) else context.getString(R.string.allow_userns_description_not_supported),
+            checked = state.allowSandboxing,
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(allowSandboxing = it)) },
+            enabled = !isSeccompDisabled && usernsSupported
+        )
+
+        ToggleCard(
+            icon = Icons.Default.AutoDelete,
+            title = context.getString(R.string.volatile_mode),
+            description = context.getString(R.string.volatile_mode_description),
+            checked = state.volatileMode,
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(volatileMode = it)) }
+        )
+
+        ToggleCard(
+            icon = Icons.Default.Cyclone,
+            title = context.getString(R.string.force_cgroupv1),
+            description = context.getString(R.string.force_cgroupv1_description),
+            checked = state.forceCgroupv1,
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(forceCgroupv1 = it)) }
+        )
+
+        SettingsRowCard(
+            title = context.getString(R.string.privileged_mode),
+            subtitle = if (state.privileged.isEmpty()) context.getString(R.string.not_configured) else state.privileged,
+            description = context.getString(R.string.privileged_mode_description),
+            icon = Icons.Default.GppMaybe,
+            onClick = { clearFocus(); showPrivilegedDialog = true }
+        )
+
+        ToggleCard(
+            icon = Icons.Default.PowerSettingsNew,
+            title = context.getString(R.string.run_at_boot),
+            description = context.getString(R.string.run_at_boot_description),
+            checked = state.runAtBoot,
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(runAtBoot = it)) }
         )
 
         SectionHeader(
