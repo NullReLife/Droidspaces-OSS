@@ -141,11 +141,13 @@ CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_NET_PRIO=y
 
-# Resource limits: --memory, --cpus, --pids-limit, in that order.
+# Resource limits: --memory, --cpus, --pids-limit, in that order, then the
+# accounting that reports CPU usage on kernels before 4.15.
 # Optional: a limit whose option is missing is skipped with a warning
 CONFIG_MEMCG=y
 CONFIG_CFS_BANDWIDTH=y
 CONFIG_CGROUP_PIDS=y
+CONFIG_CGROUP_CPUACCT=y
 
 # Device filesystem support
 CONFIG_DEVTMPFS=y
