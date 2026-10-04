@@ -172,7 +172,7 @@ fun ContainerCard(
                 add(rememberVectorPainter(Icons.Default.Computer) to context.getString(R.string.hostname_label, displayHostname))
                 add(rememberVectorPainter(Icons.Default.Public) to netModeLabel)
                 if (hasSparseImage) add(painterResource(id = R.drawable.ic_disk) to context.getString(R.string.gb_size, container.sparseImageSizeGB ?: 0))
-                ResourceLimits.memoryLabel(context, container)?.let { add(rememberVectorPainter(Icons.Default.SdCard) to it) }
+                ResourceLimits.memoryLabel(context, container)?.let { add(rememberVectorPainter(Icons.Default.Memory) to it) }
                 ResourceLimits.cpuLabel(context, container)?.let { add(rememberVectorPainter(Icons.Default.Speed) to it) }
                 ResourceLimits.pidsLabel(context, container)?.let { add(rememberVectorPainter(Icons.Default.Tag) to it) }
             }

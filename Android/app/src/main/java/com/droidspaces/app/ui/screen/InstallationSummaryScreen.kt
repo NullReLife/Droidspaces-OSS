@@ -127,7 +127,7 @@ fun InstallationSummaryScreen(
                     if (config.disableIPv6) SummaryItem(stringResource(R.string.disable_ipv6), stringResource(R.string.enabled_legend), Icons.Default.NetworkCheck)
                     if (config.enableAndroidStorage) SummaryItem(stringResource(R.string.android_storage), stringResource(R.string.enabled_legend), Icons.Default.Storage)
                     if (config.enableHwAccess) SummaryItem(stringResource(R.string.hardware_access), stringResource(R.string.enabled_legend), Icons.Default.Devices)
-                    if (!config.enableHwAccess && config.enableGpuMode) SummaryItem(stringResource(R.string.gpu_access), stringResource(R.string.enabled_legend), Icons.Default.Memory)
+                    if (!config.enableHwAccess && config.enableGpuMode) SummaryItem(stringResource(R.string.gpu_access), stringResource(R.string.enabled_legend), Icons.Default.DeveloperBoard)
                     if (config.enableTermuxX11) SummaryItem(stringResource(R.string.termux_x11), stringResource(R.string.enabled_legend), painterResource(id = R.drawable.ic_x11))
                     if (config.enableVirgl) SummaryItem(stringResource(R.string.enable_virgl), stringResource(R.string.enabled_legend), Icons.Default.Layers)
                     if (config.enablePulseaudio) SummaryItem(stringResource(R.string.enable_pulseaudio), stringResource(R.string.enabled_legend), Icons.AutoMirrored.Filled.VolumeUp)
@@ -141,7 +141,7 @@ fun InstallationSummaryScreen(
                     val memoryLabel = ResourceLimits.memoryLabel(context, config)
                     val cpuLabel = ResourceLimits.cpuLabel(context, config)
                     val pidsLabel = ResourceLimits.pidsLabel(context, config)
-                    if (memoryLabel != null) SummaryItem(stringResource(R.string.limit_memory), memoryLabel, Icons.Default.SdCard)
+                    if (memoryLabel != null) SummaryItem(stringResource(R.string.limit_memory), memoryLabel, Icons.Default.Memory)
                     if (cpuLabel != null) SummaryItem(stringResource(R.string.limit_cpu), cpuLabel, Icons.Default.Speed)
                     if (pidsLabel != null) SummaryItem(stringResource(R.string.limit_pids), pidsLabel, Icons.Default.Tag)
 

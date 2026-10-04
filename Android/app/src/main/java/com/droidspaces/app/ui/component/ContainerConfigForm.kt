@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Cyclone
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.GppMaybe
@@ -43,7 +44,6 @@ import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.SdCard
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
@@ -445,7 +445,7 @@ fun ContainerConfigForm(
         )
 
         ToggleCard(
-            icon = Icons.Default.Memory,
+            icon = Icons.Default.DeveloperBoard,
             title = context.getString(R.string.gpu_access),
             description = context.getString(R.string.gpu_access_description),
             checked = if (state.enableHwAccess) true else state.enableGpuMode,
@@ -558,7 +558,7 @@ fun ContainerConfigForm(
 
         val memMb = (state.memoryLimit / mb).toInt()
         ToggleCard(
-            icon = Icons.Default.SdCard,
+            icon = Icons.Default.Memory,
             title = context.getString(R.string.limit_memory),
             description = when {
                 !limitSupport.memory -> context.getString(R.string.limit_not_supported, "CONFIG_MEMCG")
