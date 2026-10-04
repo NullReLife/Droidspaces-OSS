@@ -276,7 +276,7 @@ int setup_cgroups(int is_systemd, int force_cgroupv1) {
   return 0;
 }
 
-enum { V1_CREATE, V1_JOIN, V1_LEAVE, V1_REMOVE };
+enum { V1_CREATE, V1_JOIN, V1_REMOVE };
 
 static void rmdir_cgroup_tree(const char *path);
 
@@ -299,6 +299,18 @@ static void v1_seed_cpuset(const char *mnt) {
   snprintf(path, sizeof(path), "%s/droidspaces/cgroup.clone_children", mnt);
   if (write_file(path, "1") < 0) {
   }
+}
+
+/* A container's cgroup must be made by the start that uses it, as in LXC:
+ * limits are only ever written to a new cgroup, so one that is already there
+ * still carries whatever an earlier run set. ds_cgroup_setup() removes
+ * leftovers first, so EEXIST here means that removal failed. Other errors
+ * are not worth a line: schedtune on 4.14 has a hard cap on group count. */
+static void mkdir_fresh(const char *dir) {
+  if (mkdir(dir, 0755) < 0 && errno == EEXIST)
+    ds_warn("[CGROUP] %s is left over from an earlier run and could not be "
+            "removed, its old limits may still apply.",
+            dir);
 }
 
 /* Apply 'op' to this container's cgroup in every v1 hierarchy mounted on the
@@ -331,13 +343,14 @@ static void v1_each(const char *container_name, int op) {
     }
     snprintf(dir, sizeof(dir), "%s/droidspaces/%s", mnt, safe_name);
     if (op == V1_CREATE) {
-      mkdir(dir, 0755);
+      mkdir_fresh(dir);
       /* Kernels before 5.x account memory flat by default, and then a limit
        * here would not cover the cgroups systemd creates below us. Fails
        * quietly on every other hierarchy. */
       snprintf(path, sizeof(path), "%s/memory.use_hierarchy", dir);
       if (write_file(path, "1") < 0) {
       }
+      continue;
     }
     if (access(dir, F_OK) != 0)
       continue;
@@ -346,15 +359,11 @@ static void v1_each(const char *container_name, int op) {
       rmdir_cgroup_tree(dir);
       continue;
     }
-    snprintf(path, sizeof(path), "%s/cgroup.procs", op == V1_LEAVE ? mnt : dir);
+    snprintf(path, sizeof(path), "%s/cgroup.procs", dir);
     if (write_file(path, pid_s) < 0) {
     }
   }
   fclose(f);
-}
-
-void ds_cgroup_v1_join(const char *container_name, int leave) {
-  v1_each(container_name, leave ? V1_LEAVE : V1_JOIN);
 }
 
 /* v1 only lets the initial cgroup namespace create a hierarchy, so whatever
@@ -379,48 +388,103 @@ static void v1_mount_missing_controller(const char *name, void *arg) {
 }
 
 /* Give a v1 container its own cgroup in every v1 hierarchy, name=systemd
- * included, the way LXC lays it out. The monitor calls this before unshare(),
- * so the container inherits the cgroups and its cgroup namespace is rooted in
- * them. Without it the container's systemd sits at the host root of each
- * hierarchy and litters /dev/memcg and friends with its slices. */
-void ds_cgroup_v1_setup(struct ds_config *cfg) {
+ * included, the way LXC lays it out. Without it the container's systemd sits
+ * at the host root of each hierarchy and litters /dev/memcg and friends with
+ * its slices. */
+static void v1_setup(struct ds_config *cfg) {
   each_v1_controller(v1_mount_missing_controller, NULL);
   v1_mount_missing("name=systemd", "none,name=systemd");
   v1_each(cfg->container_name, V1_CREATE);
 }
 
+/* Build this boot's cgroups from nothing and write the limits into them.
+ *
+ * The caller is the monitor and it stays outside: the intermediate joins with
+ * ds_cgroup_join(). These are LXC's rules, and each one closes a hole we had.
+ * A supervisor sitting inside the cgroup blocks its removal, a cgroup that
+ * outlives a restart is reused with its old limits, and a limit that is no
+ * longer configured is never written back to "max". So: nothing of ours
+ * inside, nothing reused, limits only ever written to a new cgroup. */
+void ds_cgroup_setup(struct ds_config *cfg) {
+  ds_cgroup_cleanup_container(cfg->container_name);
+
+  if (cfg->force_cgroupv1 || !ds_cgroup_host_is_v2()) {
+    v1_setup(cfg);
+  } else if (access("/sys/fs/cgroup/cgroup.procs", F_OK) == 0) {
+    /* A controller only appears in a child cgroup once the parent's
+     * subtree_control enables it, so walk the two levels above ours:
+     * /sys/fs/cgroup -> /sys/fs/cgroup/droidspaces */
+    char enable[64] = "", buf[256], dir[PATH_MAX], safe_name[256];
+    if (read_file("/sys/fs/cgroup/cgroup.controllers", buf, sizeof(buf)) > 0)
+      snprintf(enable, sizeof(enable), "%s%s%s",
+               cfg->memory_limit && ctrl_in_list(buf, "memory") ? "+memory "
+                                                                : "",
+               cfg->cpu_quota && ctrl_in_list(buf, "cpu") ? "+cpu " : "",
+               cfg->pids_limit && ctrl_in_list(buf, "pids") ? "+pids" : "");
+
+    mkdir("/sys/fs/cgroup/droidspaces", 0755);
+    if (enable[0]) {
+      if (write_file("/sys/fs/cgroup/cgroup.subtree_control", enable) < 0)
+        ds_warn("[CGROUP] subtree_control (root): %s", strerror(errno));
+      if (write_file("/sys/fs/cgroup/droidspaces/cgroup.subtree_control",
+                     enable) < 0)
+        ds_warn("[CGROUP] subtree_control (droidspaces): %s", strerror(errno));
+    }
+
+    sanitize_container_name(cfg->container_name, safe_name, sizeof(safe_name));
+    snprintf(dir, sizeof(dir), "/sys/fs/cgroup/droidspaces/%s", safe_name);
+    mkdir_fresh(dir);
+  }
+
+  ds_cgroup_apply_limits(cfg);
+}
+
+/* Move the caller into the container's cgroups: every v1 one it has (all of
+ * them on a v1 container, the ones holding a limit on a cgroup2 one) and,
+ * under 'leaf', its cgroup2 dir. */
+static int cgroup_join(const char *container_name, const char *leaf) {
+  v1_each(container_name, V1_JOIN);
+
+  char safe_name[256], path[PATH_MAX], pid_s[32];
+  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
+  snprintf(path, sizeof(path), "/sys/fs/cgroup/droidspaces/%s", safe_name);
+  if (access(path, F_OK) != 0)
+    return 0;
+
+  if (leaf) {
+    strncat(path, leaf, sizeof(path) - strlen(path) - 1);
+    mkdir(path, 0755);
+  }
+  strncat(path, "/cgroup.procs", sizeof(path) - strlen(path) - 1);
+  snprintf(pid_s, sizeof(pid_s), "%d", (int)getpid());
+  return write_file(path, pid_s);
+}
+
+/* The per-boot intermediate calls this before it unshares, so that init and
+ * the cgroup namespace both start at the root of the container's cgroups. */
+void ds_cgroup_join(const char *container_name) {
+  if (cgroup_join(container_name, NULL) < 0)
+    ds_warn("[CGROUP] Could not join the container's cgroup: %s",
+            strerror(errno));
+}
+
 /* Put the calling process inside the container's cgroups before it setns()es
  * in, the way lxc-attach does. logind inside the container can only move a
- * session into its scope if the process is already under its root.
+ * session into its scope if the process is already under its root, and a
+ * session left outside would also run outside the limits.
  *
  * The target is always a cgroup we created for the container, never the one
  * its init sits in now: systemd moves PID 1 into init.scope, and nothing else
- * belongs in there. */
+ * belongs in there.
+ *
+ * On cgroup2, systemd enables controllers on the container root, which then
+ * cannot hold processes, so every session shares one leaf beside init.scope
+ * (LXC's ".lxc"). It goes away with the container's tree at stop. The name
+ * has no leading dot because rmdir_cgroup_tree() skips dot entries.
+ * ponytail: no ds-enter-N retry on EBUSY like LXC has, that only hits if the
+ * container makes child cgroups inside our leaf. */
 int ds_cgroup_attach(const char *container_name) {
-  /* All of them on a v1 container, the ones holding a limit on a cgroup2
-   * one. Skipping this would let the session run outside the limits. */
-  v1_each(container_name, V1_JOIN);
-
-  char safe_name[256], own[PATH_MAX];
-  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
-  snprintf(own, sizeof(own), "/sys/fs/cgroup/droidspaces/%s/cgroup.procs",
-           safe_name);
-  if (access(own, F_OK) != 0)
-    return 0;
-
-  /* systemd enables controllers on the container root, which then cannot
-   * hold processes, so every session shares one leaf beside init.scope
-   * (LXC's ".lxc"). It goes away with the container's tree at stop. The
-   * name has no leading dot because rmdir_cgroup_tree() skips dot entries.
-   * ponytail: no ds-enter-N retry on EBUSY like LXC has, that only hits if
-   * the container makes child cgroups inside our leaf. */
-  char pid_s[32];
-  snprintf(pid_s, sizeof(pid_s), "%d", (int)getpid());
-  snprintf(own, sizeof(own), "/sys/fs/cgroup/droidspaces/%s/ds-enter",
-           safe_name);
-  mkdir(own, 0755);
-  strncat(own, "/cgroup.procs", sizeof(own) - strlen(own) - 1);
-  return write_file(own, pid_s);
+  return cgroup_join(container_name, "/ds-enter");
 }
 
 /* ds_cgroup_cleanup_container
@@ -610,8 +674,7 @@ int ds_cgroup_ctrl_dir(const char *ctrl, const char *container_name, char *dir,
 
 /* Write one limit where its controller lives and return 1 if it is in place.
  * A NULL file means this cgroup version needs no write for this knob. On v1
- * the cgroup is ours to create, and the caller (the monitor) joins it so the
- * whole container inherits it. */
+ * the cgroup is ours to create; the intermediate joins it afterwards. */
 static int apply_limit(struct ds_config *cfg, const char *ctrl,
                        const char *v2_file, const char *v2_val,
                        const char *v1_file, const char *v1_val,
@@ -640,13 +703,6 @@ static int apply_limit(struct ds_config *cfg, const char *ctrl,
   } else if (write_file(path, ver == 1 ? v1_val : v2_val) < 0) {
     ds_warn("[CGROUP] %s: %s", file, strerror(errno));
   } else {
-    if (ver == 1) {
-      char pid_s[32];
-      snprintf(pid_s, sizeof(pid_s), "%d", (int)getpid());
-      snprintf(path, sizeof(path), "%s/cgroup.procs", dir);
-      if (write_file(path, pid_s) < 0)
-        ds_warn("[CGROUP] joining %s: %s", dir, strerror(errno));
-    }
     return 1;
   }
   if (ver == 1)

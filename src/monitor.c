@@ -65,24 +65,6 @@ static void close_and_forget(int *fd) {
   *fd = -1;
 }
 
-/* Move the monitor back to the root cgroup. It wrote its own PID into
- * /sys/fs/cgroup/droidspaces/<name>/ at start (for cgroup namespace
- * isolation) and into its v1 cgroups, and while it sits there the kernel
- * refuses to rmdir those with EBUSY. Safe: the monitor is about to _exit()
- * anyway. */
-static void leave_container_cgroup(const char *container_name) {
-  ds_cgroup_v1_join(container_name, 1);
-
-  int root_fd = open("/sys/fs/cgroup/cgroup.procs", O_WRONLY | O_CLOEXEC);
-  if (root_fd < 0)
-    return;
-  char pid_s[32];
-  int len = snprintf(pid_s, sizeof(pid_s), "%d", (int)getpid());
-  if (write(root_fd, pid_s, (size_t)len) < 0) {
-  }
-  close(root_fd);
-}
-
 void ds_monitor_run(struct ds_config *cfg, int sync_pipe_write) {
   int sync_pipe[2];
   sync_pipe[0] = -1;
@@ -120,91 +102,12 @@ void ds_monitor_run(struct ds_config *cfg, int sync_pipe_write) {
 
   prctl(PR_SET_NAME, "[ds-monitor]", 0, 0, 0);
 
-  /* Unshare namespaces - Monitor enters new UTS, IPC, and optionally Cgroup
-   * namespaces immediately. PID namespace is NOT unshared here because
-   * unshare(CLONE_NEWPID) can only be called once per process. Instead,
-   * each boot/reboot cycle forks an intermediate that creates a fresh
-   * PID namespace. */
+  /* The monitor takes new UTS and IPC namespaces now. The PID namespace is
+   * NOT unshared here because unshare(CLONE_NEWPID) can only be called once
+   * per process: each boot/reboot cycle forks an intermediate that creates a
+   * fresh one. The cgroup namespace belongs to that intermediate too, the
+   * monitor never enters the container's cgroups. */
   int ns_flags = CLONE_NEWUTS | CLONE_NEWIPC;
-
-  /* The container needs a cgroup of its own BEFORE we unshare the cgroup
-   * namespace (Linux 4.6+). If we are still in the root '/', the namespace
-   * root is the host's root and isolates nothing. */
-  if (cfg->force_cgroupv1 || !ds_cgroup_host_is_v2()) {
-    ds_cgroup_v1_setup(cfg);
-  } else {
-    if (access("/sys/fs/cgroup/cgroup.procs", F_OK) == 0) {
-      char safe_name[256];
-      sanitize_container_name(cfg->container_name, safe_name,
-                              sizeof(safe_name));
-
-      /* v2: enable requested controllers top-down BEFORE mkdir.
-       * Controllers only appear in a child cgroup if the parent's
-       * subtree_control has them enabled first. Walk two levels:
-       * /sys/fs/cgroup -> /sys/fs/cgroup/droidspaces */
-      if (cfg->memory_limit || cfg->cpu_quota || cfg->pids_limit) {
-        /* Build enable string with snprintf offsets instead of strncat to
-         * avoid truncation. Use ds_cg_word_in_list() for exact word-boundary
-         * matching to prevent false positives (e.g. matching "cpuset"
-         * when looking for "cpu"). */
-        char enable[64] = {0};
-        char buf[256];
-        int eoff = 0;
-        if (read_file("/sys/fs/cgroup/cgroup.controllers", buf, sizeof(buf)) >
-            0) {
-          if (cfg->memory_limit && ds_cg_word_in_list(buf, "memory")) {
-            int n = snprintf(enable + eoff, sizeof(enable) - (size_t)eoff,
-                             "%s+memory", eoff ? " " : "");
-            if (n > 0)
-              eoff += n;
-          }
-          if (cfg->cpu_quota && ds_cg_word_in_list(buf, "cpu")) {
-            int n = snprintf(enable + eoff, sizeof(enable) - (size_t)eoff,
-                             "%s+cpu", eoff ? " " : "");
-            if (n > 0)
-              eoff += n;
-          }
-          if (cfg->pids_limit && ds_cg_word_in_list(buf, "pids")) {
-            int n = snprintf(enable + eoff, sizeof(enable) - (size_t)eoff,
-                             "%s+pids", eoff ? " " : "");
-            if (n > 0)
-              eoff += n;
-          }
-        }
-        if (eoff > 0) {
-          if (write_file("/sys/fs/cgroup/cgroup.subtree_control", enable) < 0)
-            ds_warn("[CGROUP] subtree_control (root): %s", strerror(errno));
-          mkdir_p("/sys/fs/cgroup/droidspaces", 0755);
-          if (write_file("/sys/fs/cgroup/droidspaces/cgroup.subtree_control",
-                         enable) < 0)
-            ds_warn("[CGROUP] subtree_control (droidspaces): %s",
-                    strerror(errno));
-        }
-      }
-
-      char cg_path[PATH_MAX];
-      snprintf(cg_path, sizeof(cg_path), "/sys/fs/cgroup/droidspaces/%s",
-               safe_name);
-      mkdir_p(cg_path, 0755);
-
-      char cg_procs[PATH_MAX];
-      safe_strncpy(cg_procs, cg_path, sizeof(cg_procs));
-      strncat(cg_procs, "/cgroup.procs",
-              sizeof(cg_procs) - strlen(cg_procs) - 1);
-      FILE *f = fopen(cg_procs, "we");
-      if (f) {
-        fprintf(f, "%d\n", getpid());
-        fclose(f);
-      }
-    }
-  }
-  if (access("/proc/self/ns/cgroup", F_OK) == 0)
-    ns_flags |= CLONE_NEWCGROUP;
-
-  /* Apply resource limits, each on the hierarchy that owns its controller.
-   * Must come before unshare(): the monitor joins any v1 limit cgroup here,
-   * the container inherits it, and the cgroup namespace gets rooted there. */
-  ds_cgroup_apply_limits(cfg);
 
   if (unshare(ns_flags) < 0)
     ds_die("unshare failed: %s", strerror(errno));
@@ -320,20 +223,33 @@ reboot_loop:;
     }
   }
 
+  /* This boot's cgroups, built from nothing, with the limits the config
+   * holds now. Done here and not once up front so that a restart, an
+   * internal reboot and a start after a crash all get the same clean slate. */
+  ds_cgroup_setup(cfg);
+
   pid_t mid_pid = fork();
   if (mid_pid < 0)
     _exit(EXIT_FAILURE);
 
   if (mid_pid == 0) {
     /* INTERMEDIATE PROCESS
-     * Create a fresh PID namespace (and NET namespace for NAT/none modes)
-     * for this boot cycle. */
+     * Join the container's cgroups, then create a fresh PID namespace (and
+     * NET namespace for NAT/none modes) for this boot cycle.
+     *
+     * The cgroup namespace (Linux 4.6+) is unshared here, after the join: its
+     * root is wherever we sit at that moment, and from the root cgroup it
+     * would isolate nothing. */
+    ds_cgroup_join(cfg->container_name);
+
     int clone_flags = CLONE_NEWPID;
     if (cfg->net_mode != DS_NET_HOST)
       clone_flags |= CLONE_NEWNET;
+    if (access("/proc/self/ns/cgroup", F_OK) == 0)
+      clone_flags |= CLONE_NEWCGROUP;
 
     if (unshare(clone_flags) < 0) {
-      ds_error("unshare(PID|NET) failed: %s", strerror(errno));
+      ds_error("unshare(PID|NET|CGROUP) failed: %s", strerror(errno));
       _exit(EXIT_FAILURE);
     }
 
@@ -702,11 +618,6 @@ reboot_loop:;
     if (access(cfg->pidfile, F_OK) != 0) {
       write_monitor_debug_log(cfg->container_name,
                               "Already torn down by a command");
-      /* All but one thing: the command could not remove our cgroup while we
-       * were still sitting in it. On kernels with cgroup.kill it killed us
-       * instead and we never get here. */
-      leave_container_cgroup(cfg->container_name);
-      ds_cgroup_cleanup_container(cfg->container_name);
       goto monitor_cleanup_and_exit;
     }
   }
@@ -806,7 +717,6 @@ reboot_loop:;
   /* Normal exit - monitor does cleanup */
   write_monitor_debug_log(cfg->container_name, "Monitor performing cleanup");
 
-  leave_container_cgroup(cfg->container_name);
   cleanup_container_resources(cfg, 0, 0, 0);
 
 monitor_cleanup_and_exit:

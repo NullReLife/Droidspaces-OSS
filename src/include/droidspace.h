@@ -675,8 +675,8 @@ void print_cgroup_status(struct ds_config *cfg);
 void ds_cgroup_apply_limits(struct ds_config *cfg);
 int ds_cgroup_ctrl_dir(const char *ctrl, const char *container_name, char *dir,
                        size_t size);
-void ds_cgroup_v1_join(const char *container_name, int leave);
-void ds_cgroup_v1_setup(struct ds_config *cfg);
+void ds_cgroup_setup(struct ds_config *cfg);
+void ds_cgroup_join(const char *container_name);
 void ds_cgroup_get_limits(const char *container_name, long long *mem,
                           long long *cpu_quota, long long *cpu_period,
                           long long *pids);

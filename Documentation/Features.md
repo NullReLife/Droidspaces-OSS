@@ -397,7 +397,9 @@ Without cgroup isolation systemd cannot work: containers would collide in the cg
 
 ### The "jail" trick
 
-Before creating the cgroup namespace, Droidspaces moves the monitor process into the container's own cgroup. When `unshare(CLONE_NEWCGROUP)` is then called, the root of the new namespace maps to the container's subtree.
+A cgroup namespace is rooted wherever the process sits when it is created. So for every boot, the short-lived process that forks the container's init first joins the container's own cgroup and only then calls `unshare(CLONE_NEWCGROUP)`, and the root of the new namespace maps to the container's subtree.
+
+The supervising monitor never enters that cgroup. The cgroup is created fresh for each boot, including a restart and a reboot from inside the container, and removed when the container stops, so limits always match the current configuration.
 
 ### Cgroup v1 and v2 support
 
