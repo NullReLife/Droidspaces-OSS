@@ -754,6 +754,7 @@ void ds_net_mark_local_forward_active(void);
  * cable to every running client that delegates to it, with no client restart.
  * Called from the gateway container's monitor on each boot cycle. */
 void ds_net_rewire_gateway_clients(const char *gateway_name, pid_t gateway_pid);
+int ds_net_gateway_reconcile(struct ds_config *cfg, pid_t client_pid);
 /* Gateway teardown: when a container that ACTS AS A GATEWAY stops, explicitly
  * delete the gateway-side veth(s) it serves and reap any now-idle delegated
  * bridge.  The kernel does not auto-reap these (the host-side veth pins its

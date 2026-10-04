@@ -502,6 +502,7 @@ reboot_loop:;
     sigaddset(&mask, SIGCHLD);
     sigprocmask(SIG_BLOCK, &mask, NULL);
     int sfd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+    int gw_wired = 0, gw_tick = 0;
 
     while (1) {
       pid_t r = waitpid(mid_pid, &status, WNOHANG);
@@ -526,6 +527,11 @@ reboot_loop:;
       }
 
       ds_virtualize_update(cfg);
+
+      /* A gateway client whose gateway was not up yet is still unwired. Look
+       * again every couple of seconds until the cable is in, then stop. */
+      if (cfg->net_mode == DS_NET_GATEWAY && !gw_wired && ++gw_tick % 4 == 0)
+        gw_wired = ds_net_gateway_reconcile(cfg, cfg->container_pid);
 
       /* Poll the signalfd and, in background mode, the console PTY master.
        * poll() wakes immediately when the master becomes readable, so draining

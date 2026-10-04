@@ -1514,6 +1514,34 @@ int setup_gateway_veth_side(struct ds_config *cfg, pid_t child_pid) {
   return gateway_wire_client(cfg, child_pid, gw_pid);
 }
 
+/* ds_net_gateway_reconcile
+ *
+ * Called from a gateway client's own monitor until it returns 1, meaning the
+ * client's cable is in place.
+ *
+ * A client that starts before its gateway is left for the gateway's boot scan
+ * below, and a client that starts after it wires itself. Both sides decide by
+ * looking for the other's pidfile, which only appears once that container's
+ * init has exec'd. Two containers booting at the same moment therefore each
+ * see the other as "not running", and neither ever wires the client. So the
+ * client keeps looking until it is connected. */
+int ds_net_gateway_reconcile(struct ds_config *cfg, pid_t client_pid) {
+  if (!cfg || client_pid <= 0)
+    return 0;
+
+  char app_host[IFNAMSIZ];
+  veth_host_name(cfg, client_pid, app_host, sizeof(app_host));
+  ds_nl_ctx_t *ctx = ds_nl_open();
+  int wired = ctx && ds_nl_link_exists(ctx, app_host);
+  if (ctx)
+    ds_nl_close(ctx);
+  if (wired)
+    return 1;
+
+  pid_t gw_pid = gateway_pid_of(cfg->gateway_container);
+  return gw_pid > 0 && gateway_wire_client(cfg, client_pid, gw_pid) == 0;
+}
+
 /* ds_net_rewire_gateway_clients
  *
  * Gateway self-heal, driven by the gateway itself.  On every boot the gateway
