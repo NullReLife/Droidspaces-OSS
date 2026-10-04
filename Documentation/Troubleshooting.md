@@ -26,6 +26,7 @@ Common problems, what causes them, and how to fix them.
 - [SELinux-induced rootfs corruption](#selinux-induced-rootfs-corruption-directory-mode)
 - [Reclaiming storage (sparse image)](#reclaim-storage)
 - [Wi-Fi `Power save: on` makes networking sluggish on Android](#nuke-wifi-powersave)
+- [LuCI, or another tool, shows the host's RAM and load despite a limit](#sysinfo-host-values)
 - [Getting help](#getting-help)
 
 ---
@@ -371,6 +372,22 @@ systemctl start wifi-watchdog
 
 > [!NOTE]
 > This workaround **requires host networking mode** (`--net=host`). The script needs direct access to Android's `wlan0` interface, which is not visible in `NAT` or `None` modes. We recommend a small "burner" container used only for this watchdog.
+
+---
+
+<a id="sysinfo-host-values"></a>
+
+## LuCI, or another tool, shows the host's RAM and load despite a limit
+
+**Symptom:** a container has a memory or CPU limit, and `free`, `nproc` and fastfetch inside it show the limited values, but OpenWRT's LuCI overview still shows the device's full RAM and its real load average.
+
+**Cause:** there are two ways for a program to ask how much memory the machine has. Most read `/proc/meminfo`, which Droidspaces replaces with the container's own figures. Some call the kernel's `sysinfo()` system call instead, and a system call cannot be replaced by a file. OpenWRT's `procd` is one of them: `ubus call system info` takes total, free, shared and buffered memory, swap, load and uptime from `sysinfo()`, and LuCI displays what `procd` reports. Some Java runtimes and a few Alpine tools do the same.
+
+**What still holds:** the limit is enforced either way. The container cannot use more than it was given. Only the number these tools display is wrong.
+
+**Checking a limit yourself:** run `droidspaces -n <name> info` on the host, or `cat /proc/meminfo` inside the container.
+
+There is no fix for this at the moment. Intercepting `sysinfo()` needs seccomp user notifications, which only exist on kernel 5.0 and later.
 
 ---
 

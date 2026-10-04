@@ -455,6 +455,8 @@ The same block, without the usage figures, is printed after `start` and `restart
 
 Memory use means one thing everywhere for a container with a memory cgroup: what the cgroup is charged, minus its file cache, which the kernel reclaims on its own. `info`, `show --format` and `free` or fastfetch inside the container all report that figure. The limit itself still counts the cache, so a container can be pushed to reclaim before "used" reaches the limit.
 
+One gap: a program that asks the kernel through the `sysinfo()` system call, and not through `/proc`, still sees the host's memory, load and uptime. OpenWRT's LuCI is the common case. The limit is enforced regardless, see [Troubleshooting](Troubleshooting.md#sysinfo-host-values).
+
 #### In the Android app
 
 The container settings have a **Resource Limits** section with a switch per limit. Memory and CPU open a slider bounded by the device's real RAM and core count, the process limit a number field. A limit the kernel cannot enforce is greyed out with the missing option named. The limits also show on the container's card and in the installation summary, and the Panel tab shows usage against the limit, for example `94/512 MB (18%)`.
