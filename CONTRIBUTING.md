@@ -601,7 +601,7 @@ shell-out on the fast path. The netfilter helpers take an address family (`AF_IN
 | `ds_ipt_ensure_masquerade`, `ds_ipt_ensure_forward_accept`, `ds_ipt_ensure_input_accept`, `ds_ipt_ensure_mss_clamp` | Installing netfilter rules |
 | `ds_ipt_host_rules_present(family, iface, src_cidr, expect_dnat)` | The fork-free probe for one family's host rule set. The route monitor gates reinstallation on it |
 | `ds_ipt_remove_iface_rules`, `ds_ipt_remove_ds_rules` | Teardown |
-| `ds_ipt6_available` | Whether the kernel can do NAT66 at all. Read-only, shared by the runtime and `droidspaces check` |
+| `ds_ipt6_available` | Whether the kernel can do NAT66 at all: the ip6 nat table and the MASQUERADE target. Shared by the runtime and `droidspaces check` |
 | `ds_ipt_add_portforwards`, `ds_ipt_remove_portforwards` | Port forwarding |
 | `parse_cidr(cidr, ip_out, mask_out)` | The shared CIDR splitter |
 | `fix_networking_host`, `fix_networking_rootfs`, `setup_veth_host_side`, `setup_veth_child_side_named`, `setup_gateway_veth_side` | Network bring-up |

@@ -563,7 +563,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `ds_ipt_ensure_masquerade`、`ds_ipt_ensure_forward_accept`、`ds_ipt_ensure_input_accept`、`ds_ipt_ensure_mss_clamp` | 写入 netfilter 规则 |
 | `ds_ipt_host_rules_present(family, iface, src_cidr, expect_dnat)` | 对某一地址族整套主机规则的不 fork 探测。路由监视器据此决定是否重新写入 |
 | `ds_ipt_remove_iface_rules`、`ds_ipt_remove_ds_rules` | 清理 |
-| `ds_ipt6_available` | 内核是否支持 NAT66。只读探测，运行时和 `droidspaces check` 共用 |
+| `ds_ipt6_available` | 内核是否支持 NAT66：ip6 nat 表和 MASQUERADE 目标。运行时和 `droidspaces check` 共用 |
 | `ds_ipt_add_portforwards`、`ds_ipt_remove_portforwards` | 端口转发 |
 | `parse_cidr(cidr, ip_out, mask_out)` | 共享的 CIDR 拆分函数 |
 | `fix_networking_host`、`fix_networking_rootfs`、`setup_veth_host_side`、`setup_veth_child_side_named`、`setup_gateway_veth_side` | 网络建立 |

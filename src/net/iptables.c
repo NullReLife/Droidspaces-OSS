@@ -250,7 +250,9 @@ static int bin_ensure(const struct xt_family *f, const char *table,
                       const char *chain, const char *const spec[]) {
   if (bin_rule(f, "-C", table, chain, spec) == 0)
     return 0;
-  return bin_rule(f, "-I", table, chain, spec);
+  /* An exit status is positive and every caller tests for < 0, so a refused
+   * rule used to read as success and NAT66 was announced with no MASQUERADE. */
+  return bin_rule(f, "-I", table, chain, spec) == 0 ? 0 : -1;
 }
 
 static const char *const k_mss_spec[] = {
@@ -1063,27 +1065,41 @@ int ds_ipt_host_rules_present(int family, const char *iface,
 
 /* Public API: ds_ipt6_available
  *
- * Can this host do NAT66 at all? The nat table only exists with
- * CONFIG_IP6_NF_NAT, which stock GKI kernels leave out. Read-only: it asks
- * for the table and changes nothing. A kernel with no raw API (nftables only)
- * can still do it through the binary, so that is asked second. Both the
- * runtime and `droidspaces check` come through here. */
+ * Can this host do NAT66 at all? That takes two things: the ip6 nat table
+ * (CONFIG_IP6_NF_NAT, which stock GKI kernels leave out) and an IPv6
+ * MASQUERADE target, which is a separate option on older kernels. The kernel
+ * is asked for both, the same way ip6tables resolves a target, so the answer
+ * holds whatever the config option is called on this version. Both the runtime
+ * and `droidspaces check` come through here. */
 
 int ds_ipt6_available(void) {
   int fd = open_raw_socket(&xt_v6);
   if (fd >= 0) {
     struct ipt_getinfo info;
     unsigned char *base = NULL;
-    int ret = get_table(&xt_v6, fd, "nat", &info, &base);
-    close(fd);
-    if (ret == 0) {
+    if (get_table(&xt_v6, fd, "nat", &info, &base) == 0) {
       free(base);
-      return 1;
+      /* Revision 0 is the one raw_ensure_masquerade() inserts. */
+      struct xt_get_revision rev = {.name = "MASQUERADE"};
+      socklen_t len = sizeof(rev);
+      int ret =
+          getsockopt(fd, xt_v6.level, IP6T_SO_GET_REVISION_TARGET, &rev, &len);
+      close(fd);
+      return ret >= 0;
     }
+    close(fd);
   }
 
-  const char *const list[] = {"-n", NULL};
-  return bin_rule(&xt_v6, "-L", "nat", "POSTROUTING", list) == 0;
+  /* No raw API (nftables only kernel), so only the binary can ask. Listing
+   * the table would not load the target, so append the real thing to a chain
+   * nothing jumps to and take it away again. No packet ever sees it. */
+  const char *const none[] = {NULL};
+  const char *const masq[] = {"-j", "MASQUERADE", NULL};
+  bin_rule(&xt_v6, "-N", "nat", "ds-cap-masq", none);
+  int ok = bin_rule(&xt_v6, "-A", "nat", "ds-cap-masq", masq) == 0;
+  bin_rule(&xt_v6, "-F", "nat", "ds-cap-masq", none);
+  bin_rule(&xt_v6, "-X", "nat", "ds-cap-masq", none);
+  return ok;
 }
 
 /* Internal: raw_ensure_masquerade

@@ -840,8 +840,8 @@ static int setup_nat6_host(ds_nl_ctx_t *ctx, struct ds_config *cfg,
    * every one of those users on every start would be noise. `droidspaces
    * check` reports it. */
   if (!ds_ipt6_available()) {
-    ds_log("[NET] IPv6 NAT unavailable (the kernel lacks CONFIG_IP6_NF_NAT) - "
-           "container stays IPv4 only");
+    ds_log("[NET] IPv6 NAT unavailable (the kernel lacks CONFIG_IP6_NF_NAT or "
+           "CONFIG_IP6_NF_TARGET_MASQUERADE) - container stays IPv4 only");
     return 0;
   }
 
