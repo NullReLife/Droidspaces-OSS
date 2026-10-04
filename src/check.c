@@ -392,13 +392,6 @@ int check_requirements_detailed(void) {
                  "CONFIG_IP6_NF_NAT and CONFIG_IP6_NF_TARGET_MASQUERADE; "
                  "--net=nat containers are IPv4 only if absent",
                  is_root && ds_ipt6_available(), "OPT");
-  print_ds_check("Sandboxing (user namespaces)",
-                 "CONFIG_USER_NS; enable per container with "
-                 "--allow-sandboxing. Needed by unprivileged Docker and "
-                 "Podman, by sandboxed apps (Flatpak, Bubblewrap, browsers) "
-                 "and by desktop environments",
-                 check_ns(CLONE_NEWUSER, "user"), "OPT");
-
   /* Asked of the running kernel, not of a config dump. A limit is applied on
    * whichever cgroup hierarchy owns its controller, so the controller
    * existing is enough. CPU quota has no controller of its own: its sysctl
@@ -410,9 +403,6 @@ int check_requirements_detailed(void) {
       "CPU limit support", "CONFIG_CFS_BANDWIDTH; --cpus is skipped if absent",
       access("/proc/sys/kernel/sched_cfs_bandwidth_slice_us", F_OK) == 0,
       "OPT");
-  print_ds_check("Process limit support",
-                 "CONFIG_CGROUP_PIDS; --pids-limit is skipped if absent",
-                 ds_cgroup_has_controller("pids"), "OPT");
   /* A container's CPU time comes from cpu.stat in cgroup2, which the root
    * only has where every cgroup has it (4.15 and later), or else from the
    * v1 cpuacct controller. */
@@ -423,6 +413,16 @@ int check_requirements_detailed(void) {
                  access("/sys/fs/cgroup/cpu.stat", F_OK) == 0 ||
                      ds_cgroup_has_controller("cpuacct"),
                  "OPT");
+  print_ds_check("Process limit support",
+                 "CONFIG_CGROUP_PIDS; --pids-limit is skipped if absent",
+                 ds_cgroup_has_controller("pids"), "OPT");
+
+  print_ds_check("Sandboxing (user namespaces)",
+                 "CONFIG_USER_NS; enable per container with "
+                 "--allow-sandboxing. Needed by unprivileged Docker and "
+                 "Podman, by sandboxed apps (Flatpak, Bubblewrap, browsers) "
+                 "and by desktop environments",
+                 check_ns(CLONE_NEWUSER, "user"), "OPT");
 
   /* FINAL SUMMARY */
   check_append("\n" C_BOLD "Summary:" C_RESET "\n\n");
