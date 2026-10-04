@@ -74,11 +74,13 @@ CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_NET_PRIO=y
 
-# Resource limits: --memory, --cpus, --pids-limit, in that order.
+# Resource limits: --memory, --cpus, --pids-limit, in that order, then the
+# accounting that reports CPU usage on kernels before 4.15.
 # Optional: a limit whose option is missing is skipped with a warning
 CONFIG_MEMCG=y
 CONFIG_CFS_BANDWIDTH=y
 CONFIG_CGROUP_PIDS=y
+CONFIG_CGROUP_CPUACCT=y
 
 # Device filesystem support
 CONFIG_DEVTMPFS=y
@@ -370,6 +372,7 @@ It checks for:
 | Memory limit | `CONFIG_MEMCG=y` | `--memory` is skipped. |
 | CPU limit | `CONFIG_CFS_BANDWIDTH=y` | `--cpus` is skipped. |
 | Process limit | `CONFIG_CGROUP_PIDS=y` | `--pids-limit` is skipped. |
+| CPU usage accounting | `CONFIG_CGROUP_CPUACCT=y` (kernels before 4.15) | `info` shows no CPU usage, and a CPU-limited container sees the host's figures in `/proc/stat`. |
 
 ---
 

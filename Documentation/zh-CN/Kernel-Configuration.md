@@ -75,11 +75,13 @@ CONFIG_FAIR_GROUP_SCHED=y
 CONFIG_CGROUP_FREEZER=y
 CONFIG_CGROUP_NET_PRIO=y
 
-# 资源限制：依次对应 --memory、--cpus、--pids-limit。
+# 资源限制：依次对应 --memory、--cpus、--pids-limit，
+# 最后一项用于在 4.15 之前的内核上统计 CPU 用量。
 # 可选：缺少某个选项时，对应的限制会被跳过并给出警告
 CONFIG_MEMCG=y
 CONFIG_CFS_BANDWIDTH=y
 CONFIG_CGROUP_PIDS=y
+CONFIG_CGROUP_CPUACCT=y
 
 # 设备文件系统支持
 CONFIG_DEVTMPFS=y
