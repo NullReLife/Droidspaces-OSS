@@ -292,10 +292,13 @@ CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
 
 # 资源限制：--cpus 和 --pids-limit。GKI 已默认开启 CONFIG_MEMCG。
-# 不在 kABI 补丁的覆盖范围内：两者都会改变供应商模块读取的调度器和 cgroup
-# 结构体大小。请逐个开启，并做好设备无限重启的准备
-CONFIG_CFS_BANDWIDTH=y
-CONFIG_CGROUP_PIDS=y
+# 这两项会破坏 kABI，且没有补丁可以解决：它们会改变调度器和 cgroup 结构体的
+# 大小，导致数千个导出符号的 CRC 发生变化。原厂供应商模块将拒绝加载，设备会
+# 无限重启。
+# 除非你从同一份源码重新编译所有内核模块，并将 vendor_boot、vendor_dlkm 和
+# system_dlkm 与新的 boot.img 一次性全部刷入，否则请保持注释状态。
+# CONFIG_CFS_BANDWIDTH=y
+# CONFIG_CGROUP_PIDS=y
 ```
 
 **工作流程规则：**

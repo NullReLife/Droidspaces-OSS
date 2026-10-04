@@ -246,7 +246,7 @@ These options are tested on all GKI kernels and do not break the ABI.
 >
 > **Do not** enable anything beyond the GKI configuration below. These specific options are kABI-safe only in combination with the Step 1 patch.
 >
-> The **Resource limits** group at the end is the exception: it is not kABI-tested. Leave it out unless you need CPU or process limits, and test each option on its own.
+> The **Resource limits** group at the end is the exception: `CONFIG_CFS_BANDWIDTH` and `CONFIG_CGROUP_PIDS` **break the kABI**, and no patch here covers them. See [CPU and process limits on GKI](#gki-resource-limits) before you touch them. Memory limits need nothing extra, `CONFIG_MEMCG` is already on in GKI.
 
 ```makefile
 # Kernel configurations for full DroidSpaces support for GKI
@@ -292,10 +292,14 @@ CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
 
 # Resource limits: --cpus and --pids-limit. CONFIG_MEMCG is already on in GKI.
-# Not covered by the kABI patches: both resize scheduler and cgroup structures
-# that vendor modules read. Enable one at a time and be ready for a bootloop
-CONFIG_CFS_BANDWIDTH=y
-CONFIG_CGROUP_PIDS=y
+# These two BREAK the kABI and no patch covers them: they resize scheduler and
+# cgroup structures, which changes the CRC of thousands of exported symbols.
+# Stock vendor modules then refuse to load and the device bootloops.
+# Leave them commented out unless you rebuild EVERY kernel module from the
+# same source and flash vendor_boot, vendor_dlkm and system_dlkm together
+# with the new boot.img, all at once.
+# CONFIG_CFS_BANDWIDTH=y
+# CONFIG_CGROUP_PIDS=y
 ```
 
 **How to edit the file:**
@@ -315,6 +319,26 @@ Use whichever build method you prefer: Bazel, the official AOSP `build.sh`/`prep
 Flash the compiled `boot.img` or `Image` with Odin, fastboot, Heimdall, Anykernel3 or whatever your device uses. The patches are kABI-safe, so your stock vendor modules keep working.
 
 After booting, open the Droidspaces app and go to **Settings** (gear icon) -> **Requirements** -> **Check Requirements** to verify the setup.
+
+<a id="gki-resource-limits"></a>
+### CPU and process limits on GKI
+
+`CONFIG_CFS_BANDWIDTH` (for `--cpus`) and `CONFIG_CGROUP_PIDS` (for `--pids-limit`) are commented out in the configuration above on purpose.
+
+Both change the size of scheduler and cgroup structures that almost every exported kernel function refers to. Measured on a 5.15 GKI tree, enabling the two changed the CRC of 4101 exported symbols. Stock vendor modules were built against the old CRCs, so they refuse to load ("disagrees about version of symbol"), and without its display, storage and Wi-Fi drivers the device bootloops. Unlike `CONFIG_SYSVIPC`, the new fields do not fit in the reserved kABI padding, so there is no patch for this.
+
+> [!CAUTION]
+>
+> Only enable these two options if you can do **all** of the following:
+>
+> 1. Rebuild **every** kernel module from the same source tree and configuration as the kernel.
+> 2. Flash the rebuilt modules in `vendor_boot`, `vendor_dlkm` and `system_dlkm` **together with** the new kernel in `boot.img`, all at once. One stale partition is enough for a bootloop.
+>
+> If any module on your device is prebuilt and has no source, you cannot enable them.
+>
+> Do not turn off `CONFIG_MODVERSIONS` or force-load modules to get past the check. The structures really did change, and a stock module would read the wrong offsets.
+
+Without these options Droidspaces still works: `--cpus` and `--pids-limit` are skipped with a warning, and the app greys out the two toggles.
 
 ---
 
