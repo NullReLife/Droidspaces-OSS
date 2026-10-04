@@ -686,6 +686,7 @@ void ds_cgroup_join(const char *container_name);
 void ds_cgroup_get_limits(const char *container_name, long long *mem,
                           long long *cpu_quota, long long *cpu_period,
                           long long *pids);
+int ds_cgroup_count_tasks(const char *container_name, int *running, int *total);
 int ds_cgroup_cpu_times(const char *container_name, long long *user_us,
                         long long *system_us);
 int ds_cgroup_get_usage(const char *container_name, long long *mem,

@@ -820,6 +820,63 @@ void ds_cgroup_get_limits(const char *container_name, long long *mem,
     *pids = 0;
 }
 
+/* Count the tasks under one cgroup2 dir, children included: all of them in
+ * *total, the ones that count towards a load average in *running. */
+static void count_tasks(const char *dir, int *running, int *total) {
+  char path[PATH_MAX + 64];
+  snprintf(path, sizeof(path), "%s/cgroup.procs", dir);
+  FILE *f = fopen(path, "re");
+  int pid;
+  while (f && fscanf(f, "%d", &pid) == 1) {
+    snprintf(path, sizeof(path), "/proc/%d/task", pid);
+    DIR *td = opendir(path);
+    struct dirent *te;
+    while (td && (te = readdir(td)) != NULL) {
+      char buf[512];
+      if (te->d_name[0] == '.')
+        continue;
+      snprintf(path, sizeof(path), "/proc/%d/task/%s/stat", pid, te->d_name);
+      if (read_file(path, buf, sizeof(buf)) <= 0)
+        continue;
+      /* "pid (comm) S ...": comm may hold anything, so find the last ')' */
+      char *st = strrchr(buf, ')');
+      (*total)++;
+      /* Running, or in uninterruptible sleep, the kernel's own definition */
+      if (st && (st[2] == 'R' || st[2] == 'D'))
+        (*running)++;
+    }
+    if (td)
+      closedir(td);
+  }
+  if (f)
+    fclose(f);
+
+  DIR *d = opendir(dir);
+  struct dirent *de;
+  while (d && (de = readdir(d)) != NULL) {
+    if (de->d_type != DT_DIR || de->d_name[0] == '.')
+      continue;
+    snprintf(path, sizeof(path), "%s/%s", dir, de->d_name);
+    count_tasks(path, running, total);
+  }
+  if (d)
+    closedir(d);
+}
+
+/* How many tasks the container has, and how many of them are runnable.
+ * Returns -1 when it has no cgroup2 dir to walk. */
+int ds_cgroup_count_tasks(const char *container_name, int *running,
+                          int *total) {
+  char safe_name[256], dir[PATH_MAX];
+  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
+  snprintf(dir, sizeof(dir), "/sys/fs/cgroup/droidspaces/%s", safe_name);
+  if (access(dir, F_OK) != 0)
+    return -1;
+  *running = *total = 0;
+  count_tasks(dir, running, total);
+  return 0;
+}
+
 /* The container's CPU time since it booted, split into user and system, in
  * microseconds. From cpu.stat in its cgroup2 dir, or on kernels before 4.15,
  * which have no such file, from cpuacct.stat in its v1 cpuacct cgroup.

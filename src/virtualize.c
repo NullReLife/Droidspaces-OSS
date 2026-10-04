@@ -484,8 +484,76 @@ static char *gen_uptime(struct ds_config *cfg, size_t *out_len) {
   return buf;
 }
 
-/* /proc/loadavg - CPU-ratio scaled */
+/* /proc/loadavg: the container's own load average.
+ *
+ * The kernel's figure counts every runnable task on the machine, so inside a
+ * container it says how busy the phone is, not the container. LXCFS keeps a
+ * per-container one by sampling the cgroup's runnable tasks every five
+ * seconds and feeding them through the kernel's own decay, and this does the
+ * same from the monitor's heartbeat. It starts at 0.00 on every boot.
+ *
+ * Without a cgroup to count, fall back to the host's load scaled by the
+ * share of CPUs the container sees. */
+
+/* The kernel's fixed-point load average, kernel/sched/loadavg.c */
+#define LOAD_FSHIFT 11
+#define LOAD_FIXED_1 (1UL << LOAD_FSHIFT)
+#define LOAD_SAMPLE_SECS 5
+
+static unsigned long calc_load(unsigned long load, unsigned long exp,
+                               unsigned long active) {
+  unsigned long newload = load * exp + active * (LOAD_FIXED_1 - exp);
+  if (active >= load)
+    newload += LOAD_FIXED_1 - 1;
+  return newload / LOAD_FIXED_1;
+}
+
+static char *gen_own_loadavg(struct ds_config *cfg, size_t *out_len) {
+  /* Decay factors for 1, 5 and 15 minutes at a five second sample */
+  static const unsigned long exps[3] = {1884, 2014, 2037};
+  static unsigned long avg[3];
+  static int running, total;
+  static pid_t boot_pid;
+  static time_t sampled;
+
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  if (boot_pid != cfg->container_pid) {
+    /* A new init is a new boot: the load starts over */
+    boot_pid = cfg->container_pid;
+    avg[0] = avg[1] = avg[2] = 0;
+    sampled = 0;
+  }
+  if (!sampled || now.tv_sec - sampled >= LOAD_SAMPLE_SECS) {
+    if (ds_cgroup_count_tasks(cfg->container_name, &running, &total) < 0)
+      return NULL;
+    /* The first sample only seeds the task counts */
+    for (int i = 0; sampled && i < 3; i++)
+      avg[i] =
+          calc_load(avg[i], exps[i], (unsigned long)running * LOAD_FIXED_1);
+    sampled = now.tv_sec;
+  }
+
+  char *buf = malloc(128);
+  if (!buf)
+    return NULL;
+  unsigned long v[3];
+  for (int i = 0; i < 3; i++)
+    v[i] = avg[i] + LOAD_FIXED_1 / 200; /* round to two decimals */
+  int n = snprintf(
+      buf, 128, "%lu.%02lu %lu.%02lu %lu.%02lu %d/%d 0\n", v[0] >> LOAD_FSHIFT,
+      ((v[0] & (LOAD_FIXED_1 - 1)) * 100) >> LOAD_FSHIFT, v[1] >> LOAD_FSHIFT,
+      ((v[1] & (LOAD_FIXED_1 - 1)) * 100) >> LOAD_FSHIFT, v[2] >> LOAD_FSHIFT,
+      ((v[2] & (LOAD_FIXED_1 - 1)) * 100) >> LOAD_FSHIFT, running, total);
+  *out_len = (n > 0 && n < 128) ? (size_t)n : 0;
+  return buf;
+}
+
 static char *gen_loadavg(struct ds_config *cfg, size_t *out_len) {
+  char *own = gen_own_loadavg(cfg, out_len);
+  if (own)
+    return own;
+
   FILE *f = fopen("/proc/loadavg", "r");
   if (!f)
     return NULL;
