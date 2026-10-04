@@ -262,10 +262,14 @@ CONFIG_TMPFS_POSIX_ACL=y
 CONFIG_TMPFS_XATTR=y
 
 # Resource limits: --cpus and --pids-limit. CONFIG_MEMCG is already on in GKI.
-# Not covered by the kABI patches: both resize scheduler and cgroup structures
-# that vendor modules read. Enable one at a time and be ready for a bootloop
-CONFIG_CFS_BANDWIDTH=y
-CONFIG_CGROUP_PIDS=y""",
+# These two BREAK the kABI and no patch covers them: they resize scheduler and
+# cgroup structures, which changes the CRC of thousands of exported symbols.
+# Stock vendor modules then refuse to load and the device bootloops.
+# Leave them commented out unless you rebuild EVERY kernel module from the
+# same source and flash vendor_boot, vendor_dlkm and system_dlkm together
+# with the new boot.img, all at once.
+# CONFIG_CFS_BANDWIDTH=y
+# CONFIG_CGROUP_PIDS=y""",
                     guideUrl = "https://github.com/ravindu644/Droidspaces-OSS/blob/main/Documentation/Kernel-Configuration.md#configuring-gki-kernels",
                     snackbarHostState = snackbarHostState
                 )
