@@ -408,9 +408,18 @@ static void v1_setup(struct ds_config *cfg) {
 void ds_cgroup_setup(struct ds_config *cfg) {
   ds_cgroup_cleanup_container(cfg->container_name);
 
-  if (cfg->force_cgroupv1 || !ds_cgroup_host_is_v2()) {
+  if (cfg->force_cgroupv1 || !ds_cgroup_host_is_v2())
     v1_setup(cfg);
-  } else if (access("/sys/fs/cgroup/cgroup.procs", F_OK) == 0) {
+
+  /* Every container gets a cgroup2 dir when the host has cgroup2, a v1 one
+   * too, as LXC places its payload in every hierarchy. A controller can sit
+   * on either side whatever the container's own view is: once a cgroup2
+   * container has enabled pids below, it can no longer be mounted as v1, and
+   * a v1 container with nowhere to stand on cgroup2 would lose its limit.
+   * This comes after v1_setup(), which takes the controllers nobody holds
+   * yet, so only what cgroup2 still owns is enabled here. A v1 container
+   * never mounts cgroup2 and does not see any of this. */
+  if (access("/sys/fs/cgroup/cgroup.procs", F_OK) == 0) {
     /* A controller only appears in a child cgroup once the parent's
      * subtree_control enables it, so walk the two levels above ours:
      * /sys/fs/cgroup -> /sys/fs/cgroup/droidspaces */
@@ -696,7 +705,13 @@ static int apply_limit(struct ds_config *cfg, const char *ctrl,
   }
 
   snprintf(path, sizeof(path), "%s/%s", dir, file);
-  if (access(path, F_OK) != 0) {
+  if (ver == 0 && ds_cgroup_has_controller(ctrl)) {
+    /* The kernel has it, we just cannot get at it: not in our cgroup2 dir
+     * and on no v1 hierarchy we can find. Do not blame the kernel config. */
+    ds_warn("[CGROUP] The %s controller is held by a cgroup hierarchy we "
+            "could not reach, limit skipped.",
+            ctrl);
+  } else if (access(path, F_OK) != 0) {
     ds_warn("[CGROUP] %s is not available on this kernel, limit skipped "
             "(needs %s).",
             file, kconfig);
