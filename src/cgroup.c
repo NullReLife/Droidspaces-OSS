@@ -747,6 +747,15 @@ void ds_cgroup_apply_limits(struct ds_config *cfg) {
         !apply_limit(cfg, "cpu", "cpu.max", val, "cpu.cfs_quota_us", quota,
                      "CONFIG_CFS_BANDWIDTH"))
       cfg->cpu_quota = 0;
+
+    /* cgroup2 only reports a cgroup's CPU time in cpu.stat from 4.15 on. On
+     * older kernels the figure lives in the v1 cpuacct hierarchy, so give the
+     * container a cgroup there too. The join and the cleanup take every v1
+     * cgroup of ours that exists, this one included. */
+    char acct[PATH_MAX];
+    if (cfg->cpu_quota && ds_cgroup_ctrl_dir("cpuacct", cfg->container_name,
+                                             acct, sizeof(acct)) == 1)
+      mkdir_p(acct, 0755);
   }
   if (cfg->pids_limit) {
     /* The command line refuses a value this low. A config file can still
@@ -867,6 +876,13 @@ int ds_cgroup_get_usage(const char *container_name, long long *mem,
       char *p = strstr(buf, "usage_usec ");
       if (p)
         *cpu_us = parse_cgroup_ll(p + 11);
+    } else if (ds_cgroup_ctrl_dir("cpuacct", container_name, dir,
+                                  sizeof(dir)) == 1) {
+      /* Kernels before 4.15: the v1 cpuacct cgroup, in nanoseconds */
+      snprintf(path, sizeof(path), "%s/cpuacct.usage", dir);
+      if (read_file(path, buf, sizeof(buf)) > 0 &&
+          (*cpu_us = parse_cgroup_ll(buf)) >= 0)
+        *cpu_us /= 1000;
     }
   }
   return 0;

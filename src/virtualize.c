@@ -323,23 +323,12 @@ static char *gen_stat(struct ds_config *cfg, size_t *out_len) {
   return buf;
 }
 
-/* Read container's CPU busy time (seconds) from cgv2 cpu.stat usage_usec.
- * Ported from lxcfs get_reaper_busy() - cgv1 cpuacct.usage equivalent. */
+/* The container's CPU busy time in seconds, from its cgroup (lxcfs calls this
+ * get_reaper_busy()). -1 when the kernel keeps no such figure for it. */
 static double cg_cpu_busy_secs(const char *container_name) {
-  char safe_name[256];
-  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
-  char path[PATH_MAX], buf[128];
-  snprintf(path, sizeof(path), "/sys/fs/cgroup/droidspaces/%s/cpu.stat",
-           safe_name);
-  if (read_file(path, buf, sizeof(buf)) <= 0)
-    return -1.0;
-  /* cpu.stat first line: "usage_usec <N>" */
-  char *p = strstr(buf, "usage_usec ");
-  if (!p)
-    return -1.0;
-  char *end;
-  long long usec = strtoll(p + 11, &end, 10);
-  return (end == p + 11) ? -1.0 : (double)usec / 1e6;
+  long long usec = -1;
+  ds_cgroup_get_usage(container_name, NULL, NULL, &usec, NULL);
+  return usec < 0 ? -1.0 : (double)usec / 1e6;
 }
 
 /* Read container init PID's start time from /proc/<pid>/stat field 22.
