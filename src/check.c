@@ -367,8 +367,6 @@ int check_requirements_detailed(void) {
                "\nThese features are optional and only used for specific "
                "functionality:\n\n");
 
-  print_ds_check("IPv6 support", "IPv6 networking support",
-                 access("/proc/sys/net/ipv6", F_OK) == 0, "OPT");
   print_ds_check("FUSE support", "Filesystem in Userspace support",
                  access("/dev/fuse", F_OK) == 0 ||
                      grep_file("/proc/filesystems", "fuse"),
@@ -387,9 +385,9 @@ int check_requirements_detailed(void) {
   print_ds_check("Veth pair support",
                  "Required for --net=nat; no fallback exists if absent",
                  check_veth_support(), "OPT");
-  /* "IPv6 support" above only says the kernel has an IPv6 stack. NAT mode
-   * also needs the IPv6 nat table, and this is the probe the runtime runs
-   * before it gives a container IPv6. */
+  /* An IPv6 stack alone is not enough for NAT mode, which also needs the
+   * IPv6 nat table. This is the probe the runtime runs before it gives a
+   * container IPv6, so it is the only IPv6 line worth showing. */
   print_ds_check("IPv6 NAT support",
                  "CONFIG_IP6_NF_NAT and CONFIG_IP6_NF_TARGET_MASQUERADE; "
                  "--net=nat containers are IPv4 only if absent",
@@ -415,6 +413,16 @@ int check_requirements_detailed(void) {
   print_ds_check("Process limit support",
                  "CONFIG_CGROUP_PIDS; --pids-limit is skipped if absent",
                  ds_cgroup_has_controller("pids"), "OPT");
+  /* A container's CPU time comes from cpu.stat in cgroup2, which the root
+   * only has where every cgroup has it (4.15 and later), or else from the
+   * v1 cpuacct controller. */
+  print_ds_check("CPU usage accounting",
+                 "CONFIG_CGROUP_CPUACCT on kernels before 4.15; without it "
+                 "info shows no CPU usage and a CPU-limited container sees "
+                 "the host's figures in /proc/stat",
+                 access("/sys/fs/cgroup/cpu.stat", F_OK) == 0 ||
+                     ds_cgroup_has_controller("cpuacct"),
+                 "OPT");
 
   /* FINAL SUMMARY */
   check_append("\n" C_BOLD "Summary:" C_RESET "\n\n");
