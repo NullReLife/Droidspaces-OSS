@@ -820,6 +820,40 @@ void ds_cgroup_get_limits(const char *container_name, long long *mem,
     *pids = 0;
 }
 
+/* The container's CPU time since it booted, split into user and system, in
+ * microseconds. From cpu.stat in its cgroup2 dir, or on kernels before 4.15,
+ * which have no such file, from cpuacct.stat in its v1 cpuacct cgroup.
+ * Returns 0, or -1 when the kernel keeps no such figure for the container. */
+int ds_cgroup_cpu_times(const char *container_name, long long *user_us,
+                        long long *system_us) {
+  char dir[PATH_MAX], path[PATH_MAX + 64], buf[512], safe_name[256];
+
+  sanitize_container_name(container_name, safe_name, sizeof(safe_name));
+  snprintf(path, sizeof(path), "/sys/fs/cgroup/droidspaces/%s/cpu.stat",
+           safe_name);
+  if (read_file(path, buf, sizeof(buf)) > 0) {
+    char *u = strstr(buf, "user_usec "), *s = strstr(buf, "system_usec ");
+    if (u && s) {
+      *user_us = strtoll(u + 10, NULL, 10);
+      *system_us = strtoll(s + 12, NULL, 10);
+      return 0;
+    }
+  }
+
+  if (ds_cgroup_ctrl_dir("cpuacct", container_name, dir, sizeof(dir)) != 1)
+    return -1;
+  snprintf(path, sizeof(path), "%s/cpuacct.stat", dir);
+  long long u = 0, s = 0;
+  long hz = sysconf(_SC_CLK_TCK);
+  /* "user N\nsystem N", in clock ticks */
+  if (read_file(path, buf, sizeof(buf)) <= 0 || hz <= 0 ||
+      sscanf(buf, "user %lld system %lld", &u, &s) != 2)
+    return -1;
+  *user_us = u * 1000000 / hz;
+  *system_us = s * 1000000 / hz;
+  return 0;
+}
+
 int ds_cgroup_get_usage(const char *container_name, long long *mem,
                         long long *file_cache, long long *cpu_us,
                         long long *pids) {

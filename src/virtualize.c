@@ -238,7 +238,47 @@ static char *gen_cpuinfo(struct ds_config *cfg, size_t *out_len) {
   return buf;
 }
 
-/* /proc/stat - recomputed aggregate + only max_cpus cpuN lines */
+static double container_start_time_secs(pid_t pid);
+
+/* Seconds since the container's init started. */
+static double container_uptime_secs(struct ds_config *cfg) {
+  struct timespec boot;
+  clock_gettime(CLOCK_BOOTTIME, &boot);
+  double boottime = (double)boot.tv_sec + (double)boot.tv_nsec / 1e9;
+
+  double up = -1.0;
+  if (cfg->container_pid > 0) {
+    double proc_start = container_start_time_secs(cfg->container_pid);
+    if (proc_start > 0.0)
+      up = boottime - proc_start;
+  }
+  if (up < 0.0) {
+    up = boottime - ((double)cfg->start_time.tv_sec +
+                     (double)cfg->start_time.tv_nsec / 1e9);
+  }
+  return up < 0.0 ? 0.0 : up;
+}
+
+/* /proc/stat for a container with a CPU quota: max_cpus cpuN lines whose
+ * figures are the container's own.
+ *
+ * The cpu lines of the host cannot be used, not even a subset of them. The
+ * container's threads run on every real core, so "the first N host CPUs" only
+ * shows what those N cores happen to be doing, and a container pinned at its
+ * quota reads as nearly idle. This is what LXCFS's cpuview fixes, and the
+ * result here is the same: busy time is the cgroup's, idle is what is left of
+ * the time the quota allowed, so a container at its quota reads 100% however
+ * many real cores it was spread over. Like LXCFS, only user, system and idle
+ * are reported and the rest of the file is the host's.
+ *
+ * LXCFS needs a per-cgroup history to turn deltas into counters. We do not:
+ * the cgroup is created for this boot, so its totals already start at zero
+ * and only grow.
+ *
+ * Without cgroup accounting for the container, fall back to the host's first
+ * max_cpus lines, as LXCFS does too. */
+#define STAT_CPU_FMT "cpu%s %llu 0 %llu %llu 0 0 0 0 0 0\n"
+
 static char *gen_stat(struct ds_config *cfg, size_t *out_len) {
   int max_cpus = container_cpus(cfg);
   FILE *f = fopen("/proc/stat", "r");
@@ -254,10 +294,42 @@ static char *gen_stat(struct ds_config *cfg, size_t *out_len) {
   size_t off = 0;
   char line[2048];
 
-  /* Pass 1: accumulate aggregate from allowed cpuN lines */
+  long long user_us = 0, system_us = 0;
+  long hz = sysconf(_SC_CLK_TCK);
+  int own = cfg->cpu_period > 0 && hz > 0 &&
+            ds_cgroup_cpu_times(cfg->container_name, &user_us, &system_us) == 0;
+  unsigned long long own_user = 0, own_system = 0, own_idle = 0;
+  if (own) {
+    own_user = (unsigned long long)(user_us * hz / 1000000);
+    own_system = (unsigned long long)(system_us * hz / 1000000);
+
+    /* The quota as a core count, not rounded up: half a core fully used must
+     * leave no idle time on the one CPU the container sees. */
+    double allowed = (double)cfg->cpu_quota / (double)cfg->cpu_period;
+    if (allowed > max_cpus)
+      allowed = max_cpus;
+    double idle = allowed * container_uptime_secs(cfg) * (double)hz -
+                  (double)(own_user + own_system);
+
+    /* A counter must not go backwards, and the two clocks behind this one
+     * are read at slightly different moments. A new init means a new boot
+     * with fresh cgroups, so the floor starts over. */
+    static pid_t idle_pid;
+    static unsigned long long idle_floor;
+    if (idle_pid != cfg->container_pid) {
+      idle_pid = cfg->container_pid;
+      idle_floor = 0;
+    }
+    own_idle = idle > 0.0 ? (unsigned long long)idle : 0;
+    if (own_idle < idle_floor)
+      own_idle = idle_floor;
+    idle_floor = own_idle;
+  }
+
+  /* Pass 1 (fallback only): accumulate aggregate from allowed cpuN lines */
   unsigned long long su = 0, sn = 0, ss = 0, si = 0, sio = 0, sir = 0,
                      ssoft = 0, sst = 0, sgu = 0, sgn = 0;
-  while (fgets(line, sizeof(line), f)) {
+  while (!own && fgets(line, sizeof(line), f)) {
     int id;
     if (sscanf(line, "cpu%d", &id) == 1 && id < max_cpus) {
       unsigned long long u, n, s, i, io, ir, sf, st, gu, gn;
@@ -286,7 +358,7 @@ static char *gen_stat(struct ds_config *cfg, size_t *out_len) {
      * enough: size the growth to the actual line length (plus slack for the
      * generated aggregate "cpu" line and the trailing NUL) before either the
      * memcpy passthrough or the snprintf below can write. */
-    size_t need = strlen(line) + 512;
+    size_t need = strlen(line) + 512 + (size_t)max_cpus * 96;
     if (off + need >= cap) {
       while (off + need >= cap)
         cap *= 2;
@@ -297,6 +369,35 @@ static char *gen_stat(struct ds_config *cfg, size_t *out_len) {
         return NULL;
       }
       buf = nb;
+    }
+    if (own) {
+      if (strncmp(line, "cpu", 3) != 0) {
+        size_t len = strlen(line);
+        memcpy(buf + off, line, len);
+        off += len;
+      } else if (!agg_done) {
+        /* The whole cpu block at once: the aggregate, then it split evenly
+         * over the visible CPUs with the remainder on cpu0. LXCFS packs the
+         * usage into them in order; the totals are the same, and this way
+         * one bar is not pinned while the next sits empty. */
+        int n = snprintf(buf + off, cap - off, STAT_CPU_FMT, " ", own_user,
+                         own_system, own_idle);
+        if (n > 0)
+          off += (size_t)n;
+        unsigned long long cpus = (unsigned long long)max_cpus;
+        for (int k = 0; k < max_cpus; k++) {
+          char id[16];
+          snprintf(id, sizeof(id), "%d", k);
+          n = snprintf(buf + off, cap - off, STAT_CPU_FMT, id,
+                       own_user / cpus + (k ? 0 : own_user % cpus),
+                       own_system / cpus + (k ? 0 : own_system % cpus),
+                       own_idle / cpus + (k ? 0 : own_idle % cpus));
+          if (n > 0)
+            off += (size_t)n;
+        }
+        agg_done = 1;
+      }
+      continue;
     }
     if (strncmp(line, "cpu ", 4) == 0) {
       if (!agg_done) {
@@ -360,22 +461,7 @@ static double container_start_time_secs(pid_t pid) {
  * idle = up*ncpus - cpu_busy (from cgv2 cpu.stat).
  * Falls back to cfg->start_time only if container_pid is not yet available. */
 static char *gen_uptime(struct ds_config *cfg, size_t *out_len) {
-  struct timespec boot;
-  clock_gettime(CLOCK_BOOTTIME, &boot);
-  double boottime = (double)boot.tv_sec + (double)boot.tv_nsec / 1e9;
-
-  double up = -1.0;
-  if (cfg->container_pid > 0) {
-    double proc_start = container_start_time_secs(cfg->container_pid);
-    if (proc_start > 0.0)
-      up = boottime - proc_start;
-  }
-  if (up < 0.0) {
-    up = boottime - ((double)cfg->start_time.tv_sec +
-                     (double)cfg->start_time.tv_nsec / 1e9);
-  }
-  if (up < 0.0)
-    up = 0.0;
+  double up = container_uptime_secs(cfg);
 
   int ccpus = container_cpus(cfg);
   double busy = cg_cpu_busy_secs(cfg->container_name);
