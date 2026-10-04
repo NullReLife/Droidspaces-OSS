@@ -59,7 +59,6 @@ import com.droidspaces.app.ui.viewmodel.SparseOperation
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import com.droidspaces.app.R
-import com.droidspaces.app.util.AnimationUtils
 import androidx.compose.ui.window.Dialog
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -179,8 +178,10 @@ fun ContainersScreen(
                         // Console button is always visible - logs persist for each container
                         val isRunning = opsViewModel.runningOperationContainer == container.name
 
+                        // No animateItemPlacement here: a card animates its own height when
+                        // its drawer opens, and a placement animation makes the card below
+                        // chase that edge 200ms behind, so the two overlap all the way down.
                         ContainerCard(
-                            modifier = Modifier.animateItemPlacement(AnimationUtils.mediumSpec()),
                             container = container,
                             isOperationRunning = isRunning,
                             isExpanded = expandedContainerName == container.name,
