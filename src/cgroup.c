@@ -733,7 +733,9 @@ void ds_cgroup_apply_limits(struct ds_config *cfg) {
   if (cfg->memory_limit) {
     snprintf(val, sizeof(val), "%lld", cfg->memory_limit);
     if (!apply_limit(cfg, "memory", "memory.max", val, "memory.limit_in_bytes",
-                     val, "CONFIG_MEMCG"))
+                     val,
+                     "CONFIG_MEMCG, and no cgroup_disable=memory on the "
+                     "kernel command line"))
       cfg->memory_limit = 0;
   }
   if (cfg->cpu_quota) {
@@ -743,9 +745,11 @@ void ds_cgroup_apply_limits(struct ds_config *cfg) {
     snprintf(period, sizeof(period), "%lld", per);
     /* v1 splits cpu.max in two files, period first */
     if (!apply_limit(cfg, "cpu", NULL, NULL, "cpu.cfs_period_us", period,
-                     "CONFIG_CFS_BANDWIDTH") ||
+                     "CONFIG_CFS_BANDWIDTH, and no cgroup_disable=cpu on the "
+                     "kernel command line") ||
         !apply_limit(cfg, "cpu", "cpu.max", val, "cpu.cfs_quota_us", quota,
-                     "CONFIG_CFS_BANDWIDTH"))
+                     "CONFIG_CFS_BANDWIDTH, and no cgroup_disable=cpu on the "
+                     "kernel command line"))
       cfg->cpu_quota = 0;
 
     /* cgroup2 only reports a cgroup's CPU time in cpu.stat from 4.15 on. On
@@ -767,8 +771,10 @@ void ds_cgroup_apply_limits(struct ds_config *cfg) {
       cfg->pids_limit = DS_MIN_PIDS_LIMIT;
     }
     snprintf(val, sizeof(val), "%lld", cfg->pids_limit);
-    if (!apply_limit(cfg, "pids", "pids.max", val, "pids.max", val,
-                     "CONFIG_CGROUP_PIDS"))
+    if (!apply_limit(
+            cfg, "pids", "pids.max", val, "pids.max", val,
+            "CONFIG_CGROUP_PIDS, and no cgroup_disable=pids on the kernel "
+            "command line"))
       cfg->pids_limit = 0;
   }
 }

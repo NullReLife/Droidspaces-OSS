@@ -394,27 +394,34 @@ int check_requirements_detailed(void) {
                  is_root && ds_ipt6_available(), "OPT");
   /* Asked of the running kernel, not of a config dump. A limit is applied on
    * whichever cgroup hierarchy owns its controller, so the controller
-   * existing is enough. CPU quota has no controller of its own: its sysctl
-   * is only registered with CONFIG_CFS_BANDWIDTH. */
+   * existing is enough. CPU quota is a feature of the cpu controller, and
+   * its sysctl is only registered with CONFIG_CFS_BANDWIDTH. */
   print_ds_check("Memory limit support",
-                 "CONFIG_MEMCG; --memory is skipped if absent",
+                 "CONFIG_MEMCG, and no cgroup_disable=memory on the kernel "
+                 "command line; --memory is skipped if absent",
                  ds_cgroup_has_controller("memory"), "OPT");
   print_ds_check(
-      "CPU limit support", "CONFIG_CFS_BANDWIDTH; --cpus is skipped if absent",
-      access("/proc/sys/kernel/sched_cfs_bandwidth_slice_us", F_OK) == 0,
+      "CPU limit support",
+      "CONFIG_CFS_BANDWIDTH, and no cgroup_disable=cpu on the kernel command "
+      "line; --cpus is skipped if absent",
+      access("/proc/sys/kernel/sched_cfs_bandwidth_slice_us", F_OK) == 0 &&
+          ds_cgroup_has_controller("cpu"),
       "OPT");
   /* A container's CPU time comes from cpu.stat in cgroup2, which the root
    * only has where every cgroup has it (4.15 and later), or else from the
    * v1 cpuacct controller. */
-  print_ds_check("CPU usage accounting",
-                 "CONFIG_CGROUP_CPUACCT on kernels before 4.15; without it "
-                 "info shows no CPU usage and a CPU-limited container sees "
-                 "the host's figures in /proc/stat",
-                 access("/sys/fs/cgroup/cpu.stat", F_OK) == 0 ||
-                     ds_cgroup_has_controller("cpuacct"),
-                 "OPT");
+  print_ds_check(
+      "CPU usage accounting",
+      "CONFIG_CGROUP_CPUACCT on kernels before 4.15, and no "
+      "cgroup_disable=cpuacct on the kernel command line; without it "
+      "info shows no CPU usage and a CPU-limited container sees "
+      "the host's figures in /proc/stat",
+      access("/sys/fs/cgroup/cpu.stat", F_OK) == 0 ||
+          ds_cgroup_has_controller("cpuacct"),
+      "OPT");
   print_ds_check("Process limit support",
-                 "CONFIG_CGROUP_PIDS; --pids-limit is skipped if absent",
+                 "CONFIG_CGROUP_PIDS, and no cgroup_disable=pids on the kernel "
+                 "command line; --pids-limit is skipped if absent",
                  ds_cgroup_has_controller("pids"), "OPT");
 
   print_ds_check("Sandboxing (user namespaces)",
