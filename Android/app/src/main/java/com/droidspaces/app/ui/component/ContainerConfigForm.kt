@@ -557,6 +557,7 @@ fun ContainerConfigForm(
         val memStep = ResourceLimits.MEMORY_STEP_MB
 
         val memMb = (state.memoryLimit / mb).toInt()
+        val shownMemMb = rememberWhileOn(memMb, memMb > 0)
         ToggleCard(
             icon = Icons.Default.Memory,
             title = context.getString(R.string.limit_memory),
@@ -575,10 +576,10 @@ fun ContainerConfigForm(
             },
             expandedContent = {
                 LimitSlider(
-                    value = memMb.coerceIn(memStep, totalMemMb).toFloat(),
+                    value = shownMemMb.coerceIn(memStep, totalMemMb).toFloat(),
                     valueRange = memStep.toFloat()..totalMemMb.toFloat(),
                     minLabel = ResourceLimits.formatMemory(context, memStep),
-                    valueLabel = ResourceLimits.formatMemory(context, memMb),
+                    valueLabel = ResourceLimits.formatMemory(context, shownMemMb),
                     maxLabel = ResourceLimits.formatMemory(context, totalMemMb),
                     onValueChange = {
                         val snapped = ((it / memStep).roundToInt() * memStep).coerceIn(memStep, totalMemMb)
@@ -589,6 +590,7 @@ fun ContainerConfigForm(
         )
 
         val cpuLimit = state.cpuQuota.toFloat() / ResourceLimits.CPU_PERIOD_US
+        val shownCpu = rememberWhileOn(cpuLimit, cpuLimit > 0)
         ToggleCard(
             icon = Icons.Default.Speed,
             title = context.getString(R.string.limit_cpu),
@@ -607,10 +609,10 @@ fun ContainerConfigForm(
             },
             expandedContent = {
                 LimitSlider(
-                    value = cpuLimit.coerceIn(0.5f, cpuCores.toFloat()),
+                    value = shownCpu.coerceIn(0.5f, cpuCores.toFloat()),
                     valueRange = 0.5f..cpuCores.toFloat(),
                     minLabel = ResourceLimits.formatCores(context, 0.5f),
-                    valueLabel = ResourceLimits.formatCores(context, cpuLimit),
+                    valueLabel = ResourceLimits.formatCores(context, shownCpu),
                     maxLabel = ResourceLimits.formatCores(context, cpuCores.toFloat()),
                     onValueChange = {
                         // Half-core steps
@@ -625,6 +627,7 @@ fun ContainerConfigForm(
         // number must not flip the switch off and fold the field away mid-edit.
         var pidsOn by remember { mutableStateOf(state.pidsLimit > 0) }
         LaunchedEffect(state.pidsLimit) { if (state.pidsLimit > 0) pidsOn = true }
+        val shownPids = rememberWhileOn(if (state.pidsLimit > 0) state.pidsLimit.toString() else "", pidsOn)
         ToggleCard(
             icon = Icons.Default.Tag,
             title = context.getString(R.string.limit_pids),
@@ -642,7 +645,7 @@ fun ContainerConfigForm(
             },
             expandedContent = {
                 OutlinedTextField(
-                    value = if (state.pidsLimit > 0) state.pidsLimit.toString() else "",
+                    value = shownPids,
                     onValueChange = { text ->
                         val n = text.filter { it.isDigit() }.take(7).toLongOrNull() ?: 0
                         onStateChange(state.copy(pidsLimit = n.coerceAtMost(ResourceLimits.MAX_PIDS)))
@@ -814,6 +817,19 @@ fun ContainerConfigForm(
 
         Spacer(modifier = Modifier.height(16.dp))
     }
+}
+
+/**
+ * The value a limit's controls should show. Switching a limit off zeroes it at
+ * once, while its body is still animating closed, and a slider drawing that
+ * zero would jump to its minimum on the way out. So hold the last value it had
+ * while it was on.
+ */
+@Composable
+private fun <T> rememberWhileOn(value: T, on: Boolean): T {
+    val last = remember { mutableListOf(value) }
+    if (on) last[0] = value
+    return last[0]
 }
 
 /** Min, current value and max over a [DsSlider], as the body of a limit [ToggleCard]. */
