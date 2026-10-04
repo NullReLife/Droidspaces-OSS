@@ -497,7 +497,7 @@ fun ContainerConfigForm(
             icon = Icons.Default.Memory,
             title = context.getString(R.string.limit_memory),
             description = when {
-                !limitSupport.memory -> context.getString(R.string.limit_not_supported, "CONFIG_MEMCG")
+                !limitSupport.memory -> context.getString(R.string.limit_not_supported, "CONFIG_MEMCG, and no cgroup_disable=memory on the kernel command line")
                 memMb > 0 -> context.getString(R.string.limit_memory_on, ResourceLimits.formatMemory(context, totalMemMb))
                 else -> context.getString(R.string.limit_memory_off, ResourceLimits.formatMemory(context, totalMemMb))
             },
@@ -530,7 +530,7 @@ fun ContainerConfigForm(
             icon = Icons.Default.Speed,
             title = context.getString(R.string.limit_cpu),
             description = when {
-                !limitSupport.cpu -> context.getString(R.string.limit_not_supported, "CONFIG_CFS_BANDWIDTH")
+                !limitSupport.cpu -> context.getString(R.string.limit_not_supported, "CONFIG_CFS_BANDWIDTH, and no cgroup_disable=cpu on the kernel command line")
                 cpuLimit > 0 -> context.getString(R.string.limit_cpu_on, ResourceLimits.formatCores(context, cpuCores.toFloat()))
                 else -> context.getString(R.string.limit_cpu_off, ResourceLimits.formatCores(context, cpuCores.toFloat()))
             },
@@ -567,7 +567,7 @@ fun ContainerConfigForm(
             icon = Icons.Default.Tag,
             title = context.getString(R.string.limit_pids),
             description = when {
-                !limitSupport.pids -> context.getString(R.string.limit_not_supported, "CONFIG_CGROUP_PIDS")
+                !limitSupport.pids -> context.getString(R.string.limit_not_supported, "CONFIG_CGROUP_PIDS, and no cgroup_disable=pids on the kernel command line")
                 pidsOn -> context.getString(R.string.limit_pids_on)
                 else -> context.getString(R.string.limit_pids_off)
             },

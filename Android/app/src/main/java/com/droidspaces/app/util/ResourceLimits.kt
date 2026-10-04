@@ -58,12 +58,13 @@ object ResourceLimits {
     /**
      * Ask the running kernel. The backend applies each limit on whichever cgroup
      * hierarchy owns the controller, so all that matters is whether the
-     * controller exists. CPU quota has no controller of its own, its sysctl is
-     * only there with CONFIG_CFS_BANDWIDTH.
+     * controller exists and is enabled: the last column is 0 when it was
+     * switched off at boot with cgroup_disable=. CPU quota also needs the
+     * sysctl that is only there with CONFIG_CFS_BANDWIDTH.
      */
     suspend fun probe(): LimitSupport = LimitSupport(
-        memory = ContainerOperationExecutor.checkCommandSuccess("grep -q '^memory[[:space:]]' /proc/cgroups"),
-        cpu = ContainerOperationExecutor.checkCommandSuccess("[ -e /proc/sys/kernel/sched_cfs_bandwidth_slice_us ]"),
-        pids = ContainerOperationExecutor.checkCommandSuccess("grep -q '^pids[[:space:]]' /proc/cgroups")
+        memory = ContainerOperationExecutor.checkCommandSuccess("grep -Eq '^memory[[:space:]].*[[:space:]]1\$' /proc/cgroups"),
+        cpu = ContainerOperationExecutor.checkCommandSuccess("[ -e /proc/sys/kernel/sched_cfs_bandwidth_slice_us ] && grep -Eq '^cpu[[:space:]].*[[:space:]]1\$' /proc/cgroups"),
+        pids = ContainerOperationExecutor.checkCommandSuccess("grep -Eq '^pids[[:space:]].*[[:space:]]1\$' /proc/cgroups")
     )
 }
