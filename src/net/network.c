@@ -34,10 +34,20 @@ static const char *app_veth_host_prefix(const struct ds_config *cfg) {
   return (cfg && cfg->net_mode == DS_NET_GATEWAY) ? "ds-c" : "ds-v";
 }
 
-/* Derive the host-side veth name from a container init PID (mode-aware). */
+static uint32_t ds_net_hash_string(const char *s);
+
+/* Derive the host-side veth name (mode-aware). A NAT veth is named after the
+ * container's init PID. A gateway client's is named after the container: if
+ * an instance dies without cleanup, its cable can outlive it on the bridge
+ * with the same MAC as its successor's, and a name that does not change is
+ * what lets the next start find that leftover and replace it. */
 static void veth_host_name(const struct ds_config *cfg, pid_t pid, char *buf,
                            size_t sz) {
-  snprintf(buf, sz, "%s%d", app_veth_host_prefix(cfg), (int)pid);
+  if (cfg && cfg->net_mode == DS_NET_GATEWAY)
+    snprintf(buf, sz, "%s%08x", app_veth_host_prefix(cfg),
+             ds_net_hash_string(cfg->container_name));
+  else
+    snprintf(buf, sz, "%s%d", app_veth_host_prefix(cfg), (int)pid);
 }
 
 /* Derive the peer (container-side) veth name from a container init PID.
