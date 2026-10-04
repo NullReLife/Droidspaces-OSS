@@ -113,7 +113,6 @@
     <string name="status_running">SPUŠTĚNO</string>
     <string name="status_stopped">ZASTAVENO</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Název hostitele: %1$s</string>
     <string name="options_label">Možnosti: %1$s</string>
     <string name="start">Spustit</string>
     <string name="stop">Zastavit</string>

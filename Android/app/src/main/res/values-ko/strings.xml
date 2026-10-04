@@ -125,7 +125,6 @@
     <string name="status_running">실행 중</string>
     <string name="status_stopped">중지됨</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">호스트명: %1$s</string>
     <string name="options_label">옵션: %1$s</string>
     <string name="start">시작</string>
     <string name="stop">중지</string>

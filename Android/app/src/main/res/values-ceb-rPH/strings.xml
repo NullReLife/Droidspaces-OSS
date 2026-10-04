@@ -80,7 +80,6 @@
     <string name="status_running">NAGDAGAN</string>
     <string name="status_stopped">MIHUNONG</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Hostname: %1$s</string>
     <string name="options_label">Mga Opsyon: %1$s</string>
     <string name="start">Sugdi</string>
     <string name="stop">Hunonga</string>

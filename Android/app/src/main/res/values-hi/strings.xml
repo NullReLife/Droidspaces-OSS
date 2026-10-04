@@ -88,7 +88,6 @@
     <string name="status_running">चल रहा है</string>
     <string name="status_stopped">रुका हुआ</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">होस्टनेम: %1$s</string>
     <string name="options_label">विकल्प: %1$s</string>
     <string name="start">शुरू करें</string>
     <string name="stop">रोकें</string>

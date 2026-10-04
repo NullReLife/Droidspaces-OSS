@@ -80,7 +80,6 @@
     <string name="status_running">AANDAR</string>
     <string name="status_stopped">TINMUNDA</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Hostname: %1$s</string>
     <string name="options_label">Saray Opsyon: %1$s</string>
     <string name="start">Igapo</string>
     <string name="stop">Patundaen</string>

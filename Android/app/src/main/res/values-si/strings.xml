@@ -86,7 +86,6 @@
     <string name="status_running">ධාවනය වේ</string>
     <string name="status_stopped">නවත්වා ඇත</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">සත්කාරක නාමය: %1$s</string>
     <string name="options_label">විකල්ප: %1$s</string>
     <string name="start">ආරම්භ කරන්න</string>
     <string name="stop">නවත්වන්න</string>

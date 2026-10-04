@@ -87,7 +87,6 @@
     <string name="status_running">BERJALAN</string>
     <string name="status_stopped">BERHENTI</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Nama host: %1$s</string>
     <string name="options_label">Opsi: %1$s</string>
     <string name="start">Mulai</string>
     <string name="stop">Berhenti</string>

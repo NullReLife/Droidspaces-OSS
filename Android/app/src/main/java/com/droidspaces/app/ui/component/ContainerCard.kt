@@ -169,7 +169,7 @@ fun ContainerCard(
             val netModeLabel = when (container.netMode) { "nat" -> context.getString(R.string.network_mode_nat_short); "none" -> context.getString(R.string.network_mode_none_short); "gateway" -> context.getString(R.string.network_mode_gateway_short); else -> context.getString(R.string.network_mode_host_short) }
             // Identity first, then what the container is given: disk, memory, CPU, processes.
             val info = buildList {
-                add(rememberVectorPainter(Icons.Default.Computer) to context.getString(R.string.hostname_label, displayHostname))
+                add(rememberVectorPainter(Icons.Default.Computer) to displayHostname)
                 add(rememberVectorPainter(Icons.Default.Public) to netModeLabel)
                 if (hasSparseImage) add(painterResource(id = R.drawable.ic_disk) to context.getString(R.string.gb_size, container.sparseImageSizeGB ?: 0))
                 ResourceLimits.memoryLabel(context, container)?.let { add(rememberVectorPainter(Icons.Default.Memory) to it) }

@@ -80,7 +80,6 @@
     <string name="status_running">GUMAGANA</string>
     <string name="status_stopped">HUMINTO</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Hostname: %1$s</string>
     <string name="options_label">Mga Opsyon: %1$s</string>
     <string name="start">Simulan</string>
     <string name="stop">Ihinto</string>

@@ -85,7 +85,6 @@
     <string name="status_running">実行中</string>
     <string name="status_stopped">停止中</string>
     <string name="pid_label">プロセス番号(PID): %1$d</string>
-    <string name="hostname_label">ホスト名: %1$s</string>
     <string name="options_label">オプション: %1$s</string>
     <string name="start">開始</string>
     <string name="stop">停止</string>

@@ -266,7 +266,6 @@
     <string name="init_system_not_available">Systemd/OpenWrt/OpenRC 不可用</string>
     <string name="init_system_not_available_desc">此容器未安裝 systemd 或 OpenWrt/OpenRC</string>
     <string name="requirements">需求檢測</string>
-    <string name="hostname_label">主機名稱：%1$s</string>
     <string name="root_unavailable">沒有root權限。</string>
     <string name="symlink_integration_description">在 /system/bin 目錄下建立鏈接，以便在 Android root shell 中存取 droidspaces 命令。警告：如果您的掛載系統是 OverlayFS 元模組，啟用此選項會導致無限重新啟動。僅在使用基於 Magic Mount 的掛載系統時才使用此選項（需要重新啟動）。</string>
     <string name="installation_setup_summary">安裝概要</string>

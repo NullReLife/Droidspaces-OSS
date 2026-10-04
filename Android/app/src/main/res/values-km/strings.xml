@@ -108,7 +108,6 @@
     <string name="edit_container_configuration">កែសម្រួលការកំណត់រចនាសម្ព័ន្ធកុងតឺន័រ</string>
     <string name="feat_autoboot_title">ចាប់ផ្ដើមដំណើរការដោយស្វ័យប្រវត្តិនៅពេលបើកម៉ាស៊ីន</string>
     <string name="install">តម្លើង</string>
-    <string name="hostname_label">ឈ្មោះម៉ាស៊ីន: %1$s</string>
     <string name="symlink_integration_description">បង្កើត Symlink នៅត្រង់ /system/bin ដើម្បីចូលប្រើប្រាស់បញ្ជា (Command) droidspaces នៅក្នុង Android Root Shell។ការព្រមាន៖ ការបើកមុខងារនេះនឹងបង្កឱ្យមានបញ្ហាគាំងបើកឧបករណ៍មិនឡើង (Bootloop) ប្រសិនបើប្រព័ន្ធ Mount របស់អ្នកជាប្រភេទ OverlayFS Meta Modules។ សូមប្រើប្រាស់ជម្រើសនេះ តែក្នុងករណីដែលអ្នកកំពុងប្រើប្រាស់ប្រព័ន្ធ Mount ផ្អែកលើ Magic Mount តែប៉ុណ្ណោះ (តម្រូវឱ្យចាប់ផ្តើមឧបករណ៍ឡើងវិញ)។</string>
     <string name="feat_unkillable_title">រចនាឡើងមិនអាចបំផ្លាញបាន</string>
     <string name="kernel_requirements_nongki">តម្រូវការខឺណែលមិនមែន GKI (&lt;=4.19)</string>

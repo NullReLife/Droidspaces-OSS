@@ -442,7 +442,6 @@
     <string name="openwrt_services">OpenWrt சேவைகள்</string>
     <string name="requirements">தேவைகள்</string>
     <string name="custom_init_error_absolute">பாதை முழுமையானதாக இருக்க வேண்டும் (/ உடன் தொடங்கவும்)</string>
-    <string name="hostname_label">ஓச்ட்பெயர்: %1$s</string>
     <string name="root_unavailable">ரூட் அணுகல் இல்லை.</string>
     <string name="symlink_integration_description">ஆண்ட்ராய்டு ரூட் செல்லில் droidspaces கட்டளையை அணுக /system/bin இல் ஒரு சிம்லிங்கை உருவாக்கவும். எச்சரிக்கை: உங்கள் மவுண்ட் சிச்டம் ஓவர்லேஃப்ச் மேவு மாட்யூல்களாக இருந்தால், இதை இயக்குவது பூட்லூப்பை ஏற்படுத்துகிறது. மேசிக் மவுண்ட் அடிப்படையிலான மவுண்ட் சிச்டத்தைப் பயன்படுத்தும் போது மட்டுமே இந்த விருப்பத்தைப் பயன்படுத்தவும் (மறுதொடக்கம் தேவை)</string>
     <string name="custom_init_label">தனிப்பயன் தொடக்க பைனரி</string>

@@ -79,7 +79,6 @@
     <string name="uninstall_container_menu">Dezinstalează container-ul</string>
     <string name="status_running">ÎN EXECUȚIE</string>
     <string name="status_stopped">OPRIT</string>
-    <string name="hostname_label">Numele gazdei: %1$s</string>
     <string name="options_label">Opțiuni: %1$s</string>
     <string name="start">Pornește</string>
     <string name="stop">Oprește</string>

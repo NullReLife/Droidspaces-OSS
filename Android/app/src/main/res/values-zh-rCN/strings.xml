@@ -117,7 +117,6 @@
     <string name="copy">复制</string>
     <string name="unknown">未知</string>
     <string name="developer_ravindu644_role">维护者</string>
-    <string name="hostname_label">主机名：%1$s</string>
     <string name="start">启动</string>
     <string name="stop">停止</string>
     <string name="restart">重新启动</string>

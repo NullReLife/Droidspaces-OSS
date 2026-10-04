@@ -80,7 +80,6 @@
     <string name="status_running">TA ANDA</string>
     <string name="status_stopped">PARAO</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Hostname: %1$s</string>
     <string name="options_label">Maga Opcion: %1$s</string>
     <string name="start">Empeza</string>
     <string name="stop">Para</string>

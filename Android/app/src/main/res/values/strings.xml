@@ -158,7 +158,6 @@
     <string name="status_running">RUNNING</string>
     <string name="status_stopped">STOPPED</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Hostname: %1$s</string>
     <string name="options_label">Options: %1$s</string>
     <string name="start">Start</string>
     <string name="stop">Stop</string>

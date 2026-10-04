@@ -90,7 +90,6 @@
     <string name="status_running">LÄUFT</string>
     <string name="status_stopped">GESTOPPT</string>
     <string name="pid_label">PID: %1$d</string>
-    <string name="hostname_label">Hostname: %1$s</string>
     <string name="options_label">Optionen: %1$s</string>
     <string name="start">Start</string>
     <string name="stop">Stopp</string>
