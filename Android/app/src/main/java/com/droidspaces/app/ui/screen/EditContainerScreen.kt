@@ -60,6 +60,7 @@ import com.droidspaces.app.ui.util.ClearFocusOnClickOutside
 import com.droidspaces.app.ui.util.LoadingIndicator
 import com.droidspaces.app.ui.util.rememberClearFocus
 import com.droidspaces.app.ui.viewmodel.ContainerViewModel
+import com.droidspaces.app.util.ResourceLimits
 import com.droidspaces.app.util.ContainerInfo
 import com.droidspaces.app.util.ContainerManager
 import com.droidspaces.app.util.SystemInfoManager
@@ -171,7 +172,8 @@ fun EditContainerScreen(
         },
         bottomBar = {
             val isReadyToSave = !isSaving && !isSaved && hasChanges && hostnameError == null &&
-                (state.netMode != "gateway" || gatewayErrors.isValid) && collisionContainer == null
+                (state.netMode != "gateway" || gatewayErrors.isValid) && collisionContainer == null &&
+                ResourceLimits.isValidPidsLimit(state.pidsLimit)
             SaveActionBottomBar(
                 isSaved = isSaved,
                 isSaving = isSaving,

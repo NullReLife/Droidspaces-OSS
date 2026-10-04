@@ -734,6 +734,14 @@ void ds_cgroup_apply_limits(struct ds_config *cfg) {
       cfg->cpu_quota = 0;
   }
   if (cfg->pids_limit) {
+    /* The command line refuses a value this low. A config file can still
+     * carry one, and a container that cannot boot helps nobody, so raise it
+     * here, where it is said once per boot and not on every config load. */
+    if (cfg->pids_limit < DS_MIN_PIDS_LIMIT) {
+      ds_warn("[CGROUP] pids_limit %lld is too low to boot under, using %d.",
+              cfg->pids_limit, DS_MIN_PIDS_LIMIT);
+      cfg->pids_limit = DS_MIN_PIDS_LIMIT;
+    }
     snprintf(val, sizeof(val), "%lld", cfg->pids_limit);
     if (!apply_limit(cfg, "pids", "pids.max", val, "pids.max", val,
                      "CONFIG_CGROUP_PIDS"))

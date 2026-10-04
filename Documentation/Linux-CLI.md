@@ -152,7 +152,7 @@ Hand a container's LAN to another running container (for example OpenWRT), which
 |--------|-------------|
 | `--memory=SIZE` | Most RAM the container may use. Takes `K`, `M`, `G` or `T` suffixes, for example `--memory=2G`. Minimum 4M. |
 | `--cpus=COUNT` | Most CPU time, in cores. Fractions are fine, for example `--cpus=1.5`. |
-| `--pids-limit=N` | Most processes and threads at once. |
+| `--pids-limit=N` | Most processes and threads at once. Minimum 16. |
 
 Each limit needs kernel support and is skipped with a warning that names the missing option if the kernel lacks it. A limit is saved in the container's config, so it applies on every later start. See [Resource limits](Features.md#resource-limits).
 

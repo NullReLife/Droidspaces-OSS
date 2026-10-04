@@ -430,6 +430,8 @@ What each limit needs from the kernel, on either cgroup version:
 
 If an option is missing, the limit is skipped at start with a warning that names it. See [Kernel Configuration](Kernel-Configuration.md) to add them.
 
+`--pids-limit` has a floor of 16. The limit counts every task in the container's cgroup, including the two the runtime keeps there and the three each `enter` or `run` session starts with. A systemd distribution needs far more, typically a few hundred.
+
 `--memory` limits RAM only. A container that goes over it is pushed into swap (zram on Android) before anything is killed.
 
 #### Where a limit is applied

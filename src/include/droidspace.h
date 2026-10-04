@@ -68,6 +68,12 @@
 #define DS_VERSION "6.6.0"
 #define DS_MIN_KERNEL_MAJOR 3
 #define DS_MIN_KERNEL_MINOR 10
+
+/* The smallest --pids-limit we accept. The limit counts every task in the
+ * container's cgroup: the per-boot intermediate and init are always there,
+ * and an enter or run session adds three before its shell forks anything.
+ * Below this a container may boot, but there is no room to get a shell. */
+#define DS_MIN_PIDS_LIMIT 16
 #define DS_RECOMMENDED_KERNEL_MAJOR 4
 #define DS_RECOMMENDED_KERNEL_MINOR 14
 #define DS_AUTHOR "ravindu644"

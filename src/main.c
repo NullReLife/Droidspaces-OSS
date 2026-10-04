@@ -832,9 +832,10 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
       /* Add a sane upper bound (4194304 = 2^22) matching the Linux kernel's
        * default pid_max ceiling. Values above this are almost certainly
        * user errors and would be rejected by the kernel with EINVAL. */
-      if (errno || end == optarg || *end != '\0' || p <= 0 || p > 4194304LL) {
-        ds_error("--pids-limit: invalid value (must be 1..4194304): %s",
-                 optarg);
+      if (errno || end == optarg || *end != '\0' || p < DS_MIN_PIDS_LIMIT ||
+          p > 4194304LL) {
+        ds_error("--pids-limit: invalid value (must be %d..4194304): %s",
+                 DS_MIN_PIDS_LIMIT, optarg);
         return -1;
       }
       cfg->pids_limit = p;

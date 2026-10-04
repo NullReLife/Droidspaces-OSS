@@ -648,7 +648,14 @@ fun ContainerConfigForm(
                         onStateChange(state.copy(pidsLimit = n.coerceAtMost(ResourceLimits.MAX_PIDS)))
                     },
                     label = { Text(context.getString(R.string.limit_pids_label)) },
-                    supportingText = { Text(context.getString(R.string.limit_pids_hint)) },
+                    supportingText = {
+                        if (ResourceLimits.isValidPidsLimit(state.pidsLimit)) {
+                            Text(context.getString(R.string.limit_pids_hint))
+                        } else {
+                            Text(context.getString(R.string.limit_pids_error, ResourceLimits.MIN_PIDS), color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    isError = !ResourceLimits.isValidPidsLimit(state.pidsLimit),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = modernFieldShape,

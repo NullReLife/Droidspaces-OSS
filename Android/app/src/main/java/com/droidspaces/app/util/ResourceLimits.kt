@@ -19,8 +19,13 @@ object ResourceLimits {
     const val CPU_PERIOD_US = 100_000L
     const val MEMORY_STEP_MB = 128
     const val DEFAULT_PIDS = 1024L
+    /** The backend's floor (DS_MIN_PIDS_LIMIT): below it there is no room for a shell. */
+    const val MIN_PIDS = 16L
     /** The kernel's own ceiling for pids.max, and the backend's. */
     const val MAX_PIDS = 4_194_304L
+
+    /** 0 is "no limit" and always fine. */
+    fun isValidPidsLimit(limit: Long): Boolean = limit == 0L || limit >= MIN_PIDS
 
     fun totalMemoryMb(context: Context): Int {
         val info = ActivityManager.MemoryInfo()

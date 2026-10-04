@@ -259,6 +259,7 @@
     <string name="limit_pids_label">PIDs</string>
     <string name="limit_pids_value">%1$d PIDs</string>
     <string name="limit_pids_hint">Leave empty for no limit</string>
+    <string name="limit_pids_error">At least %1$d</string>
     <string name="limit_not_supported">Not supported by this kernel (needs %1$s)</string>
     <string name="memory_mb">%1$d MB</string>
     <string name="memory_gb">%1$s GB</string>
