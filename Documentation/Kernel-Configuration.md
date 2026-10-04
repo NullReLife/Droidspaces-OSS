@@ -369,9 +369,9 @@ It checks for:
 | VETH / Bridge | `CONFIG_VETH` / `CONFIG_BRIDGE` | NAT mode unavailable. |
 | IPv6 NAT | `CONFIG_IP6_NF_NAT` / `CONFIG_IP6_NF_TARGET_MASQUERADE` | NAT containers are IPv4 only. |
 | Seccomp | `CONFIG_SECCOMP=y` | Seccomp shield disabled. Security risk. |
-| Memory limit | `CONFIG_MEMCG=y` | `--memory` is skipped. |
-| CPU limit | `CONFIG_CFS_BANDWIDTH=y` | `--cpus` is skipped. |
-| Process limit | `CONFIG_CGROUP_PIDS=y` | `--pids-limit` is skipped. |
+| Memory limit | `CONFIG_MEMCG=y`, and no `cgroup_disable=memory` on the kernel command line | `--memory` is skipped. |
+| CPU limit | `CONFIG_CFS_BANDWIDTH=y`, and no `cgroup_disable=cpu` on the kernel command line | `--cpus` is skipped. |
+| Process limit | `CONFIG_CGROUP_PIDS=y`, and no `cgroup_disable=pids` on the kernel command line | `--pids-limit` is skipped. |
 | CPU usage accounting | `CONFIG_CGROUP_CPUACCT=y` (kernels before 4.15) | `info` shows no CPU usage, and a CPU-limited container sees the host's figures in `/proc/stat`. |
 
 ---

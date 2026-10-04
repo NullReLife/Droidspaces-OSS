@@ -27,6 +27,7 @@ Common problems, what causes them, and how to fix them.
 - [Reclaiming storage (sparse image)](#reclaim-storage)
 - [Wi-Fi `Power save: on` makes networking sluggish on Android](#nuke-wifi-powersave)
 - [LuCI, or another tool, shows the host's RAM and load despite a limit](#sysinfo-host-values)
+- [A resource limit is unavailable although its kernel option is enabled](#controller-disabled-at-boot)
 - [Getting help](#getting-help)
 
 ---
@@ -388,6 +389,27 @@ systemctl start wifi-watchdog
 **Checking a limit yourself:** run `droidspaces -n <name> info` on the host, or `cat /proc/meminfo` inside the container.
 
 There is no fix for this at the moment. Intercepting `sysinfo()` needs seccomp user notifications, which only exist on kernel 5.0 and later.
+
+---
+
+<a id="controller-disabled-at-boot"></a>
+
+## A resource limit is unavailable although its kernel option is enabled
+
+**Symptom:** `droidspaces check` marks "Memory limit support", "CPU limit support" or "Process limit support" as missing, the app greys out the matching toggle, or a start prints for example `memory.max is not available on this kernel`, yet `/proc/config.gz` has the option (`CONFIG_MEMCG=y`, `CONFIG_CFS_BANDWIDTH=y`, `CONFIG_CGROUP_PIDS=y`).
+
+**Cause:** the controller is built in but was switched off at boot. Look at the last column of `/proc/cgroups`:
+
+```
+#subsys_name    hierarchy  num_cgroups  enabled
+memory          0          255          0
+```
+
+A `0` there means the kernel was booted with `cgroup_disable=` for that controller: `cgroup_disable=memory`, `cgroup_disable=cpu` or `cgroup_disable=pids`. Confirm it with `cat /proc/cmdline`. `cgroup_disable=memory` is the common one, many vendor and custom Android kernels use it to save a little memory.
+
+**Fix:** remove the argument from the kernel command line. It comes from `CONFIG_CMDLINE` in the kernel config, from the boot image header (`boot` or `vendor_boot`), or from the bootloader. If `zcat /proc/config.gz | grep CMDLINE` does not show it, it is one of the last two. Avoid `CONFIG_CMDLINE_FORCE` as a way out on Android: it drops every other argument the device passes at boot as well.
+
+The container still starts either way, only the limit is skipped.
 
 ---
 
