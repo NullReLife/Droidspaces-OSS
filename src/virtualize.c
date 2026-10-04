@@ -588,6 +588,20 @@ static void ds_virtualize_affinity(struct ds_config *cfg) {
   }
 }
 
+/* A session entering a running container takes the CPU set its init has.
+ * The limited set is applied to init at boot and inherited by everything it
+ * forks, but an enter or run session is forked on the host and only joins the
+ * namespaces, so without this it would see, and run on, every host CPU while
+ * the rest of the container sees one. Call before setns(): init_pid is a host
+ * PID. */
+void ds_virtualize_join(pid_t init_pid) {
+  cpu_set_t mask;
+  CPU_ZERO(&mask);
+  if (sched_getaffinity(init_pid, sizeof(mask), &mask) == 0 &&
+      sched_setaffinity(0, sizeof(mask), &mask) < 0) {
+  }
+}
+
 int ds_virtualize_init(struct ds_config *cfg) {
   int has_mem = (cfg->memory_limit > 0);
   int has_cpu = (cfg->cpu_quota > 0);

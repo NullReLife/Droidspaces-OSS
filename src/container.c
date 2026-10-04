@@ -1232,6 +1232,7 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
     ds_log_silent = 1;
     ds_cgroup_attach(cfg->container_name);
     ds_log_silent = 0;
+    ds_virtualize_join(pid);
 
     if (enter_namespace(pid, cfg) < 0)
       _exit(EXIT_FAILURE);
@@ -1463,6 +1464,7 @@ int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
     ds_log_silent = 1;
     ds_cgroup_attach(cfg->container_name);
     ds_log_silent = 0;
+    ds_virtualize_join(pid);
 
     if (enter_namespace(pid, cfg) < 0)
       _exit(EXIT_FAILURE);

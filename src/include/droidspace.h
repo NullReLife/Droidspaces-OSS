@@ -701,6 +701,7 @@ int ds_cg_word_in_list(const char *list, const char *name);
 
 int ds_virtualize_init(struct ds_config *cfg);
 void ds_virtualize_update(struct ds_config *cfg);
+void ds_virtualize_join(pid_t init_pid);
 unsigned long ds_get_pid_ns_inode(pid_t pid);
 
 /* hardware.c */
