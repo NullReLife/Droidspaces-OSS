@@ -345,7 +345,15 @@ int ds_nl_create_bridge(ds_nl_ctx_t *ctx, const char *name) {
  * We write the ifinfomsg directly at NLMSG_TAIL (it is NOT an rtattr payload)
  * then append IFLA_IFNAME as a normal sub-rtattr. */
 
-int ds_nl_create_veth(ds_nl_ctx_t *ctx, const char *host, const char *peer) {
+/* Create a veth pair. With peer_netns_fd >= 0 the peer is born inside that
+ * network namespace, already under its final name and with peer_mac if given.
+ * That matters when the namespace belongs to a running container: a link
+ * created on the host and moved in afterwards shows up there under its
+ * temporary name first on kernels before 5.x, even when the move carries the
+ * new name, and older systemd-networkd does not look at it again after the
+ * rename. Peer placement at creation works on every kernel we support. */
+int ds_nl_create_veth_in(ds_nl_ctx_t *ctx, const char *host, const char *peer,
+                         int peer_netns_fd, const uint8_t *peer_mac) {
   struct {
     struct nlmsghdr n;
     struct ifinfomsg i;
@@ -386,6 +394,11 @@ int ds_nl_create_veth(ds_nl_ctx_t *ctx, const char *host, const char *peer) {
     /* Peer-side IFLA_IFNAME */
     nl_addattr(&req.n, (int)sizeof(req), IFLA_IFNAME, peer,
                (int)strlen(peer) + 1);
+    if (peer_netns_fd >= 0)
+      nl_addattr(&req.n, (int)sizeof(req), IFLA_NET_NS_FD, &peer_netns_fd,
+                 (int)sizeof(int));
+    if (peer_mac)
+      nl_addattr(&req.n, (int)sizeof(req), IFLA_ADDRESS, peer_mac, 6);
   }
 
   nl_nest_end(&req.n, peer_rta);
@@ -393,6 +406,10 @@ int ds_nl_create_veth(ds_nl_ctx_t *ctx, const char *host, const char *peer) {
   nl_nest_end(&req.n, linfo);
 
   return ds_nl_talk(ctx, &req.n);
+}
+
+int ds_nl_create_veth(ds_nl_ctx_t *ctx, const char *host, const char *peer) {
+  return ds_nl_create_veth_in(ctx, host, peer, -1, NULL);
 }
 
 /* Attach an interface to a bridge (IFLA_MASTER) */

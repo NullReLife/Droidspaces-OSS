@@ -1370,27 +1370,27 @@ static int gateway_ensure_lan_uplink_locked(struct ds_config *cfg,
 /* gateway_wire_client
  *
  * Fully wire ONE gateway-mode client into its delegated LAN, entirely from the
- * host side.  Because the host owns every step - including renaming the peer to
- * eth0 and bringing it up *inside* the client netns - this works identically
- * whether the client is just starting (its netns fresh, child blocked on the
- * handshake) or already running (the gateway came up later and is re-wiring
- * it). The gateway-mode child only brings up lo; it never touches eth0.
+ * host side.  Because the host owns every step - including bringing eth0 up
+ * *inside* the client netns - this works identically whether the client is
+ * just starting (its netns fresh, child blocked on the handshake) or already
+ * running (the gateway came up later and is wiring it). The gateway-mode child
+ * only brings up lo; it never touches eth0.
  *
- * Under the segment lock: ensure bridge + gateway uplink, create the app veth,
- * pin the client's stable MAC, attach the host end to the bridge, then
- * move+rename the peer into the client netns as eth0 (up).  Returns 0 on
- * success.  Caller passes the client's init pid and the confirmed-running
- * gateway's init pid. */
+ * Under the segment lock: ensure bridge + gateway uplink, then, unless the
+ * client's cable is already in place, create the app veth with its peer born
+ * inside the client netns as eth0 with the client's stable MAC, attach the
+ * host end to the bridge and bring both ends up.  Returns 0 on success.
+ * Caller passes the client's init pid and the confirmed-running gateway's
+ * init pid. */
 
 static int gateway_wire_client(struct ds_config *cfg, pid_t client_pid,
                                pid_t gateway_pid) {
   if (!cfg || client_pid <= 0 || gateway_pid <= 0)
     return -1;
 
-  char bridge[IFNAMSIZ], app_host[IFNAMSIZ], app_peer[IFNAMSIZ];
+  char bridge[IFNAMSIZ], app_host[IFNAMSIZ];
   gateway_bridge_name(cfg, bridge, sizeof(bridge));
   veth_host_name(cfg, client_pid, app_host, sizeof(app_host));
-  veth_peer_name(cfg, client_pid, app_peer, sizeof(app_peer));
 
   /* One lock spans the shared uplink AND this client's app-veth attach, so a
    * concurrent client's cleanup cannot reap the bridge between them. */
@@ -1409,21 +1409,52 @@ static int gateway_wire_client(struct ds_config *cfg, pid_t client_pid,
     goto out;
   }
 
+  char netns[PATH_MAX];
+  snprintf(netns, sizeof(netns), "/proc/%d/ns/net", (int)client_pid);
+
+  /* A client's cable runs to the host bridge, not through the gateway, so a
+   * gateway restart leaves it intact and only the uplink above needs
+   * rebuilding. Replacing a working cable takes eth0 away from under the
+   * client's DHCP client: it loses its address, and on kernels before 5.x the
+   * new link shows up under its raw name and is renamed to eth0 afterwards,
+   * which older systemd-networkd (Ubuntu 22.04) never picks up again. So only
+   * a cable that is really broken is rebuilt. */
+  if (ds_nl_link_exists(ctx, app_host) && netns_has_link(netns, "eth0")) {
+    /* Cheap and idempotent, in case the bridge itself was recreated */
+    if (ds_nl_set_master(ctx, app_host, bridge) < 0)
+      ds_warn("[NET] Gateway: failed to attach %s to %s", app_host, bridge);
+    ds_nl_link_up(ctx, app_host);
+    ds_nl_close(ctx);
+    ret = 0;
+    ds_log("Gateway: '%s' is still wired to %s, left as is",
+           cfg->container_name, bridge);
+    goto out;
+  }
+
   ds_nl_del_link(ctx, app_host); /* drop any stale half from a prior wiring */
-  ds_log("[NET] Gateway: creating app veth %s <-> %s", app_host, app_peer);
-  if (ds_nl_create_veth(ctx, app_host, app_peer) < 0) {
-    ds_warn("[NET] Gateway: failed to create app veth pair");
+
+  int netns_fd = open(netns, O_RDONLY | O_CLOEXEC);
+  if (netns_fd < 0) {
+    ds_warn("[NET] Gateway: failed to open client netns %s: %s", netns,
+            strerror(errno));
     ds_nl_close(ctx);
     goto out;
   }
 
-  /* Pin the client's stable, name-derived MAC on the peer (becomes eth0) before
-   * the move, so the gateway's DHCP leases see one host across reboots. */
-  {
-    uint8_t mac[6];
-    ds_derive_mac(cfg->container_name, "ds-mac:", mac);
-    if (ds_nl_set_mac(ctx, app_peer, mac) < 0)
-      ds_warn("[NET] Gateway: failed to pin MAC on %s", app_peer);
+  /* The peer is created inside the client, as eth0 from its first moment, so
+   * a client that is already running never sees a half-named link. Its MAC is
+   * derived from the container name, so the gateway's DHCP leases see one
+   * host across reboots. */
+  uint8_t mac[6];
+  ds_derive_mac(cfg->container_name, "ds-mac:", mac);
+  ds_log("[NET] Gateway: creating app veth %s <-> eth0 in '%s'", app_host,
+         cfg->container_name);
+  int created = ds_nl_create_veth_in(ctx, app_host, "eth0", netns_fd, mac);
+  close(netns_fd);
+  if (created < 0) {
+    ds_warn("[NET] Gateway: failed to create app veth pair");
+    ds_nl_close(ctx);
+    goto out;
   }
 
   ds_net_disable_tx_checksum(app_host);
@@ -1431,36 +1462,9 @@ static int gateway_wire_client(struct ds_config *cfg, pid_t client_pid,
     ds_warn("[NET] Gateway: failed to attach %s to %s", app_host, bridge);
   if (ds_nl_link_up(ctx, app_host) < 0)
     ds_warn("[NET] Gateway: failed to bring up %s", app_host);
-
-  char netns[PATH_MAX];
-  snprintf(netns, sizeof(netns), "/proc/%d/ns/net", (int)client_pid);
-  int netns_fd = open(netns, O_RDONLY | O_CLOEXEC);
-  if (netns_fd < 0) {
-    ds_warn("[NET] Gateway: failed to open client netns %s: %s", netns,
-            strerror(errno));
-    ds_nl_del_link(ctx, app_host);
-    ds_nl_close(ctx);
-    goto out;
-  }
-
-  /* Atomic move+rename into the client as eth0 (no transient raw-name device
-   * for the container's own DHCP/networkd to race), with a plain-move fallback.
-   */
-  if (ds_nl_move_to_netns_named(ctx, app_peer, netns_fd, "eth0") != 0) {
-    ds_warn("[NET] Gateway: atomic move+rename of %s failed - falling back",
-            app_peer);
-    if (ds_nl_move_to_netns(ctx, app_peer, netns_fd) < 0) {
-      ds_warn("[NET] Gateway: move of %s into client netns failed", app_peer);
-      close(netns_fd);
-      ds_nl_del_link(ctx, app_host);
-      ds_nl_close(ctx);
-      goto out;
-    }
-  }
-  close(netns_fd);
   ds_nl_close(ctx);
 
-  if (ds_netns_rename_up(netns, app_peer, "eth0") < 0)
+  if (ds_netns_rename_up(netns, "eth0", "eth0") < 0)
     ds_warn("[NET] Gateway: wired '%s' but could not bring up its eth0",
             cfg->container_name);
 

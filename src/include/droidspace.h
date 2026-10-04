@@ -772,6 +772,8 @@ int ds_nl_link_exists(ds_nl_ctx_t *ctx, const char *ifname);
 int ds_nl_get_ifindex(ds_nl_ctx_t *ctx, const char *ifname);
 int ds_nl_create_bridge(ds_nl_ctx_t *ctx, const char *name);
 int ds_nl_create_veth(ds_nl_ctx_t *ctx, const char *host, const char *peer);
+int ds_nl_create_veth_in(ds_nl_ctx_t *ctx, const char *host, const char *peer,
+                         int peer_netns_fd, const uint8_t *peer_mac);
 int ds_nl_set_master(ds_nl_ctx_t *ctx, const char *ifname, const char *master);
 int ds_nl_link_up(ds_nl_ctx_t *ctx, const char *ifname);
 int ds_nl_link_down(ds_nl_ctx_t *ctx, const char *ifname);
