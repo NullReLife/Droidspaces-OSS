@@ -1200,33 +1200,20 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
 
   int sv[2];
   if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) < 0) {
-    close(tty.master);
-    close(tty.slave);
     free_config_env_vars(cfg);
     return -1;
   }
-
-  /* Parent will receive master FD from child after namespace entry */
-  close(tty.slave);
-  tty.slave = -1;
-  close(tty.master);
-  tty.master = -1;
 
   pid_t child = fork();
   if (child < 0) {
     close(sv[0]);
     close(sv[1]);
-    close(tty.master);
     free_config_env_vars(cfg);
     return -1;
   }
 
   if (child == 0) {
     close(sv[0]);
-
-    /* In this refactored flow, the child allocates the PTY itself after setns.
-     */
-    tty.slave = -1;
 
     /* cgroup attach before entering namespaces */
     ds_log_silent = 1;
@@ -1431,9 +1418,7 @@ static size_t shell_quote_append(char *buf, size_t off, size_t size,
   return off;
 }
 
-int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
-                  const char *as_user) {
-  (void)argc;
+int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user) {
   pid_t pid = 0;
   if (!is_container_running(cfg, &pid) || pid <= 0) {
     ds_error("Container '%s' is not running or invalid.", cfg->container_name);

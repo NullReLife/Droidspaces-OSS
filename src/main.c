@@ -965,7 +965,7 @@ int main(int argc, char **argv) {
                           strcmp(discovered_cmd, "check") == 0));
 
   if (!is_daemon_cmd && !is_no_root_cmd && getenv("DS_NO_PROXY") == NULL) {
-    int proxy_ret = ds_client_run(argc - 1, argv + 1);
+    int proxy_ret = ds_client_run(argc - 1, argv + 1, discovered_cmd);
     if (proxy_ret != -2) {
       ret = proxy_ret;
       goto cleanup;
@@ -1210,7 +1210,7 @@ int main(int argc, char **argv) {
       goto cleanup;
     }
     const char *as_user = (run_user[0] != '\0') ? run_user : NULL;
-    ret = run_in_rootfs(&cfg, argc - (optind + 1), run_argv, as_user);
+    ret = run_in_rootfs(&cfg, run_argv, as_user);
     goto cleanup;
   }
 

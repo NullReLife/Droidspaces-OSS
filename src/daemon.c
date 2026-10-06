@@ -1144,57 +1144,31 @@ static int send_request(int sock, int argc, char **argv, int interactive) {
   return 0;
 }
 
-int ds_client_run(int argc, char **argv) {
+int ds_client_run(int argc, char **argv, const char *cmd) {
   if (argc < 1)
     return -2;
+  if (!cmd)
+    cmd = "";
 
-  int interactive = 0;
-  for (int i = 0; i < argc; i++) {
-    if (strcmp(argv[i], "enter") == 0 || strcmp(argv[i], "run") == 0 ||
-        strcmp(argv[i], "start") == 0 || strcmp(argv[i], "restart") == 0) {
-      interactive = 1;
-      break;
-    }
-  }
-
+  int is_enter = strcmp(cmd, "enter") == 0;
+  int is_boot = strcmp(cmd, "start") == 0 || strcmp(cmd, "restart") == 0;
+  int interactive = is_enter || is_boot || strcmp(cmd, "run") == 0;
   int has_tty = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO);
 
   if (interactive && !has_tty) {
-    int forces_tty = 0;
-    int is_enter = 0;
-    for (int i = 0; i < argc; i++) {
-      if (strcmp(argv[i], "enter") == 0) {
-        forces_tty = 1;
-        is_enter = 1;
-        break;
-      }
-      if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--foreground") == 0) {
-        for (int j = 0; j < argc; j++) {
-          if (strcmp(argv[j], "start") == 0 ||
-              strcmp(argv[j], "restart") == 0) {
-            forces_tty = 1;
-            break;
-          }
-        }
-        if (forces_tty)
-          break;
-      }
+    if (is_enter) {
+      ds_error("Interactive terminal is required for the enter command\n");
+      return 1;
     }
-    if (forces_tty) {
-      if (is_enter) {
-        ds_error("Interactive terminal is required for the enter command\n");
-        return 1;
-      } else {
-        /* Strip -f/--foreground; start_rootfs() will warn and flip the switch.
-         */
-        for (int i = 0; i < argc; i++) {
-          if (strcmp(argv[i], "-f") == 0 ||
-              strcmp(argv[i], "--foreground") == 0) {
-            for (int j = i; j < argc - 1; j++)
-              argv[j] = argv[j + 1];
-            argv[--argc] = NULL;
-            break;
-          }
+    /* Strip -f/--foreground; start_rootfs() will warn and flip the switch. */
+    if (is_boot) {
+      for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-f") == 0 ||
+            strcmp(argv[i], "--foreground") == 0) {
+          for (int j = i; j < argc - 1; j++)
+            argv[j] = argv[j + 1];
+          argv[--argc] = NULL;
+          break;
         }
       }
     }

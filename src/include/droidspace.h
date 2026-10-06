@@ -949,8 +949,7 @@ int stop_rootfs_with_timeout(struct ds_config *cfg, int skip_unmount,
                              int timeout_seconds);
 int enter_namespace(pid_t pid, struct ds_config *cfg);
 int enter_rootfs(struct ds_config *cfg, const char *user);
-int run_in_rootfs(struct ds_config *cfg, int argc, char **argv,
-                  const char *as_user);
+int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user);
 int show_info(struct ds_config *cfg, int trust_cfg_pid);
 /* argc/argv: the process's original arguments, so restart can re-apply CLI
  * overrides after its post-stop config reload. NULL argv skips that step. */
@@ -974,7 +973,9 @@ int check_requirements_detailed(void);
 /* daemon.c - daemon, client, and probe entry points */
 
 int ds_daemon_run(int foreground, char **argv);
-int ds_client_run(int argc, char **argv);
+/* cmd is the sub-command main() discovered, so a payload word like "run"
+ * inside the command does not decide whether the session is interactive. */
+int ds_client_run(int argc, char **argv, const char *cmd);
 int ds_daemon_probe(void);
 
 #endif /* DROIDSPACE_H */
