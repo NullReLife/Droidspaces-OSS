@@ -136,11 +136,11 @@ Hand a container's LAN to another running container (for example OpenWRT), which
 |--------|-------|-------------|
 | `--foreground` | `-f` | Attach to the container console on start to see init logs. |
 | `--volatile` | `-V` | Ephemeral mode. Changes live in RAM and are lost on exit. |
-| `--hw-access` | `-H` | Expose host hardware (GPU, USB, etc.). Auto-detects GPU group IDs and creates matching groups inside the container. Mounts X11 socket for GUI apps (Termux X11 on Android, `/tmp/.X11-unix` on Linux). See [Safety Warning](Features.md#hardware-access-mode). |
+| `--hw-access` | `-H` | Expose host hardware (GPU, USB, etc.). Auto-detects GPU group IDs and creates matching groups inside the container. See [Safety Warning](Features.md#hardware-access-mode). |
 | `--gpu` | | Enable GPU acceleration only. Scans the host `/dev` for known GPU nodes and maps only those into the container, without exposing other host hardware. Ignored if `-H` is passed. |
 | `--allow-vts` | | With `--hw-access`, leave the host's virtual terminals (`/dev/tty1`-`tty6`) visible. By default they are masked with `/dev/null` so a systemd container's `getty` does not take over the host console. No effect without `-H`. |
 | `--allow-sandboxing` | | Let unprivileged Docker, Podman, Flatpak, bwrap and browser sandboxes run inside the container. Weakens isolation. See [Sandboxing](Features.md#sandboxing). |
-| `--termux-x11`| `-X` | Mount X11 socket for Termux-X11 display (Android only). |
+| `--x11`| `-X` | Bridge the host X11 socket into the container. Launches Termux:X11 on Android. |
 | `--enable-android-storage`| | Mount `/storage/emulated/0` (Android only). |
 | `--selinux-permissive` | | Set host SELinux to permissive for the container session. |
 | `--force-cgroupv1` | | Force the legacy cgroup v1 hierarchy. Required if the host kernel has a broken or partial cgroup v2 implementation (common on older Android 4.x kernels). |
@@ -216,8 +216,8 @@ enable_hw_access=0
 # Auto-detect and securely map GPU nodes without full hardware access
 enable_gpu_mode=0
 
-# Android: Setup Termux X11 socket
-enable_termux_x11=0
+# Bridge the host X11 socket (Termux:X11 on Android)
+enable_x11=0
 
 # Android: Setup Android internal shared storage mount
 enable_android_storage=0

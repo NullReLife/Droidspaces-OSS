@@ -183,13 +183,13 @@ No manual `groupadd`/`usermod` inside the container is needed.
 
 ### X11 socket mounting
 
-For GUI applications, Droidspaces bind-mounts the X11 socket directory automatically:
+For GUI applications, Droidspaces bind-mounts the host X11 socket when `--x11` is set:
 
 - **Android (Termux X11):** Detects and mounts `/data/data/com.termux/files/usr/tmp/.X11-unix`
-- **Desktop Linux:** Mounts `/tmp/.X11-unix` via `/proc/1/root/tmp/.X11-unix`
+- **Desktop Linux:** Mounts the host `/tmp/.X11-unix/X0` into the container
 
 > [!TIP]
-> X11 support can be enabled on its own with the `--termux-x11` (`-X`) flag. This is the recommended way to run GUI applications on Android if you do not need full GPU/hardware access, because the container stays more isolated.
+> X11 support is enabled with the `--x11` (`-X`) flag and does not need `--hw-access`. This is the recommended way to run GUI applications if you do not need full GPU/hardware access, because the container stays more isolated.
 
 Droidspaces injects `DISPLAY=:5` and (if VirGL is enabled) `GALLIUM_DRIVER=virpipe` into the container environment through `/run/droidspaces.env`, which is symlinked from `/etc/profile.d/droidspaces_env.sh`. Shells like `bash` and `sh` source it automatically. If you use `zsh`, `fish`, or another non-login shell, source it yourself: `source /run/droidspaces.env`.
 

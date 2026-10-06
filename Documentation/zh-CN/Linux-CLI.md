@@ -133,11 +133,11 @@ sudo droidspaces --name=web,db,app stop
 |--------|------|-------------|
 | `--foreground` | `-f` | 启动时附加到容器控制台以查看 init 日志。 |
 | `--volatile` | `-V` | 临时模式。更改存储在 RAM 中，退出后丢失。 |
-| `--hw-access` | `-H` | 暴露主机硬件（GPU、USB 等）。自动检测 GPU 组 ID 并在容器内创建匹配的组。挂载 X11 socket 以支持 GUI 应用（Android 上为 Termux X11，Linux 上为 `/tmp/.X11-unix`）。参见[安全警告](./Features.md#hardware-access-mode)。 |
+| `--hw-access` | `-H` | 暴露主机硬件（GPU、USB 等）。自动检测 GPU 组 ID 并在容器内创建匹配的组。参见[安全警告](./Features.md#hardware-access-mode)。 |
 | `--gpu` | | 仅启用 GPU 加速。扫描主机 `/dev` 中的已知 GPU 节点，并仅将其安全映射到容器中，不暴露其他主机硬件。（若已传入 `-H`，此选项将被忽略）。 |
 | `--allow-vts` | | 与 `--hw-access` 一起使用时，保留主机虚拟终端（`/dev/tty1`-`tty6`）可见。默认情况下它们会被 `/dev/null` 遮蔽，以免 systemd 容器的 `getty` 接管主机控制台。没有 `-H` 时无效。 |
 | `--allow-sandboxing` | | 允许非特权 Docker、Podman、Flatpak、bwrap 以及浏览器沙箱在容器内运行。会削弱隔离性。参见[沙箱支持](./Features.md#sandboxing) |
-| `--termux-x11`| `-X` | 挂载 X11 socket 以支持 Termux-X11 显示（仅限 Android）。 |
+| `--x11`| `-X` | 将主机 X11 socket 桥接到容器中。在 Android 上会启动 Termux:X11。 |
 | `--enable-android-storage`| | 挂载 `/storage/emulated/0`（仅限 Android）。 |
 | `--selinux-permissive` | | 在容器会话期间将主机 SELinux 设置为宽容模式。 |
 | `--force-cgroupv1` | | 强制使用旧版 Cgroup V1 层级。若主机内核存在损坏或不完整的 Cgroups V2 实现（常见于旧版 Android 4.x 内核），则需要此选项。 |
@@ -202,8 +202,8 @@ enable_hw_access=0
 # 自动检测并安全映射 GPU 节点，无需完整硬件访问权限
 enable_gpu_mode=0
 
-# Android：设置 Termux X11 socket
-enable_termux_x11=0
+# 桥接主机 X11 socket（Android 上为 Termux:X11）
+enable_x11=0
 
 # Android：设置 Android 内部共享存储挂载
 enable_android_storage=0

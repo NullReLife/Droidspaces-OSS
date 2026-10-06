@@ -183,13 +183,13 @@ droidspaces --name=gpu-test --rootfs=/path/to/rootfs --hw-access start
 
 ### X11 套接字挂载
 
-为支持 GUI 应用程序，Droidspaces 自动 bind mount X11 套接字目录：
+为支持 GUI 应用程序，Droidspaces 在设置 `--x11` 时 bind mount 主机 X11 套接字：
 
 - **Android (Termux X11)：** 检测并挂载 `/data/data/com.termux/files/usr/tmp/.X11-unix`
-- **桌面 Linux：** 通过 `/proc/1/root/tmp/.X11-unix` 挂载 `/tmp/.X11-unix`
+- **桌面 Linux：** 将主机的 `/tmp/.X11-unix/X0` 挂载到容器中
 
 > [!TIP]
-> X11 支持可以使用 `--termux-x11` (`-X`) 标志独立启用。如果您不需要完整的 GPU/硬件访问权限，这是在 Android 上使用 GUI 应用程序的推荐方式，因为它保留了更高级别的隔离性。
+> X11 支持通过 `--x11` (`-X`) 标志启用，无需 `--hw-access`。如果您不需要完整的 GPU/硬件访问权限，这是使用 GUI 应用程序的推荐方式，因为它保留了更高级别的隔离性。
 
 
 Droidspaces 会通过 `/run/droidspaces.env`（从 `/etc/profile.d/droidspaces_env.sh` 符号链接）自动将 `DISPLAY=:5` 以及（启用 VirGL 时）`GALLIUM_DRIVER=virpipe` 注入到容器环境中。`bash` 和 `sh` 会自动读取此文件。如果您使用 `zsh`、`fish` 或其他非登录 shell，请手动执行：`source /run/droidspaces.env`。
