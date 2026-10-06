@@ -111,6 +111,9 @@ void print_usage(void) {
       "      --init=PATH           Custom init binary (default: /sbin/init)\n"
       "  -u, --user=USER           Run command as USER (for 'run' command "
       "only)\n"
+      "      --stdin               Forward stdin to the 'run' command through "
+      "the\n"
+      "                            daemon (default is /dev/null)\n"
       "  -E, --env=PATH            Load environment variables from file\n"
       "  -B, --bind=SRC:DEST[:ro]  Bind mount host directory into container\n"
       "                            Supports multiple flags or "
@@ -363,6 +366,7 @@ static struct option long_options[] = {
     {"config", required_argument, 0, 'C'},
     {"env", required_argument, 0, 'E'},
     {"user", required_argument, 0, 'u'},
+    {"stdin", no_argument, 0, 280},
     {"net", required_argument, 0, 257},
     {"port", required_argument, 0, 258},
     {"upstream", required_argument, 0, 259},
@@ -894,6 +898,7 @@ int main(int argc, char **argv) {
   const char *discovered_cmd = NULL;
   char temp_r[PATH_MAX] = {0}, temp_i[PATH_MAX] = {0};
   char run_user[256] = {0};
+  int run_stdin = 0;
   int opt;
 
   /* 1. Discovery Pass: Capture identity and command without permuting argv.
@@ -923,6 +928,8 @@ int main(int argc, char **argv) {
       safe_strncpy(temp_i, optarg, sizeof(temp_i));
     } else if (opt == 'u') {
       safe_strncpy(run_user, optarg, sizeof(run_user));
+    } else if (opt == 280) {
+      run_stdin = 1;
     }
     /* Discover --net early so kernel probe can run before config load */
     if (opt == 257) {
@@ -965,7 +972,8 @@ int main(int argc, char **argv) {
                           strcmp(discovered_cmd, "check") == 0));
 
   if (!is_daemon_cmd && !is_no_root_cmd && getenv("DS_NO_PROXY") == NULL) {
-    int proxy_ret = ds_client_run(argc - 1, argv + 1, discovered_cmd);
+    int proxy_ret =
+        ds_client_run(argc - 1, argv + 1, discovered_cmd, run_stdin);
     if (proxy_ret != -2) {
       ret = proxy_ret;
       goto cleanup;

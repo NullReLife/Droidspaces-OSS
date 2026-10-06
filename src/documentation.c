@@ -237,7 +237,9 @@ static void print_page(int page, const char *bin) {
 
     p_printf("%sRunning Commands:%s\n", bold, reset);
     p_printf("  %s --name=mycontainer run 'uname -a'\n", bin);
-    p_printf("  %s --name=mycontainer --user=myuser run whoami\n\n", bin);
+    p_printf("  %s --name=mycontainer --user=myuser run whoami\n", bin);
+    p_printf("  %s --name=mycontainer --stdin run 'sh -s' < script.sh\n\n",
+             bin);
 
     p_printf("%sStopping:%s\n", bold, reset);
     p_printf("  %s --name=mycontainer stop\n", bin);

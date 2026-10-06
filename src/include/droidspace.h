@@ -974,8 +974,10 @@ int check_requirements_detailed(void);
 
 int ds_daemon_run(int foreground, char **argv);
 /* cmd is the sub-command main() discovered, so a payload word like "run"
- * inside the command does not decide whether the session is interactive. */
-int ds_client_run(int argc, char **argv, const char *cmd);
+ * inside the command does not decide whether the session is interactive.
+ * want_stdin is --stdin: relay our stdin to a pipe-mode run instead of
+ * handing it /dev/null. */
+int ds_client_run(int argc, char **argv, const char *cmd, int want_stdin);
 int ds_daemon_probe(void);
 
 #endif /* DROIDSPACE_H */
