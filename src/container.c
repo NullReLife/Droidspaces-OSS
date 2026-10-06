@@ -1175,6 +1175,20 @@ int enter_namespace(pid_t pid, struct ds_config *cfg) {
 
 /* Enter / Run */
 
+/* Shell convention, the same one lxc-attach follows: 128 plus the signal when
+ * the child was killed, so `run -- sh -c 'kill -9 $$'` reports 137, not 1. */
+static int exit_status(int st) {
+  if (WIFEXITED(st))
+    return WEXITSTATUS(st);
+  if (WIFSIGNALED(st))
+    return 128 + WTERMSIG(st);
+  return EXIT_FAILURE;
+}
+
+/* What a shell reports after a failed exec: 127 when the binary is missing,
+ * 126 when it is there but cannot be run. Read errno before logging. */
+static int exec_exit_code(void) { return errno == ENOENT ? 127 : 126; }
+
 int enter_rootfs(struct ds_config *cfg, const char *user) {
   pid_t pid = 0;
   if (!is_container_running(cfg, &pid) || pid <= 0) {
@@ -1345,15 +1359,16 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
       }
 
       ds_error("Failed to find any usable shell");
-      _exit(EXIT_FAILURE);
+      _exit(127);
     }
     /* Intermediate: intentionally keep tty.slave open as the peer fd.
      * This holds a stable reference on the pts slave entry for the entire
      * session, preventing it from being destroyed during the brief
      * vhangup()/reopen window when the user runs 'login'.
      * The fd is released automatically when we _exit below. */
-    waitpid(shell_pid, NULL, 0);
-    _exit(EXIT_SUCCESS);
+    int st;
+    waitpid(shell_pid, &st, 0);
+    _exit(exit_status(st));
   }
 
   close(sv[1]);
@@ -1388,9 +1403,10 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
   }
 
   close(master_fd);
-  waitpid(child, NULL, 0);
+  int st;
+  waitpid(child, &st, 0);
   free_config_env_vars(cfg);
-  return 0;
+  return exit_status(st);
 }
 
 /* Append arg to buf as a single-quoted shell word, space-separated from any
@@ -1516,9 +1532,10 @@ int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user) {
         execvp("/bin/su", su_argv);
         execvp("/usr/bin/su", su_argv);
         execvp("/run/wrappers/bin/su", su_argv);
+        int code = exec_exit_code();
         ds_error("Failed to exec su for user '%s': %s", as_user,
                  strerror(errno));
-        _exit(EXIT_FAILURE);
+        _exit(code);
       }
 
       if (argv[1] == NULL && strchr(argv[0], ' ') != NULL) {
@@ -1528,19 +1545,20 @@ int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user) {
         execvp(argv[0], argv);
       }
 
+      int code = exec_exit_code();
       ds_error("Failed to execute command: %s", strerror(errno));
-      _exit(EXIT_FAILURE);
+      _exit(code);
     }
 
     int status;
     waitpid(cmd_pid, &status, 0);
-    _exit(WIFEXITED(status) ? WEXITSTATUS(status) : EXIT_FAILURE);
+    _exit(exit_status(status));
   }
 
   int status;
   waitpid(child, &status, 0);
   free_config_env_vars(cfg);
-  return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+  return exit_status(status);
 }
 
 /* Other operations */
