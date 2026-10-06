@@ -1271,33 +1271,13 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
                                   cfg->sandboxing_allowed);
     ds_log_silent = 0;
 
-    /* LXC-STYLE SESSION SETUP - intermediate becomes session leader
-     *
-     * Ubuntu 24.04+ login (util-linux) calls vhangup() as part of its
-     * "secure login" sequence: hang up the old session, reopen the
-     * terminal fresh, then setsid()+TIOCSCTTY to own it.
-     *
-     * vhangup() sends SIGHUP to the SESSION LEADER of the controlling
-     * terminal.  In our OLD design the grandchild (bash) was the session
-     * leader, so it received SIGHUP, killed login's process group, then
-     * killed itself - the terminal collapsed.
-     *
-     * THE FIX (matches lxc-attach behaviour):
-     *   • The INTERMEDIATE does setsid() + TIOCSCTTY here (not the shell).
-     *   • The intermediate ignores SIGHUP.
-     *   • The grandchild (bash) is a child of the intermediate's session
-     *     and is therefore NOT the session leader - it never receives
-     *     the SIGHUP that vhangup() generates.
-     *   • login's vhangup() → SIGHUP → intermediate → ignored → bash lives.
-     *   • login then does setsid() + open(/dev/pts/N without O_NOCTTY) to
-     *     auto-acquire the terminal as the new session leader.
-     *   • After login exits the terminal is released and bash resumes.
-     *
-     * The slave fd is intentionally kept open in the intermediate for the
-     * duration of the session (the LXC "peer fd").  This prevents the
-     * slave from entering a destroyed state during the vhangup/reopen
-     * window and keeps a stable reference count on the pts entry.
-     */
+    /* The intermediate, not the shell, owns the session and the terminal.
+     * util-linux login (Ubuntu 24.04+) calls vhangup(), which SIGHUPs the
+     * session leader: with the shell as leader that killed bash and took the
+     * whole session with it. Here the leader ignores SIGHUP and the shell is a
+     * plain member, so login's hangup passes through and the prompt returns
+     * after logout. lxc-attach does the opposite, its attached shell calls
+     * setsid() itself, which is why login ends an lxc-attach session. */
     if (setsid() < 0)
       _exit(EXIT_FAILURE);
     if (ioctl(tty.slave, TIOCSCTTY, 0) < 0)
@@ -1311,14 +1291,8 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
     if (shell_pid < 0)
       _exit(EXIT_FAILURE);
     if (shell_pid == 0) {
-      /* The controlling terminal and session leader were established in
-       * the intermediate (parent of this fork) - do NOT call setsid()
-       * or TIOCSCTTY here.  This process (bash) is a child member of
-       * the intermediate's session and inherits pts/1 as its ctty.
-       * Being a non-session-leader is deliberate: when the user runs
-       * 'login' inside bash, login's vhangup() sends SIGHUP only to
-       * the session leader (the intermediate, which ignores it), so
-       * bash is unaffected and its prompt returns after login exits. */
+      /* Not the session leader on purpose, see above: no setsid, no
+       * TIOCSCTTY, the slave is already our controlling terminal. */
       if (ds_terminal_set_stdfds(tty.slave) < 0)
         _exit(EXIT_FAILURE);
 
@@ -1368,11 +1342,8 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
       ds_error("Failed to find any usable shell");
       _exit(127);
     }
-    /* Intermediate: intentionally keep tty.slave open as the peer fd.
-     * This holds a stable reference on the pts slave entry for the entire
-     * session, preventing it from being destroyed during the brief
-     * vhangup()/reopen window when the user runs 'login'.
-     * The fd is released automatically when we _exit below. */
+    /* Keep tty.slave open until the shell exits: it holds the pts alive
+     * across login's vhangup()/reopen window. */
     int st;
     waitpid(shell_pid, &st, 0);
     _exit(exit_status(st));
@@ -1450,6 +1421,14 @@ int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user) {
     ds_log_silent = prev_silent;
   }
 
+  /* The terminal delivers ^C and ^\ to the whole foreground group, the
+   * command included. Only the command should die of them; the two processes
+   * that relay its exit status stay, the same as lxc-attach (its issue #313).
+   * A command that traps them itself cannot be interrupted from the terminal
+   * any more, also as in lxc-attach. The grandchild restores the defaults. */
+  signal(SIGINT, SIG_IGN);
+  signal(SIGQUIT, SIG_IGN);
+
   pid_t child = fork();
   if (child < 0) {
     free_config_env_vars(cfg);
@@ -1485,6 +1464,9 @@ int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user) {
     if (cmd_pid < 0)
       _exit(EXIT_FAILURE);
     if (cmd_pid == 0) {
+      signal(SIGINT, SIG_DFL);
+      signal(SIGQUIT, SIG_DFL);
+
       if (chdir("/") < 0)
         _exit(EXIT_FAILURE);
 
