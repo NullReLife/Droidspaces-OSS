@@ -484,8 +484,6 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
   if (cfg->android_storage && !is_android())
     ds_warn("--enable-android-storage is only supported on Android hosts. "
             "Skipping.");
-  if (cfg->termux_x11 && !is_android())
-    ds_warn("--termux-x11 is only applicable on Android. Skipping.");
   if (cfg->tx11_extra_flags && !is_android())
     ds_warn("--tx11-flags is only applicable on Android. Skipping.");
   if (cfg->virgl && !is_android())
@@ -559,7 +557,7 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
 
   /* 2b. Android: start Termux-X11, VirGL, and PulseAudio servers before fork
    * so the sockets exist when bind-mounted later */
-  if (is_android() && cfg->termux_x11) {
+  if (is_android() && cfg->x11) {
     if (ds_x11_daemon_start(cfg) == 0)
       wait_for_socket_or_death(
           cfg->x11_pid, TX11_SOCK_DIR "/" TX11_DISPLAY_SOCK, 5000, 50000);
@@ -1692,8 +1690,8 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
                 cfg->hw_access ? "full" : (cfg->gpu_mode ? "GPU" : "none"),
                 &first);
 
+    ds_json_int("x11", cfg->x11, &first);
     if (is_android()) {
-      ds_json_int("termux_x11", cfg->termux_x11, &first);
       if (cfg->tx11_extra_flags)
         ds_json_str("tx11_flags", cfg->tx11_extra_flags, &first);
       ds_json_int("virgl", cfg->virgl, &first);
@@ -1878,9 +1876,9 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
       feat_count++;
     }
 
-    /* 7. Termux-X11 */
-    if (is_android() && cfg->termux_x11) {
-      printf("  Termux-X11: enabled\n");
+    /* 7. X11 */
+    if (cfg->x11) {
+      printf("  X11: enabled\n");
       feat_count++;
     }
 

@@ -80,7 +80,7 @@ void print_usage(void) {
       "                            Mount Android internal storage (/sdcard)\n"
       "  -H, --hw-access           Enable direct hardware access (/dev nodes)\n"
       "      --gpu                 Enable GPU acceleration nodes\n"
-      "  -X, --termux-x11          Configure Termux-X11 display support\n"
+      "  -X, --x11                 Bridge host X11 display into the container\n"
       "      --tx11-flags=\"FLAGS\"    Extra flags passed to termux-x11\n"
       "      --virgl               Configure VirGL 3D acceleration support\n"
       "      --virgl-flags=\"FLAGS\"   Extra flags passed to "
@@ -351,7 +351,8 @@ static struct option long_options[] = {
     {"dns", required_argument, 0, 'd'},
     {"foreground", no_argument, 0, 'f'},
     {"hw-access", no_argument, 0, 'H'},
-    {"termux-x11", no_argument, 0, 'X'},
+    {"x11", no_argument, 0, 'X'},
+    {"termux-x11", no_argument, 0, 'X'}, /* old name, kept for scripts */
     {"tx11-flags", required_argument, 0, 271},
     {"disable-ipv6", no_argument, 0, 'I'},
     {"enable-android-storage", no_argument, 0, 'S'},
@@ -459,7 +460,7 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
       cfg->hw_access = 1;
       break;
     case 'X':
-      cfg->termux_x11 = 1;
+      cfg->x11 = 1;
       break;
     case 271:
       free(cfg->tx11_extra_flags);

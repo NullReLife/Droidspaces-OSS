@@ -412,8 +412,7 @@ int internal_boot(struct ds_config *cfg) {
   }
 
   /* 13. Setup /tmp: always mount a fresh isolated tmpfs.
-   * The X11 socket lives in /run/.X11-unix so systemd's tmp.mount
-   * cannot interfere with it. */
+   * The X11 socket is bind-mounted into it later at /tmp/.X11-unix. */
   if (domount("tmpfs", "tmp", "tmpfs", MS_NOSUID | MS_NODEV, "mode=1777") < 0)
     ds_warn("Failed to mount tmpfs at /tmp: %s", strerror(errno));
 

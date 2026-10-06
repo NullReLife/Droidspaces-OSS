@@ -692,7 +692,7 @@ reboot_loop:;
 
     /* Mirror restart behavior: ensure X, VirGL, and PulseAudio servers are up
      * before next boot */
-    if (is_android() && cfg->termux_x11) {
+    if (is_android() && cfg->x11) {
       if (ds_x11_daemon_start(cfg) == 0)
         wait_for_socket_or_death(
             cfg->x11_pid, TX11_SOCK_DIR "/" TX11_DISPLAY_SOCK, 5000, 50000);

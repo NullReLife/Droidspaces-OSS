@@ -370,12 +370,13 @@ struct ds_config {
   char uuid[DS_UUID_LEN + 1];
 
   /* Flags */
-  int foreground;         /* --foreground */
-  int hw_access;          /* --hw-access */
-  int gpu_mode;           /* --gpu: mirror GPU nodes into isolated tmpfs /dev */
-  int termux_x11;         /* --termux-x11 (Android only) */
-  char *tx11_extra_flags; /* --tx11-flags "..." (heap, NULL if unset) */
-  int virgl;              /* --virgl (Android only) */
+  int foreground; /* --foreground */
+  int hw_access;  /* --hw-access */
+  int gpu_mode;   /* --gpu: mirror GPU nodes into isolated tmpfs /dev */
+  int x11; /* -X, --x11: bridge host X11 socket (launches Termux:X11 on Android)
+            */
+  char *tx11_extra_flags;  /* --tx11-flags "..." (heap, NULL if unset) */
+  int virgl;               /* --virgl (Android only) */
   char *virgl_extra_flags; /* --virgl-flags "..." (heap, NULL if unset) */
   int pulseaudio;          /* --pulse-audio (Android only) */
   int volatile_mode;       /* --volatile */

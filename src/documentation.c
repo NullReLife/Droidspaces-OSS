@@ -358,8 +358,7 @@ static void print_page(int page, const char *bin) {
     p_printf(
         "  %s --name=mycontainer --rootfs=/path/to/rootfs --hw-access start\n",
         bin);
-    p_printf("  (Exposes host /dev nodes, maps GPU groups, setups X11 in "
-             "Linux)\n");
+    p_printf("  (Exposes host /dev nodes, maps GPU groups)\n");
     p_printf("  --allow-vts               Leave the host VTs (tty1-6) visible. "
              "Off by default so a\n");
     p_printf("                            systemd container's getty does not "
@@ -370,9 +369,14 @@ static void print_page(int page, const char *bin) {
              bin);
     p_printf("  (Maps ONLY GPU nodes into an isolated tmpfs /dev)\n\n");
 
+    p_printf("%sX11 Display (--x11):%s\n", bold, reset);
+    p_printf("  %s --name=mycontainer --rootfs=/path/to/rootfs --x11 start\n",
+             bin);
+    p_printf(
+        "  (Bridges the host X11 socket, launches Termux:X11 on Android)\n\n");
+
     p_printf("%sAndroid-specific Features:%s\n", bold, reset);
-    p_printf("  --enable-android-storage  Mounts /storage/emulated/0\n");
-    p_printf("  --termux-x11              Setups Termux:X11 socket\n\n");
+    p_printf("  --enable-android-storage  Mounts /storage/emulated/0\n\n");
 
     p_printf("%sSystem Integration:%s\n", bold, reset);
     p_printf("  --selinux-permissive      Set host SELinux to permissive\n");
