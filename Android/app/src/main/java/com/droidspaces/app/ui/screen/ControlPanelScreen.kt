@@ -19,6 +19,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.droidspaces.app.ui.component.DsSnackbarHost
 import com.droidspaces.app.ui.component.EmptyState
 import com.droidspaces.app.ui.component.ErrorState
+import com.droidspaces.app.ui.component.KernelUnsupportedState
 import com.droidspaces.app.ui.component.RootUnavailableState
 import com.droidspaces.app.ui.component.PullToRefreshWrapper
 import com.droidspaces.app.ui.component.RunningContainerCard
@@ -38,6 +39,7 @@ import com.droidspaces.app.R
 fun ControlPanelScreen(
     isBackendAvailable: Boolean,
     isRootAvailable: Boolean = true,
+    isKernelSupported: Boolean = true,
     containerViewModel: ContainerViewModel,
     onNavigateToContainerDetails: (String) -> Unit = {},
     onNavigateToTerminal: (String) -> Unit = {},
@@ -74,6 +76,9 @@ fun ControlPanelScreen(
             }
             !isBackendAvailable -> {
                 ErrorState(modifier = Modifier.padding(bottom = emptyStateBottomInset))
+            }
+            !isKernelSupported -> {
+                KernelUnsupportedState(modifier = Modifier.padding(bottom = emptyStateBottomInset))
             }
             else -> {
                 if (runningContainers.isEmpty()) {

@@ -28,6 +28,7 @@ import com.droidspaces.app.util.ModuleInstallationStep
 import com.droidspaces.app.R
 
 import com.droidspaces.app.ui.viewmodel.AppStateViewModel
+import com.droidspaces.app.util.HostCapabilities
 
 @Composable
 fun InstallationScreen(
@@ -44,6 +45,7 @@ fun InstallationScreen(
     val errorMessage = appStateViewModel.installErrorMessage
     val isInstallingModule = appStateViewModel.isInstallingModule
     val rebootRecommended = appStateViewModel.installRebootRecommended
+    val kernelUnsupported = HostCapabilities.state.collectAsState().value?.requirementsMet == false
 
     // Completely block the back gesture in every state. This screen must be
     // left only via the Continue button, whose handler decides the next
@@ -85,7 +87,8 @@ fun InstallationScreen(
             // Main icon with animation
             InstallationIcon(
                 isSuccess = isSuccess,
-                hasError = errorMessage != null
+                hasError = errorMessage != null,
+                kernelUnsupported = kernelUnsupported
             )
     
             Spacer(modifier = Modifier.height(32.dp))
@@ -121,13 +124,9 @@ fun InstallationScreen(
                     when {
                         isSuccess -> {
                             Text(
-                                text = if (isInstallingModule) {
-                                    context.getString(R.string.module_installed_success)
-                                } else {
-                                    context.getString(R.string.backend_installed_success)
-                                },
+                                text = context.getString(if (kernelUnsupported) R.string.backend_installed_unsupported_kernel else R.string.backend_installed_success),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                color = if (kernelUnsupported) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 textAlign = TextAlign.Center
                             )
     
@@ -223,18 +222,19 @@ fun InstallationScreen(
 @Composable
 private fun InstallationIcon(
     isSuccess: Boolean,
-    hasError: Boolean
+    hasError: Boolean,
+    kernelUnsupported: Boolean = false
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "download_animation")
 
     when {
         isSuccess -> {
-            // Success icon - checkmark
+            // Installed, but a kernel that failed a MUST HAVE probe gets the warning, not the tick.
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = if (kernelUnsupported) Icons.Default.Warning else Icons.Default.CheckCircle,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = if (kernelUnsupported) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             )
         }
         hasError -> {

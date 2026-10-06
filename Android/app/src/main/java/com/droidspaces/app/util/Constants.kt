@@ -28,6 +28,7 @@ object Constants {
 
     // Preferences keys
     const val PREFS_NAME = "droidspaces_prefs"
+    const val KERNEL_CONFIG_DOC_URL = "https://github.com/ravindu644/Droidspaces-OSS/blob/main/Documentation/Kernel-Configuration.md"
     const val KEY_SETUP_COMPLETED = "setup_completed"
     const val KEY_ROOT_CHECKED = "root_checked"
     const val KEY_ROOT_SKIPPED = "root_skipped"

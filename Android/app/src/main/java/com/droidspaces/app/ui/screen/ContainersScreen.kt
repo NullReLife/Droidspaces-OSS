@@ -50,6 +50,7 @@ import com.droidspaces.app.ui.component.DialogFooterRow
 import com.droidspaces.app.ui.component.TerminalDialog
 import com.droidspaces.app.ui.component.EmptyState
 import com.droidspaces.app.ui.component.ErrorState
+import com.droidspaces.app.ui.component.KernelUnsupportedState
 import com.droidspaces.app.ui.component.RootUnavailableState
 import com.droidspaces.app.ui.component.RootfsRepoSheet
 import com.droidspaces.app.ui.viewmodel.ContainerViewModel
@@ -66,6 +67,7 @@ import androidx.compose.ui.window.Dialog
 fun ContainersScreen(
     isBackendAvailable: Boolean,
     isRootAvailable: Boolean = true,
+    isKernelSupported: Boolean = true,
     onNavigateToInstallation: (Uri) -> Unit = {},
     onNavigateToEditContainer: (String) -> Unit = {},
     onNavigateToContainerDetails: (String) -> Unit = {},
@@ -140,6 +142,9 @@ fun ContainersScreen(
             }
             !isBackendAvailable -> {
                 ErrorState(modifier = Modifier.padding(bottom = emptyStateBottomInset))
+            }
+            !isKernelSupported -> {
+                KernelUnsupportedState(modifier = Modifier.padding(bottom = emptyStateBottomInset))
             }
             containers.isEmpty() -> {
                 if (containerViewModel.isRefreshing) {
@@ -260,7 +265,7 @@ fun ContainersScreen(
         }
 
         // FAB LAYER (Above everything, below dialogs)
-        if (isBackendAvailable && isRootAvailable) {
+        if (isBackendAvailable && isRootAvailable && isKernelSupported) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
