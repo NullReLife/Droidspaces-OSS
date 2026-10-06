@@ -969,7 +969,7 @@ void print_documentation(const char *argv0);
 
 int check_requirements(void);
 int check_requirements_hw(int hw_access);
-int check_requirements_detailed(void);
+int check_requirements_detailed(int format_output);
 
 /* daemon.c - daemon, client, and probe entry points */
 

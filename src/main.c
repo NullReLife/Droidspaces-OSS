@@ -122,7 +122,7 @@ void print_usage(void) {
       "                            e.g. -B /data:/data,/tmp:/tmp\n"
       "      --reset               Reset config to defaults (keeps "
       "name/rootfs)\n"
-      "      --format              JSON output (show, info)\n"
+      "      --format              JSON output (show, info, check)\n"
       "      --help                Show this help message\n\n");
 
   printf(C_BOLD
@@ -1087,7 +1087,7 @@ int main(int argc, char **argv) {
 
   /* Basic info commands */
   if (strcmp(cmd, "check") == 0) {
-    ret = check_requirements_detailed();
+    ret = check_requirements_detailed(cfg.format_output);
     goto cleanup;
   }
   if (strcmp(cmd, "version") == 0) {

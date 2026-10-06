@@ -78,7 +78,7 @@ sudo droidspaces --name=web,db,app stop
 | `info` | 显示容器的详细技术信息。配合 `--format` 时以 JSON 输出。 |
 | `show` | 以表格形式列出所有当前运行中的容器。配合 `--format` 时输出 JSON，包含每个容器的 OS、IP、运行时长、CPU 和内存。 |
 | `scan` | 检测并注册孤立/未跟踪的容器。 |
-| `check` | 验证系统和内核要求。 |
+| `check` | 验证系统和内核要求。加上 `--format` 时以 JSON 输出：每个探测项一个 `0`/`1`，外加 `requirements_met`。 |
 | `docs` | 打开交互式终端文档。 |
 | `help` | 显示帮助信息。 |
 | `version` | 输出版本字符串。 |

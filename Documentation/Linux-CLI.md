@@ -81,7 +81,7 @@ sudo droidspaces --name=web,db,app stop
 | `info` | Show detailed technical information about a container. With `--format`, print them as JSON. |
 | `show` | List all currently running containers in a table. With `--format`, print JSON including OS, IP, uptime, CPU and RAM per container. |
 | `scan` | Find and register orphaned or untracked containers. |
-| `check` | Verify system and kernel requirements. |
+| `check` | Verify system and kernel requirements. With `--format`, print the result as JSON: one `0`/`1` per probe plus `requirements_met`. |
 | `docs` | Open the interactive documentation in the terminal. |
 | `help` | Display the help message. |
 | `version` | Print the version string. |

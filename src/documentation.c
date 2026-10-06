@@ -274,6 +274,8 @@ static void print_page(int page, const char *bin) {
 
     p_printf("%sTechnical Information (JSON):%s\n", bold, reset);
     p_printf("  %s --name=mycontainer --format info\n\n", bin);
+    p_printf("%sHost Capabilities (JSON):%s\n", bold, reset);
+    p_printf("  %s --format check\n\n", bin);
 
     p_printf("%sMetadata Recovery:%s\n", bold, reset);
     p_printf("  %s scan\n", bin);
