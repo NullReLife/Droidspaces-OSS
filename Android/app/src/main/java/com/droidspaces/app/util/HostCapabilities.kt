@@ -61,8 +61,18 @@ data class HostCapabilities(
         /** Null until the first probe or cache load; nothing is greyed out before then. */
         val state: StateFlow<HostCapabilities?> = _state.asStateFlow()
 
-        private fun bootId(): String =
-            try { File("/proc/sys/kernel/random/boot_id").readText().trim() } catch (e: Exception) { "" }
+        private const val BOOT_ID_PATH = "/proc/sys/kernel/random/boot_id"
+
+        /** Read as the app, no root. Vendor SELinux policy may deny it, so empty means unknown. */
+        private fun appBootId(): String =
+            try { File(BOOT_ID_PATH).readText().trim() } catch (e: Exception) { "" }
+
+        /** Read as root. Only called once root and the backend are known good. */
+        private fun rootBootId(): String =
+            try { Shell.cmd("cat $BOOT_ID_PATH").exec().out.firstOrNull()?.trim().orEmpty() } catch (e: Exception) { "" }
+
+        /** The app read is free; the root shell is the fallback for a policy that denies it. */
+        private fun bootId(): String = appBootId().ifEmpty { rootBootId() }
 
         private fun parse(json: String): HostCapabilities? = try {
             val obj = JSONObject(json)
@@ -74,22 +84,35 @@ data class HostCapabilities(
             null
         }
 
-        /** Seed from the copy saved on a previous run, if this is still the same boot. */
+        /**
+         * Fast seed at process start, before root exists: trust the saved copy only
+         * if the app can read the boot id itself and it matches. An unreadable id
+         * must never match, so a denied read just leaves the seeding to
+         * [refreshIfStale].
+         */
         fun load(context: Context) {
             val prefs = PreferencesManager.getInstance(context)
-            if (prefs.cachedHostCapabilitiesBootId != bootId()) return
+            val boot = appBootId()
+            if (boot.isEmpty() || prefs.cachedHostCapabilitiesBootId != boot) return
             prefs.cachedHostCapabilities?.let(::parse)?.let { _state.value = it }
         }
 
-        /** Kernel features only change across a reboot or a backend update. */
-        fun isStale(context: Context): Boolean {
-            val current = _state.value ?: return true
+        /**
+         * Runs once root and the backend are available, so the boot id can fall
+         * back to a root read and SELinux cannot hide a reboot from us. Same boot
+         * and same backend version: reuse the saved copy. Anything else: probe.
+         */
+        suspend fun refreshIfStale(context: Context) = withContext(Dispatchers.IO) {
+            val prefs = PreferencesManager.getInstance(context)
+            val boot = bootId()
+            val sameBoot = boot.isNotEmpty() && boot == prefs.cachedHostCapabilitiesBootId
+            val cached = if (sameBoot) prefs.cachedHostCapabilities?.let(::parse) else null
             val installed = SystemInfoManager.getCachedDroidspacesVersion(context)?.removePrefix("v")
-            return installed != null && installed != current.backendVersion
-        }
-
-        suspend fun refreshIfStale(context: Context) {
-            if (isStale(context)) refresh(context)
+            if (cached != null && (installed == null || installed == cached.backendVersion)) {
+                if (_state.value == null) _state.value = cached
+                return@withContext
+            }
+            refresh(context)
         }
 
         /** One root call. An older backend prints the text report here, which fails to parse and leaves the state alone. */
