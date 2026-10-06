@@ -9,7 +9,6 @@
     <string name="root_denied">ரூட் அணுகல் மறுக்கப்பட்டது</string>
     <string name="selinux_permissive_option">SELinux இசைவு</string>
     <string name="no_unknown_services">தெரியாத நிலையில் சேவைகள் இல்லை</string>
-    <string name="extracting_module_files">தொகுதிக் கோப்புகளைப் பிரித்தெடுக்கிறது...</string>
     <string name="tarball_label">தார்பால்</string>
     <string name="ram_usage_label">ரேம் பயன்பாடு</string>
     <string name="optional_symmetric_hint">விருப்பத்தேர்வு (எ.கா. 8080 அல்லது 1000-2000)</string>
@@ -53,7 +52,6 @@
     <string name="error_port_must_be_number">துறைமுகம் ஒரு எண்ணாக இருக்க வேண்டும்</string>
     <string name="feat_containers_title">உண்மையான லினக்ச் கொள்கலன்கள்</string>
     <string name="sparse_images_description">ஒரு ச்பேர்ச் படமானது ஒரு பிரத்யேக ext4 கோப்பு முறைமை படக் கோப்பை உருவாக்குகிறது, அது ஒரு லூப் சாதனமாக ஏற்றப்பட்டு, சிறந்த தனிமைப்படுத்தல் மற்றும் இணக்கத்தன்மையை வழங்குகிறது.</string>
-    <string name="installing_binary">பைனரியை நிறுவுகிறது: %1$s</string>
     <string name="selinux_permissive_description">SELinux அனுமதியை அமைக்கவும்</string>
     <string name="get_started">தொடங்குங்கள்</string>
     <string name="open_terminal">முனையத்தைத் திறக்கவும்</string>
@@ -117,7 +115,6 @@
     <string name="copy_login">உள்நுழைவை நகலெடுக்கவும்</string>
     <string name="installation_path_label">நிறுவல் பாதை</string>
     <string name="login_command_copied">%1$s பயனருக்கு உள்நுழைவு கட்டளை நகலெடுக்கப்பட்டது</string>
-    <string name="installing_module">தொகுதியை நிறுவுதல்</string>
     <string name="error_gateway_iface_taken">இடைமுகம் ஏற்கனவே மற்றொரு பிரிவால் பயன்படுத்தப்பட்டது (\'%1$s\'). வேறு ஒன்றைப் பயன்படுத்தவும்.</string>
     <string name="backend_checking">பின்பக்கம்: சரிபார்க்கிறது...</string>
     <string name="containers">கொள்கலன்கள்</string>
@@ -127,14 +124,12 @@
     <string name="tap_to_fix_system">கணினி உள்ளமைவை சரிசெய்ய தட்டவும்</string>
     <string name="disk_usage_used_of_total">%1$s / %2$s பயன்படுத்தப்பட்டது</string>
     <string name="requirements_check_completed_successfully">தேவைகள் சரிபார்ப்பு வெற்றிகரமாக முடிந்தது</string>
-    <string name="verifying_installation">நிறுவலைச் சரிபார்க்கிறது...</string>
     <string name="hardware_access_description">முழு வன்பொருள் அணுகல்</string>
     <string name="repo_refresh">புதுப்பிப்பு</string>
     <string name="feat_init_desc">முழு init கணினி உதவி. உண்மையான பணி மேலாண்மை, உருவகப்படுத்தப்பட்ட சூழல் அல்ல.</string>
     <string name="github">அறிவிலிமையம்</string>
     <string name="sessions_running_plural">%1$d sessions running · tap பெறுநர் restore</string>
     <string name="disabled_legend">முடக்கப்பட்டது</string>
-    <string name="module_installed_success">மேசிச்க் தொகுதி வெற்றிகரமாக நிறுவப்பட்டது</string>
     <string name="starting_migration">இடம்பெயர்வு செயல்பாட்டைத் தொடங்குகிறது...</string>
     <string name="volatile_option">வெடிமையுடைய</string>
     <string name="auto_boot_priority_empty">எந்த கொள்கலன்களும் ரன் அட் பூட்டில் இயக்கப்படவில்லை.</string>
@@ -154,11 +149,9 @@
     <string name="available_users">கிடைக்கும் பயனர்கள்</string>
     <string name="root_granted">ரூட் அணுகல் வழங்கப்பட்டது</string>
     <string name="port_forwarding">துறைமுகம் பகிர்தல்</string>
-    <string name="detected_architecture">கண்டறியப்பட்ட கட்டமைப்பு: %1$s</string>
     <string name="openrc_services">OpenRC சேவைகள்</string>
     <string name="virgl_option">விர்சிஎல்</string>
     <string name="update_available_message">பின்தளத்தில் புதுப்பிப்பு உள்ளது, புதுப்பிக்க இங்கே சொடுக்கு செய்யவும்</string>
-    <string name="installing_module_step">தொகுதியை நிறுவுகிறது...</string>
     <string name="reboot_recommended">SELinux விதிகளைப் பயன்படுத்த மறுதொடக்கம் பரிந்துரைக்கப்படுகிறது மற்றும் துவக்கத்தில் டீமானைத் தொடங்கவும்.</string>
     <string name="gateway_bridge">புரவலன் பாலம்</string>
     <string name="ram">ரேம்:</string>
@@ -215,7 +208,6 @@
     <string name="resize_dialog_title">ச்பார்ச் படத்தின் அளவை மாற்றவும்</string>
     <string name="stop">நிறுத்து</string>
     <string name="run_at_boot">துவக்கத்தில் இயக்கவும்</string>
-    <string name="setting_permissions">அனுமதிகளை அமைக்கிறது...</string>
     <string name="size_range_4_512_hint">4-512</string>
     <string name="cat_networking">நெட்வொர்க்கிங்</string>
     <string name="container_is_running">கொள்கலன் இயங்குகிறது</string>
@@ -234,7 +226,6 @@
     <string name="failed_to_stop_container">%1$s கண்டெய்னரை நிறுத்த முடியவில்லை</string>
     <string name="not_available">கிடைக்கவில்லை</string>
     <string name="uninstall">நிறுவல் நீக்கவும்</string>
-    <string name="creating_directories">கோப்பகங்களை உருவாக்குகிறது...</string>
     <string name="privileged_option">சிறப்புரிமை பெற்றது</string>
     <string name="options_label">விருப்பங்கள்: %1$s</string>
     <string name="gateway_bridge_hint">ds-lan</string>
@@ -244,9 +235,7 @@
     <string name="skip">தவிர்</string>
     <string name="requirements_check_completed_with_errors">தேவைகள் சரிபார்ப்பு பிழைகளுடன் முடிந்தது</string>
     <string name="repo_fab_label">களஞ்சியம்</string>
-    <string name="preparing_installation">நிறுவல் தயாராகிறது...</string>
     <string name="configuration_title">உள்ளமைவு</string>
-    <string name="preparing_module_installation">தொகுதி நிறுவலைத் தயாராகிறது...</string>
     <string name="no_output_available">வெளியீடு இல்லை</string>
     <string name="check_root_access">ரூட் அணுகலைச் சரிபார்க்கவும்</string>
     <string name="container_path">கொள்கலன் பாதை: %1$s</string>
@@ -303,7 +292,6 @@
     <string name="enable_service">இயக்கு</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
     <string name="notification_channel_name">டெர்மினல் அமர்வுகள்</string>
-    <string name="removing_old_module">பழைய தொகுதியை நீக்குகிறது...</string>
     <string name="force_cgroupv1_description">மரபு Cgroup V1 படிநிலையின் கட்டாயப் பயன்பாடு</string>
     <string name="android_version">ஆண்ட்ராய்டு பதிப்பு</string>
     <string name="failed_to_uninstall_container">%1$s கண்டெய்னரை நிறுவல் நீக்குவதில் தோல்வி</string>
@@ -361,7 +349,6 @@
     <string name="backend_update_available">பின்தளம்: புதுப்பிப்பு உள்ளது</string>
     <string name="cpu">CPU:</string>
     <string name="architecture">கட்டிடக்கலை</string>
-    <string name="granting_permissions">அனுமதிகளை வழங்குகிறது...</string>
     <string name="termux_requirements">Termux தேவைகள்</string>
     <string name="image_size">படத்தின் அளவு</string>
     <string name="pulseaudio_option">பல்ச் ஆடியோ</string>

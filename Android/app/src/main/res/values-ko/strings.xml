@@ -313,23 +313,10 @@
     <string name="installation_complete">설치 완료</string>
     <string name="installation_failed">설치 실패</string>
     <string name="done">완료</string>
-    <string name="installing_module">모듈 설치 중</string>
     <string name="installing_droidspaces">Droidspaces 설치 중</string>
-    <string name="module_installed_success">Magisk 모듈이 성공적으로 설치되었습니다</string>
     <string name="backend_installed_success">Droidspaces 백엔드가 성공적으로 설치되었습니다</string>
     <string name="module_installation_failed">모듈 설치 실패</string>
     <string name="binary_installation_failed">바이너리 설치 실패</string>
-    <string name="removing_old_module">이전 모듈 제거 중...</string>
-    <string name="extracting_module_files">모듈 파일 추출 중...</string>
-    <string name="installing_module_step">모듈 설치 중...</string>
-    <string name="setting_permissions">권한 설정 중...</string>
-    <string name="verifying_installation">설치 확인 중...</string>
-    <string name="preparing_module_installation">모듈 설치 준비 중...</string>
-    <string name="detected_architecture">감지된 아키텍처: %1$s</string>
-    <string name="creating_directories">디렉터리 생성 중...</string>
-    <string name="installing_binary">바이너리 설치 중: %1$s</string>
-    <string name="granting_permissions">권한 부여 중...</string>
-    <string name="preparing_installation">설치 준비 중...</string>
     <!-- File Picker Screen -->
     <string name="filter_absolute_path_hint">필터링하거나 절대 경로 입력…</string>
     <string name="no_matches">일치하는 항목 없음</string>

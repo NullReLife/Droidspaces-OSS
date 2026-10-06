@@ -273,7 +273,9 @@ fun DroidspacesNavigation(
         composable(
             route = Screen.Installation.route,
             enterTransition = setupEnterTransition,
-            exitTransition = setupExitTransition
+            // Continue must drop straight to Home. A fade here cross-paints the
+            // finished installer over the Home tab for 200 ms.
+            exitTransition = { ExitTransition.None }
         ) {
             InstallationScreen(
                 appStateViewModel = sharedAppStateViewModel,

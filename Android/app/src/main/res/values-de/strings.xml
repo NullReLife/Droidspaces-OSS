@@ -142,23 +142,10 @@
     <!-- Installation Screen -->
     <string name="installation_complete">Installation abgeschlossen</string>
     <string name="installation_failed">Installation fehlgeschlagen</string>
-    <string name="installing_module">Modul wird installiert</string>
     <string name="installing_droidspaces">Droidspaces wird installiert</string>
-    <string name="module_installed_success">Magisk-Modul erfolgreich installiert</string>
     <string name="backend_installed_success">Droidspaces-Backend erfolgreich installiert</string>
     <string name="module_installation_failed">Modulinstallation fehlgeschlagen</string>
     <string name="binary_installation_failed">Binary-Installation fehlgeschlagen</string>
-    <string name="removing_old_module">Altes Modul wird entfernt...</string>
-    <string name="extracting_module_files">Moduldateien werden entpackt...</string>
-    <string name="installing_module_step">Modul wird installiert...</string>
-    <string name="setting_permissions">Berechtigungen werden gesetzt...</string>
-    <string name="verifying_installation">Installation wird geprüft...</string>
-    <string name="preparing_module_installation">Vorbereitung der Modulinstallation...</string>
-    <string name="detected_architecture">Erkannte Architektur: %1$s</string>
-    <string name="creating_directories">Verzeichnisse werden angelegt...</string>
-    <string name="installing_binary">Binary wird installiert: %1$s</string>
-    <string name="granting_permissions">Berechtigungen werden vergeben...</string>
-    <string name="preparing_installation">Vorbereitung der Installation...</string>
     <!-- Control Panel Screen -->
     <string name="no_containers_running">Keine laufenden Container</string>
     <string name="start_container_first">Zuerst einen Container starten, um ihn hier zu sehen</string>

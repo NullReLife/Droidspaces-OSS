@@ -140,23 +140,10 @@
     <!-- Installation Screen -->
     <string name="installation_complete">Instalação Concluída</string>
     <string name="installation_failed">Instalação Falhou</string>
-    <string name="installing_module">Instalando Módulo</string>
     <string name="installing_droidspaces">Instalando Droidspaces</string>
-    <string name="module_installed_success">Módulo Magisk instalado com sucesso</string>
     <string name="backend_installed_success">Backend instalado com sucesso</string>
     <string name="module_installation_failed">Falha na instalação do módulo</string>
     <string name="binary_installation_failed">Falha na instalação dos binários</string>
-    <string name="removing_old_module">Removendo módulo antigo...</string>
-    <string name="extracting_module_files">Extraindo arquivos do módulo...</string>
-    <string name="installing_module_step">Instalando módulo...</string>
-    <string name="setting_permissions">Definindo permissões...</string>
-    <string name="verifying_installation">Verificando instalação...</string>
-    <string name="preparing_module_installation">Preparando instalação do módulo...</string>
-    <string name="detected_architecture">Arquitetura detectada: %1$s</string>
-    <string name="creating_directories">Criando diretórios...</string>
-    <string name="installing_binary">Instalando binário: %1$s</string>
-    <string name="granting_permissions">Concedendo permissões...</string>
-    <string name="preparing_installation">Preparando instalação...</string>
     <!-- Control Panel Screen -->
     <string name="no_containers_running">Nenhum container em execução</string>
     <string name="start_container_first">Inicie um container primeiro para vê-lo aqui</string>

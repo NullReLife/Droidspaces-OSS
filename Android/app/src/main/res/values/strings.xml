@@ -388,24 +388,11 @@
     <string name="installation_complete">Installation Complete</string>
     <string name="installation_failed">Installation Failed</string>
     <string name="done">Done</string>
-    <string name="installing_module">Installing Module</string>
     <string name="installing_droidspaces">Installing Droidspaces</string>
-    <string name="module_installed_success">Magisk module installed successfully</string>
     <string name="backend_installed_success">Droidspaces backend installed successfully</string>
     <string name="backend_installed_unsupported_kernel">Droidspaces backend installed successfully, but this kernel has no Droidspaces support.</string>
     <string name="module_installation_failed">Module installation failed</string>
     <string name="binary_installation_failed">Binary installation failed</string>
-    <string name="removing_old_module">Removing old module...</string>
-    <string name="extracting_module_files">Extracting module files...</string>
-    <string name="installing_module_step">Installing module...</string>
-    <string name="setting_permissions">Setting permissions...</string>
-    <string name="verifying_installation">Verifying installation...</string>
-    <string name="preparing_module_installation">Preparing module installation...</string>
-    <string name="detected_architecture">Detected architecture: %1$s</string>
-    <string name="creating_directories">Creating directories...</string>
-    <string name="installing_binary">Installing binary: %1$s</string>
-    <string name="granting_permissions">Granting permissions...</string>
-    <string name="preparing_installation">Preparing installation...</string>
 
     <!-- File Picker Screen -->
     <string name="filter_absolute_path_hint">Filter or type absolute path…</string>
