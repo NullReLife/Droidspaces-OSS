@@ -1305,10 +1305,75 @@ rule_dump_done:
 /* Policy rule management (RTM_NEWRULE / RTM_DELRULE), either family.
  * src and dst point at an in_addr or in6_addr matching `family`. */
 
+/* Is this exact rule already installed? Kernels before 4.12 ignore NLM_F_EXCL
+ * on RTM_NEWRULE and happily add a second copy, so the EEXIST that makes
+ * re-installing a rule a no-op never comes. The monitor re-installs on every
+ * rule change, its own included, and on those kernels that fed itself: about
+ * fifteen duplicates a second until reboot. The dump is always read to the
+ * end, a half-read one would be mistaken for the next request's reply. */
+static int ds_nl_rule_exists(ds_nl_ctx_t *ctx, int family, const void *src,
+                             uint8_t src_len, const void *dst, uint8_t dst_len,
+                             int table, int priority) {
+  size_t alen = (family == AF_INET6) ? 16 : 4;
+  struct {
+    struct nlmsghdr n;
+    struct rtmsg r;
+  } req;
+  memset(&req, 0, sizeof(req));
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+  req.n.nlmsg_type = RTM_GETRULE;
+  req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+  req.r.rtm_family = (unsigned char)family;
+  req.n.nlmsg_seq = ++ctx->seq;
+  req.n.nlmsg_pid = (uint32_t)ctx->pid;
+
+  if (send(ctx->fd, &req, req.n.nlmsg_len, 0) < 0)
+    return 0;
+
+  uint8_t buf[NL_BUFSIZE];
+  int found = 0;
+  for (;;) {
+    ssize_t n = recv(ctx->fd, buf, sizeof(buf), 0);
+    if (n <= 0)
+      return found;
+
+    struct nlmsghdr *h = (struct nlmsghdr *)buf;
+    for (; NLMSG_OK(h, (uint32_t)n); h = NLMSG_NEXT(h, n)) {
+      if (h->nlmsg_type == NLMSG_DONE || h->nlmsg_type == NLMSG_ERROR)
+        return found;
+      struct rtmsg *r = NLMSG_DATA(h);
+      if (h->nlmsg_type != RTM_NEWRULE || r->rtm_family != family ||
+          r->rtm_src_len != src_len || r->rtm_dst_len != dst_len)
+        continue;
+
+      int r_table = r->rtm_table, r_prio = 0, addr_ok = 1;
+      struct rtattr *rta = RTM_RTA(r);
+      int rlen = (int)RTM_PAYLOAD(h);
+      for (; RTA_OK(rta, rlen); rta = RTA_NEXT(rta, rlen)) {
+        if (rta->rta_type == FRA_TABLE)
+          r_table = (int)nl_rta_u32(rta);
+        else if (rta->rta_type == FRA_PRIORITY)
+          r_prio = (int)nl_rta_u32(rta);
+        else if (rta->rta_type == FRA_SRC && src_len &&
+                 (RTA_PAYLOAD(rta) != alen || memcmp(RTA_DATA(rta), src, alen)))
+          addr_ok = 0;
+        else if (rta->rta_type == FRA_DST && dst_len &&
+                 (RTA_PAYLOAD(rta) != alen || memcmp(RTA_DATA(rta), dst, alen)))
+          addr_ok = 0;
+      }
+      if (addr_ok && r_table == table && r_prio == priority)
+        found = 1;
+    }
+  }
+}
+
 static int ds_nl_rule_op(ds_nl_ctx_t *ctx, int cmd, int family, const void *src,
                          uint8_t src_len, const void *dst, uint8_t dst_len,
                          int table, int priority) {
   int alen = (family == AF_INET6) ? 16 : 4;
+  if (cmd == RTM_NEWRULE && ds_nl_rule_exists(ctx, family, src, src_len, dst,
+                                              dst_len, table, priority))
+    return 0;
   struct {
     struct nlmsghdr n;
     struct rtmsg r;
