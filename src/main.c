@@ -29,7 +29,7 @@ void print_usage(void) {
          "  stop                      Stop one or more containers\n"
          "  restart                   Restart a container\n"
          "  enter [user]              Enter a running container\n"
-         "  run <cmd> [args]          Run a command in a running container\n"
+         "  run [--] <cmd> [args]     Run a command in a running container\n"
          "  info                      Show detailed container info\n"
          "  pid                       Show the live PID of the container init\n"
          "  show                      List all running containers\n"
@@ -1199,14 +1199,18 @@ int main(int argc, char **argv) {
       ret = 1;
       goto cleanup;
     }
-    if (optind + 1 >= argc) {
+    /* run [--] <cmd>: a leading "--" fences off a command that itself starts
+     * with a dash, the way env(1) takes it. */
+    char **run_argv = argv + optind + 1;
+    if (*run_argv && strcmp(*run_argv, "--") == 0)
+      run_argv++;
+    if (!*run_argv) {
       ds_error("Command required for 'run'");
       ret = 1;
       goto cleanup;
     }
     const char *as_user = (run_user[0] != '\0') ? run_user : NULL;
-    ret =
-        run_in_rootfs(&cfg, argc - (optind + 1), argv + (optind + 1), as_user);
+    ret = run_in_rootfs(&cfg, argc - (optind + 1), run_argv, as_user);
     goto cleanup;
   }
 
