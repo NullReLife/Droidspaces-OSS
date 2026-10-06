@@ -1243,6 +1243,13 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
     if (ds_terminal_create(&tty) < 0)
       _exit(EXIT_FAILURE);
 
+    /* Size the pty before the shell exists, as lxc-attach does on its ptx, so
+     * nothing ever reads a 0x0 window. The caller's stdin is still ours here;
+     * only the grandchild swaps it for the slave. */
+    struct winsize ws;
+    if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0)
+      ioctl(tty.master, TIOCSWINSZ, &ws);
+
     /* Send master FD back to parent (host monitor) */
     if (ds_send_fd(sv[1], tty.master) < 0)
       _exit(EXIT_FAILURE);
@@ -1381,15 +1388,6 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
     ds_error("Failed to receive PTY master from child");
     waitpid(child, NULL, 0);
     return -1;
-  }
-
-  /* Synchronize window size BEFORE starting setup to avoid race with child
-   * exec. This ensures htop/nano see the correct size immediately upon startup.
-   */
-  if (isatty(STDIN_FILENO)) {
-    struct winsize ws;
-    if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0)
-      ioctl(master_fd, TIOCSWINSZ, &ws);
   }
 
   /* Parent: setup host terminal and proxy I/O */
