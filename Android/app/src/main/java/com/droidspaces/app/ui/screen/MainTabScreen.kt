@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.sp
 import com.droidspaces.app.R
+import com.droidspaces.app.util.HostCapabilities
 
 private const val EASTER_EGG_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
@@ -133,6 +134,8 @@ fun MainTabScreen(
     // Fetch containers when backend BECOMES available or evaluates to true
     LaunchedEffect(appStateViewModel.isBackendAvailable) {
         if (appStateViewModel.isBackendAvailable) {
+            // Re-probe only after a reboot or a backend update, the cache covers the rest.
+            HostCapabilities.refreshIfStale(context)
             // Because runScan might be running, fetchContainerList is safe because it only
             // cancels previous fetch jobs, and runs concurrently (which is fine, UI populates fast).
             // We only trigger this if it's currently empty, to avoid double-fetching if runScan succeeded,
@@ -219,6 +222,7 @@ fun MainTabScreen(
         if (appStateViewModel.isBackendAvailable) {
             SystemInfoManager.refreshDroidspacesVersion(context)
             SystemInfoManager.refreshBackendMode(context)
+            HostCapabilities.refresh(context)
 
             when (tab) {
                 TabItem.Home, TabItem.Containers -> {

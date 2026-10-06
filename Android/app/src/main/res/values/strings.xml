@@ -260,6 +260,13 @@
     <string name="limit_pids_hint">Leave empty for no limit</string>
     <string name="limit_pids_error">At least %1$d</string>
     <string name="limit_not_supported">Not supported by this kernel (needs %1$s)</string>
+    <string name="limit_memory_requirement">CONFIG_MEMCG, and no cgroup_disable=memory on the kernel command line</string>
+    <string name="limit_cpu_requirement">CONFIG_CFS_BANDWIDTH, and no cgroup_disable=cpu on the kernel command line</string>
+    <string name="limit_pids_requirement">CONFIG_CGROUP_PIDS, and no cgroup_disable=pids on the kernel command line</string>
+    <string name="hardware_access_not_supported">Not available. This kernel has no devtmpfs (CONFIG_DEVTMPFS).</string>
+    <string name="volatile_mode_not_supported">Not available. This kernel has no OverlayFS (CONFIG_OVERLAY_FS).</string>
+    <string name="force_cgroupv1_not_supported">Not available. This kernel only has cgroup v1, so there is nothing to force.</string>
+    <string name="disable_ipv6_forced">Held on. This kernel has no IPv6 NAT (CONFIG_IP6_NF_NAT), so NAT containers are IPv4 only.</string>
     <string name="memory_mb">%1$d MB</string>
     <string name="memory_gb">%1$s GB</string>
     <plurals name="cpu_cores">

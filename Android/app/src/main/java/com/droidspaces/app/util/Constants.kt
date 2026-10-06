@@ -51,6 +51,8 @@ object Constants {
     const val KEY_APP_LOCALE = "app_locale"
     const val KEY_BACKEND_MODE = "backend_mode"
     const val KEY_SELINUX_STATUS = "selinux_status"
+    const val KEY_HOST_CAPABILITIES = "host_capabilities"
+    const val KEY_HOST_CAPABILITIES_BOOT_ID = "host_capabilities_boot_id"
     const val KEY_DAEMON_MODE_ENABLED = "daemon_mode_enabled"
     const val KEY_TREAT_AS_64BIT = "treat_as_64bit"
     const val KEY_CHECK_APP_UPDATES = "check_app_updates"

@@ -86,9 +86,10 @@ import com.droidspaces.app.util.Constants
 import com.droidspaces.app.util.ContainerConfigState
 import com.droidspaces.app.util.ContainerInfo
 import com.droidspaces.app.util.GatewayErrors
-import com.droidspaces.app.util.LimitSupport
 import com.droidspaces.app.util.ResourceLimits
 import com.droidspaces.app.util.ValidationUtils
+import com.droidspaces.app.util.HostCapabilities
+import androidx.compose.runtime.collectAsState
 
 /**
  * The single, shared container-configuration form used by both the Create wizard
@@ -226,6 +227,10 @@ fun ContainerConfigForm(
     ) {
         leadingContent()
 
+        val caps by HostCapabilities.state.collectAsState()
+        // Null until the first check --format lands or the cache loads; nothing is greyed out before then.
+        fun ok(key: String) = caps?.has(key) ?: true
+
         SectionHeader(
             text = context.getString(R.string.cat_networking),
             modifier = Modifier.padding(top = 16.dp)
@@ -234,7 +239,7 @@ fun ContainerConfigForm(
         DsDropdown(
             label = context.getString(R.string.network_mode),
             selected = state.netMode,
-            options = listOf("nat", "host", "none", "gateway"),
+            options = caps?.supportedNetModes() ?: HostCapabilities.ALL_NET_MODES,
             displayName = { context.getString(when (it) { "nat" -> R.string.network_mode_nat; "none" -> R.string.network_mode_none; "gateway" -> R.string.network_mode_gateway; else -> R.string.network_mode_host }) },
             onSelect = { mode ->
                 clearFocus()
@@ -410,14 +415,21 @@ fun ContainerConfigForm(
             leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) }
         )
 
+        // NAT without IPv6 NAT is IPv4 only anyway, so the switch is held on.
+        val ipv6Forced = state.netMode == "nat" && !ok("ipv6_nat")
         ToggleCard(
             icon = Icons.Default.NetworkCheck,
             title = context.getString(R.string.disable_ipv6),
             // Only host mode shares the host's network stack, so only there can
             // turning IPv6 off break a VPN app running on the host.
-            description = context.getString(if (state.netMode == "host") R.string.disable_ipv6_description else R.string.disable_ipv6_description_isolated),
+            description = when {
+                ipv6Forced -> context.getString(R.string.disable_ipv6_forced)
+                state.netMode == "host" -> context.getString(R.string.disable_ipv6_description)
+                else -> context.getString(R.string.disable_ipv6_description_isolated)
+            },
             checked = state.disableIPv6,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(disableIPv6 = it)) }
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(disableIPv6 = it)) },
+            enabled = !ipv6Forced
         )
 
         SectionHeader(
@@ -436,12 +448,14 @@ fun ContainerConfigForm(
         ToggleCard(
             icon = Icons.Default.Devices,
             title = context.getString(R.string.hardware_access),
-            description = context.getString(R.string.hardware_access_description),
+            description = if (ok("devtmpfs")) context.getString(R.string.hardware_access_description)
+                else context.getString(R.string.hardware_access_not_supported),
             checked = state.enableHwAccess,
             onCheckedChange = { newValue ->
                 clearFocus()
                 if (newValue) showHwAccessDialog = true else onStateChange(state.copy(enableHwAccess = false))
-            }
+            },
+            enabled = ok("devtmpfs")
         )
 
         ToggleCard(
@@ -487,7 +501,6 @@ fun ContainerConfigForm(
 
         val totalMemMb = remember { ResourceLimits.totalMemoryMb(context) }
         val cpuCores = remember { ResourceLimits.cpuCores() }
-        val limitSupport by produceState(LimitSupport()) { value = ResourceLimits.probe() }
         val mb = 1024L * 1024L
         val memStep = ResourceLimits.MEMORY_STEP_MB
 
@@ -497,12 +510,12 @@ fun ContainerConfigForm(
             icon = Icons.Default.Memory,
             title = context.getString(R.string.limit_memory),
             description = when {
-                !limitSupport.memory -> context.getString(R.string.limit_not_supported, "CONFIG_MEMCG, and no cgroup_disable=memory on the kernel command line")
+                !ok("memory_limit") -> context.getString(R.string.limit_not_supported, context.getString(R.string.limit_memory_requirement))
                 memMb > 0 -> context.getString(R.string.limit_memory_on, ResourceLimits.formatMemory(context, totalMemMb))
                 else -> context.getString(R.string.limit_memory_off, ResourceLimits.formatMemory(context, totalMemMb))
             },
             checked = memMb > 0,
-            enabled = limitSupport.memory,
+            enabled = ok("memory_limit"),
             onCheckedChange = { on ->
                 clearFocus()
                 // Half the device is a sane place to start dragging from
@@ -530,12 +543,12 @@ fun ContainerConfigForm(
             icon = Icons.Default.Speed,
             title = context.getString(R.string.limit_cpu),
             description = when {
-                !limitSupport.cpu -> context.getString(R.string.limit_not_supported, "CONFIG_CFS_BANDWIDTH, and no cgroup_disable=cpu on the kernel command line")
+                !ok("cpu_limit") -> context.getString(R.string.limit_not_supported, context.getString(R.string.limit_cpu_requirement))
                 cpuLimit > 0 -> context.getString(R.string.limit_cpu_on, ResourceLimits.formatCores(context, cpuCores.toFloat()))
                 else -> context.getString(R.string.limit_cpu_off, ResourceLimits.formatCores(context, cpuCores.toFloat()))
             },
             checked = cpuLimit > 0,
-            enabled = limitSupport.cpu,
+            enabled = ok("cpu_limit"),
             onCheckedChange = { on ->
                 clearFocus()
                 // Half the device, as for memory. Always a multiple of half a core.
@@ -567,12 +580,12 @@ fun ContainerConfigForm(
             icon = Icons.Default.Tag,
             title = context.getString(R.string.limit_pids),
             description = when {
-                !limitSupport.pids -> context.getString(R.string.limit_not_supported, "CONFIG_CGROUP_PIDS, and no cgroup_disable=pids on the kernel command line")
+                !ok("pids_limit") -> context.getString(R.string.limit_not_supported, context.getString(R.string.limit_pids_requirement))
                 pidsOn -> context.getString(R.string.limit_pids_on)
                 else -> context.getString(R.string.limit_pids_off)
             },
             checked = pidsOn,
-            enabled = limitSupport.pids,
+            enabled = ok("pids_limit"),
             onCheckedChange = { on ->
                 clearFocus()
                 pidsOn = on
@@ -617,13 +630,13 @@ fun ContainerConfigForm(
         )
 
         val isSeccompDisabled = state.privileged.contains("noseccomp") || state.privileged.contains("full")
-        // /proc/self/setgroups only exists when CONFIG_USER_NS is enabled.
-        val usernsSupported = remember { java.io.File("/proc/self/setgroups").exists() }
+        val usernsSupported = ok("user_ns")
 
-        LaunchedEffect(isSeccompDisabled, usernsSupported) {
-            var s = state
+        // One pass: drop what the kernel cannot do, then the seccomp rule, then a
+        // single state write so the Edit screen sees one change, not several.
+        LaunchedEffect(caps, isSeccompDisabled, state.netMode) {
+            var s = caps?.coerce(state) ?: state
             if (isSeccompDisabled && usernsSupported) s = s.copy(allowSandboxing = true)
-            if (!usernsSupported) s = s.copy(allowSandboxing = false)
             if (s != state) onStateChange(s)
         }
 
@@ -639,17 +652,21 @@ fun ContainerConfigForm(
         ToggleCard(
             icon = Icons.Default.AutoDelete,
             title = context.getString(R.string.volatile_mode),
-            description = context.getString(R.string.volatile_mode_description),
+            description = if (ok("overlayfs")) context.getString(R.string.volatile_mode_description)
+                else context.getString(R.string.volatile_mode_not_supported),
             checked = state.volatileMode,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(volatileMode = it)) }
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(volatileMode = it)) },
+            enabled = ok("overlayfs")
         )
 
         ToggleCard(
             icon = Icons.Default.Cyclone,
             title = context.getString(R.string.force_cgroupv1),
-            description = context.getString(R.string.force_cgroupv1_description),
+            description = if (ok("cgroup2")) context.getString(R.string.force_cgroupv1_description)
+                else context.getString(R.string.force_cgroupv1_not_supported),
             checked = state.forceCgroupv1,
-            onCheckedChange = { clearFocus(); onStateChange(state.copy(forceCgroupv1 = it)) }
+            onCheckedChange = { clearFocus(); onStateChange(state.copy(forceCgroupv1 = it)) },
+            enabled = ok("cgroup2")
         )
 
         SettingsRowCard(

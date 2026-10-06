@@ -7,13 +7,6 @@ import android.system.OsConstants
 import com.droidspaces.app.R
 import java.util.Locale
 
-/** Which resource limits this kernel can enforce. */
-data class LimitSupport(
-    val memory: Boolean = true,
-    val cpu: Boolean = true,
-    val pids: Boolean = true
-)
-
 object ResourceLimits {
     /** The backend's default CFS period, cpu_quota is microseconds per this. */
     const val CPU_PERIOD_US = 100_000L
@@ -54,17 +47,4 @@ object ResourceLimits {
 
     fun pidsLabel(context: Context, c: ContainerInfo): String? =
         c.pidsLimit.takeIf { it > 0 }?.let { context.getString(R.string.limit_pids_value, it) }
-
-    /**
-     * Ask the running kernel. The backend applies each limit on whichever cgroup
-     * hierarchy owns the controller, so all that matters is whether the
-     * controller exists and is enabled: the last column is 0 when it was
-     * switched off at boot with cgroup_disable=. CPU quota also needs the
-     * sysctl that is only there with CONFIG_CFS_BANDWIDTH.
-     */
-    suspend fun probe(): LimitSupport = LimitSupport(
-        memory = ContainerOperationExecutor.checkCommandSuccess("grep -Eq '^memory[[:space:]].*[[:space:]]1\$' /proc/cgroups"),
-        cpu = ContainerOperationExecutor.checkCommandSuccess("[ -e /proc/sys/kernel/sched_cfs_bandwidth_slice_us ] && grep -Eq '^cpu[[:space:]].*[[:space:]]1\$' /proc/cgroups"),
-        pids = ContainerOperationExecutor.checkCommandSuccess("grep -Eq '^pids[[:space:]].*[[:space:]]1\$' /proc/cgroups")
-    )
 }
