@@ -81,7 +81,7 @@ data class ContainerInfo(
         appendLine("enable_android_storage=${if (enableAndroidStorage) "1" else "0"}")
         appendLine("enable_hw_access=${if (enableHwAccess) "1" else "0"}")
         appendLine("enable_gpu_mode=${if (enableGpuMode) "1" else "0"}")
-        appendLine("enable_termux_x11=${if (enableTermuxX11) "1" else "0"}")
+        appendLine("enable_x11=${if (enableTermuxX11) "1" else "0"}")
         if (tx11ExtraFlags.isNotBlank()) appendLine("tx11_extra_flags=$tx11ExtraFlags")
         appendLine("enable_virgl=${if (enableVirgl) "1" else "0"}")
         if (virglExtraFlags.isNotBlank()) appendLine("virgl_extra_flags=$virglExtraFlags")
@@ -397,7 +397,7 @@ object ContainerManager {
                 enableAndroidStorage = configMap["enable_android_storage"] == "1",
                 enableHwAccess = configMap["enable_hw_access"] == "1",
                 enableGpuMode = configMap["enable_gpu_mode"] == "1",
-                enableTermuxX11 = configMap["enable_termux_x11"] == "1",
+                enableTermuxX11 = (configMap["enable_x11"] ?: configMap["enable_termux_x11"]) == "1",
                 tx11ExtraFlags = configMap["tx11_extra_flags"] ?: "",
                 enableVirgl = configMap["enable_virgl"] == "1",
                 virglExtraFlags = configMap["virgl_extra_flags"] ?: "",
