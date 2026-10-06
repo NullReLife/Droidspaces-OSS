@@ -558,7 +558,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `ds_nl_add_addr4`、`ds_nl_add_route4`、`ds_nl_add_addr6`、`ds_nl_add_route6` | 地址与路由。IPv6 路由仅支持链路范围 |
 | `ds_nl_move_to_netns`、`ds_nl_move_to_netns_named` | 把网卡移入命名空间 |
 | `ds_nl_add_rule4`、`ds_nl_del_rule4`、`ds_nl_rule6` | FIB 策略路由规则。优先级取自 `DS_RULE_PRIO_TO_SUBNET`、`DS_RULE_PRIO_TETHER`、`DS_RULE_PRIO_FROM_SUBNET`，必须高于 OEM 保留区间、低于 Android 的 VPN 区间 |
-| `ds_nl_get_iface_table`、`ds_nl_get_table_default_oif`、`ds_nl_get_android_default` | 路由表信息读取。`ds_nl_get_iface_table` 需要传入地址族 |
+| `ds_nl_get_iface_table`、`ds_nl_get_table_default_oif`、`ds_nl_get_android_default` | 路由表信息读取。三者都需要传入地址族 |
 | `ds_nl_flush_stale_veths`、`ds_nl_list_ifaces`、`ds_nl_count_ifaces_with_prefix` | 枚举与回收 |
 | `ds_ipt_ensure_masquerade`、`ds_ipt_ensure_forward_accept`、`ds_ipt_ensure_input_accept`、`ds_ipt_ensure_mss_clamp` | 写入 netfilter 规则 |
 | `ds_ipt_host_rules_present(family, iface, src_cidr, expect_dnat)` | 对某一地址族整套主机规则的不 fork 探测。路由监视器据此决定是否重新写入 |

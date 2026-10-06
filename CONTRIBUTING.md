@@ -596,7 +596,7 @@ shell-out on the fast path. The netfilter helpers take an address family (`AF_IN
 | `ds_nl_add_addr4`, `ds_nl_add_route4`, `ds_nl_add_addr6`, `ds_nl_add_route6` | Addresses and routes. The IPv6 route is link scope only |
 | `ds_nl_move_to_netns`, `ds_nl_move_to_netns_named` | Moving an interface into a namespace |
 | `ds_nl_add_rule4`, `ds_nl_del_rule4`, `ds_nl_rule6` | FIB policy rules. Priorities come from `DS_RULE_PRIO_TO_SUBNET`, `DS_RULE_PRIO_TETHER`, `DS_RULE_PRIO_FROM_SUBNET`, which must sit above the OEM reserved range and below Android's VPN range |
-| `ds_nl_get_iface_table`, `ds_nl_get_table_default_oif`, `ds_nl_get_android_default` | Routing table introspection. `ds_nl_get_iface_table` takes the address family |
+| `ds_nl_get_iface_table`, `ds_nl_get_table_default_oif`, `ds_nl_get_android_default` | Routing table introspection. All three take the address family |
 | `ds_nl_flush_stale_veths`, `ds_nl_list_ifaces`, `ds_nl_count_ifaces_with_prefix` | Enumeration and garbage collection |
 | `ds_ipt_ensure_masquerade`, `ds_ipt_ensure_forward_accept`, `ds_ipt_ensure_input_accept`, `ds_ipt_ensure_mss_clamp` | Installing netfilter rules |
 | `ds_ipt_host_rules_present(family, iface, src_cidr, expect_dnat)` | The fork-free probe for one family's host rule set. The route monitor gates reinstallation on it |

@@ -1081,10 +1081,10 @@ iface_table_done:
 
 /* Default-route OIF lookup for a specific routing table
  *
- * Dumps IPv4 routes and returns the interface owning the default route in
- * `table`.  When several default routes coexist in the table (multi-homed
- * hosts), the lowest metric (RTA_PRIORITY) wins - the same tie-break the
- * kernel itself applies.
+ * Dumps the routes of `family` and returns the interface owning the default
+ * route in `table`.  When several default routes coexist in the table
+ * (multi-homed hosts), the lowest metric (RTA_PRIORITY) wins - the same
+ * tie-break the kernel itself applies.
  *
  * On Android this transparently handles 464xlat: on IPv6-only mobile
  * networks the IPv4 default route inside the default network's table points
@@ -1092,8 +1092,9 @@ iface_table_done:
  * IPv4 forwarding needs.
  *
  * Returns 0 and fills ifname_out (IFNAMSIZ) on success.
- * Returns -ENOENT if the table has no IPv4 default route. */
-int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int table, char *ifname_out) {
+ * Returns -ENOENT if the table has no default route for that family. */
+int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int family, int table,
+                                char *ifname_out) {
   struct {
     struct nlmsghdr n;
     struct rtmsg r;
@@ -1102,7 +1103,7 @@ int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int table, char *ifname_out) {
   req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
   req.n.nlmsg_type = RTM_GETROUTE;
   req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  req.r.rtm_family = AF_INET;
+  req.r.rtm_family = (unsigned char)family;
   req.n.nlmsg_seq = ++ctx->seq;
   req.n.nlmsg_pid = (uint32_t)ctx->pid;
 
@@ -1127,8 +1128,8 @@ int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int table, char *ifname_out) {
         continue;
 
       struct rtmsg *r = NLMSG_DATA(h);
-      /* Only IPv4 unicast default routes */
-      if (r->rtm_family != AF_INET || r->rtm_dst_len != 0)
+      /* Only unicast default routes of the family asked for */
+      if (r->rtm_family != family || r->rtm_dst_len != 0)
         continue;
       if (r->rtm_type != RTN_UNICAST)
         continue;
@@ -1171,7 +1172,7 @@ table_oif_done:
 
 /* Android default-network detection via the kernel FIB rule table
  *
- * Android's netd installs exactly one IPv4 rule of the form:
+ * Android's netd installs exactly one rule per family of the form:
  *   "<prio>: from all fwmark 0x0/0xffff iif lo lookup <table>"
  * for the active default internet network.  It is swapped atomically when
  * the default network changes (wifi <-> mobile data handoffs), making it
@@ -1187,7 +1188,7 @@ table_oif_done:
  *
  * Returns 0 and fills ifname_out (IFNAMSIZ) / table_out on success.
  * Returns -ENOENT when no such rule exists (non-Android, airplane mode). */
-int ds_nl_get_android_default(ds_nl_ctx_t *ctx, char *ifname_out,
+int ds_nl_get_android_default(ds_nl_ctx_t *ctx, int family, char *ifname_out,
                               int *table_out) {
   struct {
     struct nlmsghdr n;
@@ -1197,7 +1198,7 @@ int ds_nl_get_android_default(ds_nl_ctx_t *ctx, char *ifname_out,
   req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
   req.n.nlmsg_type = RTM_GETRULE;
   req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  req.r.rtm_family = AF_INET;
+  req.r.rtm_family = (unsigned char)family;
   req.n.nlmsg_seq = ++ctx->seq;
   req.n.nlmsg_pid = (uint32_t)ctx->pid;
 
@@ -1222,7 +1223,7 @@ int ds_nl_get_android_default(ds_nl_ctx_t *ctx, char *ifname_out,
         continue;
 
       struct rtmsg *r = NLMSG_DATA(h);
-      if (r->rtm_family != AF_INET)
+      if (r->rtm_family != family)
         continue;
       /* Only table-lookup actions - skips prohibit/unreachable variants */
       if (r->rtm_type != FR_ACT_TO_TBL)
@@ -1299,7 +1300,7 @@ rule_dump_done:
     return -ENOENT;
   if (table_out)
     *table_out = best_table;
-  return ds_nl_get_table_default_oif(ctx, best_table, ifname_out);
+  return ds_nl_get_table_default_oif(ctx, family, best_table, ifname_out);
 }
 
 /* Policy rule management (RTM_NEWRULE / RTM_DELRULE), either family.

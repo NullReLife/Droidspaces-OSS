@@ -287,6 +287,8 @@ static struct ds_port_forward g_host_port_forwards[DS_MAX_PORT_FORWARDS];
 static int g_host_port_forward_count = 0;
 static char g_host_container_ip[INET_ADDRSTRLEN];
 static int g_host_nat6 = 0; /* NAT66 is set up, replay its rules too */
+static pid_t g_host_init_pid = 0;
+static int g_host_dns_managed = 0; /* resolv.conf holds our default list */
 
 /* Returns 1 if ifname exists and is both UP and RUNNING.
  * On Android, the active data interface has IFF_RUNNING set; an interface
@@ -358,6 +360,15 @@ void ds_net_derive_handshake(pid_t init_pid, struct ds_config *cfg,
 
 /* Host-side networking setup (before container boot) */
 
+/* The default resolvers in the two orders an uplink can call for. Same lines,
+ * so same length: sync_resolv_order() swaps one for the other in place. */
+#define DS_RESOLV_CONF "/run/droidspaces/resolv.conf"
+#define DNS_LINE(ip) "nameserver " ip "\n"
+static const char k_dns_v4_first[] = DNS_LINE(DS_DNS_DEFAULT_1)
+    DNS_LINE(DS_DNS_DEFAULT_2) DNS_LINE(DS_DNS_DEFAULT_6);
+static const char k_dns_v6_first[] = DNS_LINE(DS_DNS_DEFAULT_6)
+    DNS_LINE(DS_DNS_DEFAULT_1) DNS_LINE(DS_DNS_DEFAULT_2);
+
 int ds_get_dns_servers(const char *custom_dns, char *out, size_t size) {
   out[0] = '\0';
   int count = 0;
@@ -379,11 +390,9 @@ int ds_get_dns_servers(const char *custom_dns, char *out, size_t size) {
   }
 
   /* 1. Global stable fallbacks (defined in droidspace.h) */
-  if (count == 0) {
-    int n = snprintf(out, size, "nameserver %s\nnameserver %s\n",
-                     DS_DNS_DEFAULT_1, DS_DNS_DEFAULT_2);
-    if (n > 0 && (size_t)n < size)
-      count = 2;
+  if (count == 0 && size >= sizeof(k_dns_v4_first)) {
+    memcpy(out, k_dns_v4_first, sizeof(k_dns_v4_first));
+    count = 3;
   }
 
   return count;
@@ -699,6 +708,41 @@ static void sync_uplink6(ds_nl_ctx_t *ctx, const char *iface) {
          DS_NAT6_SUBNET, DS_RULE_PRIO_FROM_SUBNET);
 }
 
+/* glibc asks the nameservers in file order and waits out a timeout on every
+ * one it cannot reach. On an IPv6-only uplink the two IPv4 defaults in front
+ * cost each lookup several seconds, and the IPv6 one in front would do the
+ * same on an IPv4-only network. So the default list follows the uplink.
+ *
+ * The file lives inside the container, whose root can put anything at that
+ * path. We only ever swap one of our two lists for the other: a file holding
+ * anything else, a hand edit included, is left alone, and so is whatever is
+ * not a regular file on tmpfs. */
+static void sync_resolv_order(int v6_first) {
+  if (!g_host_dns_managed)
+    return;
+
+  const char *want = v6_first ? k_dns_v6_first : k_dns_v4_first;
+  const char *stale = v6_first ? k_dns_v4_first : k_dns_v6_first;
+  size_t len = sizeof(k_dns_v4_first) - 1;
+
+  char path[64];
+  snprintf(path, sizeof(path), "/proc/%d/root" DS_RESOLV_CONF,
+           (int)g_host_init_pid);
+  int fd = open(path, O_RDWR | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
+  if (fd < 0)
+    return;
+
+  /* One byte more than a list, so a longer file can never compare equal. */
+  char cur[sizeof(k_dns_v4_first) + 1] = {0};
+  struct stat st;
+  struct statfs sfs;
+  if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && fstatfs(fd, &sfs) == 0 &&
+      sfs.f_type == TMPFS_MAGIC && read(fd, cur, sizeof(cur) - 1) >= 0 &&
+      strcmp(cur, stale) == 0 && pwrite(fd, want, len, 0) == (ssize_t)len)
+    ds_log("[NET] Resolver order: IPv%d first", v6_first ? 6 : 4);
+  close(fd);
+}
+
 static void ds_net_setup_android_routing(ds_nl_ctx_t *ctx) {
   char active_iface[IFNAMSIZ] = {0};
   int gw_table = 0;
@@ -707,10 +751,12 @@ static void ds_net_setup_android_routing(ds_nl_ctx_t *ctx) {
    * line.  The uplink-independent rules still go in below; the route monitor
    * adds the FROM rule once an interface appears. */
   if (find_active_uplink(ctx, active_iface, &gw_table) == 0) {
-    ds_log("[NET] Android routing: active uplink %s → table %d, rule from %s "
-           "lookup table %d (prio %d)",
-           active_iface, gw_table, DS_DEFAULT_SUBNET, gw_table,
-           DS_RULE_PRIO_FROM_SUBNET);
+    /* Table 0 is an IPv6-only uplink: no IPv4 rule, sync_uplink6() logs. */
+    if (gw_table > 0)
+      ds_log("[NET] Android routing: active uplink %s → table %d, rule from %s "
+             "lookup table %d (prio %d)",
+             active_iface, gw_table, DS_DEFAULT_SUBNET, gw_table,
+             DS_RULE_PRIO_FROM_SUBNET);
     /* Seed the monitor's current table so it knows the baseline */
     pthread_mutex_lock(&g_gw_mutex);
     g_current_gw_table = gw_table;
@@ -950,6 +996,8 @@ int setup_veth_host_side(struct ds_config *cfg, pid_t child_pid) {
    * rewrites *cfg in place.  static_nat_ip is already resolved and persisted
    * before the fork, and is exactly what nat_container_ip is set to below. */
   g_host_bridgeless = cfg->net_bridgeless;
+  g_host_init_pid = child_pid;
+  g_host_dns_managed = cfg->net_mode == DS_NET_NAT && !cfg->dns_servers[0];
   safe_strncpy(g_host_veth, veth_host, sizeof(g_host_veth));
   g_host_port_forward_count = cfg->port_forward_count;
   memcpy(g_host_port_forwards, cfg->port_forwards,
@@ -1799,8 +1847,8 @@ static void setup_resolv_conf(struct ds_config *cfg) {
     }
   } else {
     mkdir("/run/droidspaces", 0755);
-    write_file("/run/droidspaces/resolv.conf", cfg->dns_server_content);
-    target = "/run/droidspaces/resolv.conf";
+    write_file(DS_RESOLV_CONF, cfg->dns_server_content);
+    target = DS_RESOLV_CONF;
   }
 
   unlink("/etc/resolv.conf");
@@ -1912,10 +1960,11 @@ static int uplink_candidate_ok(const char *ifname) {
   return iface_is_running(ifname);
 }
 
-static void log_uplink_change(const char *ifname, int table,
-                              const char *method) {
+static void log_uplink_change(const char *ifname, int table, const char *method,
+                              int family) {
   if (strcmp(g_last_uplink_iface, ifname) != 0) {
-    ds_log("[NET] Active uplink: %s (table %d) [%s]", ifname, table, method);
+    ds_log("[NET] Active uplink: %s (table %d) [%s%s]", ifname, table, method,
+           family == AF_INET6 ? ", IPv6 only" : "");
     safe_strncpy(g_last_uplink_iface, ifname, sizeof(g_last_uplink_iface));
   }
   g_uplink_fail_warned = 0; /* reset so next failure logs once */
@@ -1968,14 +2017,14 @@ static int scan_uplink_whitelist(ds_nl_ctx_t *ctx, char *iface_out,
 }
 
 /* Manual override: resolve the user-pinned --upstream list in priority order.
- * The first entry that is RUNNING and has an IPv4 route wins.  Literal
+ * The first entry that is RUNNING and has a route of `family` wins.  Literal
  * entries are checked directly; wildcard entries (containing * or ?) are
  * matched with fnmatch() against the live interface list (handles dynamic names
  * like rmnet_dataX or v4-rmnet_dataX whose number changes across reconnects).
  * No exclude heuristics apply here - the user picked the interface
  * deliberately. Returns 0 + fills iface/table, or -ENOENT when none are
  * currently available. */
-static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
+static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, int family, char *iface_out,
                                  int *table_out) {
   char all_ifaces[64][IFNAMSIZ];
   int all_count = -1; /* enumerated lazily, only if a wildcard needs it */
@@ -1987,7 +2036,7 @@ static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
     if (!is_wild) {
       int tbl = 0;
       if (iface_is_running(pat) &&
-          ds_nl_get_iface_table(ctx, AF_INET, pat, &tbl) == 0) {
+          ds_nl_get_iface_table(ctx, family, pat, &tbl) == 0) {
         if (iface_out)
           safe_strncpy(iface_out, pat, IFNAMSIZ);
         if (table_out)
@@ -2004,7 +2053,7 @@ static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
         continue;
       int tbl = 0;
       if (!iface_is_running(all_ifaces[j]) ||
-          ds_nl_get_iface_table(ctx, AF_INET, all_ifaces[j], &tbl) != 0)
+          ds_nl_get_iface_table(ctx, family, all_ifaces[j], &tbl) != 0)
         continue;
       if (iface_out)
         safe_strncpy(iface_out, all_ifaces[j], IFNAMSIZ);
@@ -2016,7 +2065,8 @@ static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
   return -ENOENT;
 }
 
-/* Find the interface/table currently providing internet access.
+/* One pass over the detection tiers for a single address family. Fills
+ * name (IFNAMSIZ) and *tbl and returns how the uplink was found, or NULL.
  *
  * If --upstream is set this is a pure manual override: resolve ONLY from that
  * list (resolve_pinned_uplink) and disable all auto-detection - the WAN never
@@ -2028,70 +2078,76 @@ static int resolve_pinned_uplink(ds_nl_ctx_t *ctx, char *iface_out,
  *      and never points at IMS/MMS-only interfaces.  Also the only
  *      interface Qualcomm IPA / MTK CCCI has hardware reply sessions
  *      for, which NAT'd forwarded traffic requires.
- *   2. The main routing table's IPv4 default route - the standard Linux
+ *   2. The main routing table's default route - the standard Linux
  *      case (what LXC/Docker implicitly rely on), and ROMs/chroots that
  *      populate the main table.
- *   3. Built-in whitelist scan of known uplink interface families.
+ *   3. Built-in whitelist scan of known uplink interface families, IPv4 only.
+ */
+static const char *probe_uplink(ds_nl_ctx_t *ctx, int family, char *name,
+                                int *tbl) {
+  /* Manual override: pinned --upstream list only, no fallback to auto-detect.
+   */
+  if (g_upstream_count > 0)
+    return resolve_pinned_uplink(ctx, family, name, tbl) == 0 ? "pinned" : NULL;
+
+  /* Tier 1: netd default-network rule (Android only - the rule simply
+   * does not exist elsewhere, but skip the dump cost off-Android). */
+  if (is_android() && ds_nl_get_android_default(ctx, family, name, tbl) == 0 &&
+      uplink_candidate_ok(name))
+    return "netd rule";
+
+  /* Tier 2: main-table default route (standard Linux semantics). */
+  name[0] = '\0';
+  *tbl = RT_TABLE_MAIN;
+  if (ds_nl_get_table_default_oif(ctx, family, RT_TABLE_MAIN, name) == 0 &&
+      uplink_candidate_ok(name))
+    return "main table";
+
+  /* Tier 3: built-in whitelist scan. IPv4 only, because a name match is a
+   * guess and the IMS bearer fits it: an rmnetX that is always up, IPv6, with
+   * its own default route. Whenever no real default network existed, the
+   * container's traffic went out through the carrier's voice network. */
+  name[0] = '\0';
+  *tbl = 0;
+  if (family == AF_INET && scan_uplink_whitelist(ctx, name, tbl) == 0)
+    return "whitelist scan";
+
+  return NULL;
+}
+
+/* Find the interface/table currently providing internet access.
  *
- * Returns 0 and fills iface_out (IFNAMSIZ) / table_out on success. */
+ * IPv4 goes through every tier first, so dual-stack and CLAT networks resolve
+ * exactly as they always did. Only when nothing carries IPv4 is an IPv6-only
+ * interface accepted: a carrier without NAT64 gives Android no v4-* device and
+ * no IPv4 route in any table, yet the container still reaches the internet
+ * through NAT66. Trying IPv6 per tier instead would let tier 1 return rmnetX
+ * on a CLAT network before tier 3 finds v4-rmnetX, and cost it its IPv4.
+ *
+ * Returns 0 and fills iface_out (IFNAMSIZ) / table_out on success. table_out
+ * is the IPv4 table, 0 for an IPv6-only uplink: sync_uplink6() works out the
+ * IPv6 table from the interface either way. */
 static int find_active_uplink(ds_nl_ctx_t *ctx, char *iface_out,
                               int *table_out) {
   char name[IFNAMSIZ] = {0};
-  int tbl = 0;
+  int tbl = 0, family = AF_INET;
 
-  /* Manual override: pinned --upstream list only, no fallback to auto-detect.
-   */
-  if (g_upstream_count > 0) {
-    if (resolve_pinned_uplink(ctx, name, &tbl) == 0) {
-      log_uplink_change(name, tbl, "pinned");
-      if (iface_out)
-        safe_strncpy(iface_out, name, IFNAMSIZ);
-      if (table_out)
-        *table_out = tbl;
-      return 0;
-    }
+  const char *method = probe_uplink(ctx, family, name, &tbl);
+  if (!method && g_host_nat6) {
+    family = AF_INET6;
+    method = probe_uplink(ctx, family, name, &tbl);
+  }
+  if (!method) {
     log_no_uplink();
     return -ENOENT;
   }
 
-  /* Tier 1: netd default-network rule (Android only - the rule simply
-   * does not exist elsewhere, but skip the dump cost off-Android). */
-  if (is_android() && ds_nl_get_android_default(ctx, name, &tbl) == 0 &&
-      uplink_candidate_ok(name)) {
-    log_uplink_change(name, tbl, "netd rule");
-    if (iface_out)
-      safe_strncpy(iface_out, name, IFNAMSIZ);
-    if (table_out)
-      *table_out = tbl;
-    return 0;
-  }
-
-  /* Tier 2: main-table default route (standard Linux semantics). */
-  name[0] = '\0';
-  if (ds_nl_get_table_default_oif(ctx, RT_TABLE_MAIN, name) == 0 &&
-      uplink_candidate_ok(name)) {
-    log_uplink_change(name, RT_TABLE_MAIN, "main table");
-    if (iface_out)
-      safe_strncpy(iface_out, name, IFNAMSIZ);
-    if (table_out)
-      *table_out = RT_TABLE_MAIN;
-    return 0;
-  }
-
-  /* Tier 3: built-in whitelist scan. */
-  name[0] = '\0';
-  tbl = 0;
-  if (scan_uplink_whitelist(ctx, name, &tbl) == 0) {
-    log_uplink_change(name, tbl, "whitelist scan");
-    if (iface_out)
-      safe_strncpy(iface_out, name, IFNAMSIZ);
-    if (table_out)
-      *table_out = tbl;
-    return 0;
-  }
-
-  log_no_uplink();
-  return -ENOENT;
+  log_uplink_change(name, tbl, method, family);
+  if (iface_out)
+    safe_strncpy(iface_out, name, IFNAMSIZ);
+  if (table_out)
+    *table_out = (family == AF_INET) ? tbl : 0;
+  return 0;
 }
 
 /* Re-probe which uplink is active and update the ip rule if needed. */
@@ -2167,6 +2223,7 @@ static void do_uplink_reprobe(void) {
   }
 
   sync_uplink6(ctx, new_iface);
+  sync_resolv_order(new_table == 0);
 
   pthread_mutex_lock(&g_gw_mutex);
   int old_table = g_current_gw_table;
@@ -2188,8 +2245,17 @@ static void do_uplink_reprobe(void) {
     ds_nl_del_rule4(ctx, subnet_be, DS_NAT_PREFIX, 0, 0, old_table,
                     DS_RULE_PRIO_FROM_SUBNET);
 
-  if (ds_nl_add_rule4(ctx, subnet_be, DS_NAT_PREFIX, 0, 0, new_table,
-                      DS_RULE_PRIO_FROM_SUBNET) == 0) {
+  /* An IPv6-only uplink has no IPv4 table to point at. With the rule gone the
+   * host answers the container's IPv4 with "network unreachable" at once, so
+   * clients fall back to IPv6 instead of waiting on a dead route. */
+  if (new_table == 0) {
+    pthread_mutex_lock(&g_gw_mutex);
+    g_current_gw_table = 0;
+    pthread_mutex_unlock(&g_gw_mutex);
+    ds_log("[NET] Route monitor: uplink has no IPv4 - removed rule from %s",
+           DS_DEFAULT_SUBNET);
+  } else if (ds_nl_add_rule4(ctx, subnet_be, DS_NAT_PREFIX, 0, 0, new_table,
+                             DS_RULE_PRIO_FROM_SUBNET) == 0) {
     pthread_mutex_lock(&g_gw_mutex);
     g_current_gw_table = new_table;
     pthread_mutex_unlock(&g_gw_mutex);

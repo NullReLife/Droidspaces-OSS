@@ -108,6 +108,9 @@
 /* Default DNS servers */
 #define DS_DNS_DEFAULT_1 "1.1.1.1"
 #define DS_DNS_DEFAULT_2 "8.8.8.8"
+/* The only resolver a container can reach when the uplink has no IPv4. One
+ * is all there is room for: glibc reads three nameserver lines. */
+#define DS_DNS_DEFAULT_6 "2606:4700:4700::1111"
 
 /* Common Paths & Patterns */
 #define DS_PROC_ROOT_FMT "/proc/%d/root"
@@ -801,8 +804,9 @@ int ds_nl_move_to_netns_named(ds_nl_ctx_t *ctx, const char *ifname,
                               int netns_fd, const char *newname);
 int ds_nl_get_iface_table(ds_nl_ctx_t *ctx, int family, const char *ifname,
                           int *table_out);
-int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int table, char *ifname_out);
-int ds_nl_get_android_default(ds_nl_ctx_t *ctx, char *ifname_out,
+int ds_nl_get_table_default_oif(ds_nl_ctx_t *ctx, int family, int table,
+                                char *ifname_out);
+int ds_nl_get_android_default(ds_nl_ctx_t *ctx, int family, char *ifname_out,
                               int *table_out);
 int ds_nl_add_rule4(ds_nl_ctx_t *ctx, uint32_t src_be, uint8_t src_len,
                     uint32_t dst_be, uint8_t dst_len, int table, int priority);
