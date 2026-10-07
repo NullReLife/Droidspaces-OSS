@@ -411,6 +411,8 @@ A `0` there means the kernel was booted with `cgroup_disable=` for that controll
 
 The container still starts either way, only the limit is skipped.
 
+If the controller has no row in `/proc/cgroups` at all, the kernel is 6.12 or later and was built without that controller's cgroup v1 code (`CONFIG_MEMCG_V1`, `CONFIG_CPUSETS_V1`). That file only lists controllers with v1 support compiled in. The controller is still there on cgroup v2: `cat /sys/fs/cgroup/cgroup.controllers` shows it, and the limit works. Droidspaces reads that file too, so an up to date build reports the limit as supported.
+
 ---
 
 ## Getting help

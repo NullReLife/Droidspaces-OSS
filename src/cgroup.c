@@ -29,6 +29,7 @@ int ds_cgroup_v2_usable(void) {
 }
 
 static int ctrl_in_list(const char *list, const char *name);
+static int ctrl_supported_v2(const char *cg_path, const char *name);
 
 /* Where we mount the v1 hierarchies the host left unmounted. */
 static void v1_own_mount_dir(char *buf, size_t size) {
@@ -193,8 +194,17 @@ static void match_controller(const char *name, void *arg) {
 
 /* Whether the running kernel has a controller at all, on any hierarchy.
  * Limits follow the controller wherever it is bound, so this is the whole
- * question for "can this kernel limit X". */
+ * question for "can this kernel limit X". /proc/cgroups only answers it for
+ * v1: since the kernel grew CONFIG_MEMCG_V1 and CONFIG_CPUSETS_V1, a
+ * controller built without its v1 half is left out of that file although
+ * cgroup2 has it in full. So ask the cgroup2 root first, wherever the host
+ * mounted it, and fall back to /proc/cgroups for what a v1 hierarchy holds. */
 int ds_cgroup_has_controller(const char *name) {
+  char mnt[PATH_MAX];
+  if (find_host_cgroup_mount(NULL, mnt, sizeof(mnt)) &&
+      ctrl_supported_v2(mnt, name))
+    return 1;
+
   struct ctrl_query q = {name, 0};
   each_v1_controller(match_controller, &q);
   return q.found;
