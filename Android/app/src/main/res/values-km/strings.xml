@@ -262,7 +262,6 @@
     <string name="cpu_usage_label">ការប្រើប្រាស់ស៊ីភីយូ</string>
     <string name="ram_usage_label">ការប្រើប្រាស់ RAM</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d មេកាបៃ (%2$.1f%%)</string>
     <string name="sessions_running_plural">កំពុងដំណើរការវគ្គ %1$d · ចុចដើម្បីស្ដារ</string>
     <string name="session_running_singular">កំពុងដំណើរការវគ្គចំនួន 1 · ចុចដើម្បីស្ដារ</string>
     <string name="systemd_services">សេវាកម្មប្រព័ន្ធ</string>

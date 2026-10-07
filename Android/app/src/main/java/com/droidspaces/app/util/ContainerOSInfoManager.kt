@@ -40,17 +40,18 @@ object ContainerOSInfoManager {
         val ipAddress: String?,
         val uptime: String? = null,
         val cpuUsage: Double? = null,
-        val ramUsageMb: Long? = null,
+        val ramUsedKb: Long? = null,
         val ramPercent: Double? = null,
         /** The memory limit in force. Null when unlimited, and then [ramPercent] is of the host's RAM. */
-        val ramLimitMb: Long? = null
+        val ramLimitKb: Long? = null
     ) {
-        /** "115/512 MB (22%)" under a limit, "115 MB (1.5%)" of the host without one. */
+        /** "13.50 MB / 1.50 GB (1%)" under a limit, "13.50 MB (0.2%)" of the host without one.
+         * Each side picks its own unit, the way fastfetch prints memory. */
         fun ramLabel(context: Context): String? {
-            val used = ramUsageMb ?: return null
+            val used = ResourceLimits.formatMemoryUsage(context, ramUsedKb ?: return null)
             val percent = ramPercent ?: 0.0
-            return if (ramLimitMb != null) context.getString(R.string.ram_limit_percent_label, used.toInt(), ramLimitMb.toInt(), percent)
-            else context.getString(R.string.ram_percent_label, used.toInt(), percent)
+            return if (ramLimitKb != null) context.getString(R.string.ram_used_of_limit_label, used, ResourceLimits.formatMemoryUsage(context, ramLimitKb), percent)
+            else context.getString(R.string.ram_used_label, used, percent)
         }
     }
 
@@ -137,9 +138,9 @@ object ContainerOSInfoManager {
             ipAddress = obj.optString("ip").ifEmpty { null },
             uptime = obj.optString("uptime").ifEmpty { null },
             cpuUsage = (if (cpuLimitPermill > 0) cpuPermill * 100.0 / cpuLimitPermill else cpuPermill / 10.0).coerceIn(0.0, 100.0),
-            ramUsageMb = if (ramTotalKb > 0) ramUsedKb / 1024 else null,
+            ramUsedKb = if (ramTotalKb > 0) ramUsedKb else null,
             ramPercent = if (ramTotalKb > 0) (ramUsedKb.toDouble() / ramBaseKb * 100.0).coerceIn(0.0, 100.0) else null,
-            ramLimitMb = (ramLimitKb / 1024).takeIf { it > 0 }
+            ramLimitKb = ramLimitKb.takeIf { it > 0 }
         )
     }
 

@@ -367,7 +367,6 @@
     <string name="cpu_usage_label">CPU-Auslastung</string>
     <string name="ram_usage_label">RAM-Auslastung</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="sessions_running_plural">%1$d Sitzungen laufen · Zur Rückkehr antippen</string>
     <string name="session_running_singular">1 Sitzung läuft · Zur Rückkehr antippen</string>
     <string name="please_wait_hint">Bitte warten, während wir Ihre Anfrage bearbeiten...</string>

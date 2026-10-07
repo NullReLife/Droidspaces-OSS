@@ -368,7 +368,6 @@
     <string name="cpu_usage_label">Utilizzo CPU</string>
     <string name="ram_usage_label">Utilizzo RAM</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="sessions_running_plural">%1$d sessioni in esecuzione · toccare per ripristinare</string>
     <string name="session_running_singular">1 sessione in esecuzione · toccare per ripristinare</string>
     <string name="please_wait_hint">Attendi mentre elaboriamo la tua richiesta...</string>

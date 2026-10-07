@@ -311,7 +311,6 @@
     <string name="cpu_usage_label">Využití CPU</string>
     <string name="ram_usage_label">Využití RAM</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="sessions_running_plural">Počet spuštěných relací: %1$d · klepnutím obnovíte</string>
     <string name="session_running_singular">Spuštěna 1 relace · klepnutím obnovíte</string>
     <string name="systemd_services">Služby systemd</string>
@@ -585,5 +584,4 @@
         <item quantity="many">%1$s jader</item>
         <item quantity="other">%1$s jader</item>
     </plurals>
-    <string name="ram_limit_percent_label">%1$d/%2$d MB (%3$.0f%%)</string>
 </resources>

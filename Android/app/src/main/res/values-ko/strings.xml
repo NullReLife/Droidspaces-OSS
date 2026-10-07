@@ -336,7 +336,6 @@
     <string name="cpu_usage_label">CPU 사용량</string>
     <string name="ram_usage_label">RAM 사용량</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB(%2$.1f%%)</string>
     <string name="sessions_running_plural">%1$d개 세션 실행 중 · 탭하여 복원</string>
     <string name="session_running_singular">1개 세션 실행 중 · 탭하여 복원</string>
     <!-- Systemd Screen -->

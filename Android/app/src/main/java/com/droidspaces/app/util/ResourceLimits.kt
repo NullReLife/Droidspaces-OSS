@@ -33,6 +33,17 @@ object ResourceLimits {
         if (mb < 1024) context.getString(R.string.memory_mb, mb)
         else context.getString(R.string.memory_gb, String.format(Locale.getDefault(), "%.1f", mb / 1024f))
 
+    /** A live figure: "13.50 MB", "2.88 GB", two decimals in whichever unit fits, the way
+     * fastfetch prints memory. Limits keep the round [formatMemory] look. */
+    fun formatMemoryUsage(context: Context, kb: Long): String {
+        fun two(v: Double) = String.format(Locale.getDefault(), "%.2f", v)
+        return when {
+            kb < 1024 -> context.getString(R.string.memory_kb, two(kb.toDouble()))
+            kb < 1024 * 1024 -> context.getString(R.string.memory_mb_decimal, two(kb / 1024.0))
+            else -> context.getString(R.string.memory_gb, two(kb / 1048576.0))
+        }
+    }
+
     fun formatCores(context: Context, cores: Float): String {
         val n = if (cores % 1f == 0f) cores.toInt().toString() else String.format(Locale.getDefault(), "%.1f", cores)
         return context.resources.getQuantityString(R.plurals.cpu_cores, if (cores == 1f) 1 else 2, n)

@@ -323,7 +323,6 @@
     <string name="error_port_overlap">ஏற்கனவே உள்ள துறைமுகம் முன்னோக்கி விதியுடன் மேலெழுகிறது</string>
     <string name="please_wait_hint">உங்கள் கோரிக்கையை நாங்கள் செயல்படுத்தும் வரை காத்திருக்கவும்...</string>
     <string name="panel">குழு</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="container_uninstalled_success">கொள்கலன் %1$s வெற்றிகரமாக நிறுவல் நீக்கப்பட்டது</string>
     <string name="selinux_status">SELinux நிலை</string>
     <string name="x11_option">X11</string>

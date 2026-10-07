@@ -132,11 +132,11 @@ fun RunningContainerCard(
 
 
             // Resource usage row, only shown when we have real data. Null is the
-            // only "no data" signal: a container idling under 1MB reads as 0 and
+            // only "no data" signal: a container idling under 1 MB reads in KB and
             // still deserves its chip.
-            val ramUsageMb = osInfo?.ramUsageMb
+            val ramUsedKb = osInfo?.ramUsedKb
             val cpuPercent = osInfo?.cpuUsage ?: -1.0
-            if (ramUsageMb != null || cpuPercent >= 0.0) {
+            if (ramUsedKb != null || cpuPercent >= 0.0) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
@@ -171,7 +171,7 @@ fun RunningContainerCard(
                                 )
                             }
                         }
-                        if (ramUsageMb != null) {
+                        if (ramUsedKb != null) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)

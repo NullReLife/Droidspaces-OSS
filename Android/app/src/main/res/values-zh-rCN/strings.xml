@@ -361,7 +361,6 @@
     <string name="cpu_usage_label">CPU 使用率</string>
     <string name="ram_usage_label">RAM 使用率</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="sessions_running_plural">%1$d 会话正在运行 · 点击恢复</string>
     <string name="session_running_singular">一个会话正在运行 · 点击恢复</string>
     <string name="please_wait_hint">正在处理您的请求，请稍候...</string>

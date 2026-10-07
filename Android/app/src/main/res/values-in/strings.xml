@@ -351,7 +351,6 @@
     <string name="cpu_usage_label">Penggunaan CPU</string>
     <string name="ram_usage_label">Penggunaan RAM</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="sessions_running_plural">%1$d sesi berjalan · ketuk untuk memulihkan</string>
     <string name="session_running_singular">1 sesi berjalan · ketuk untuk memulihkan</string>
     <string name="masked_legend">Disembunyikan</string>
@@ -563,7 +562,6 @@
     </plurals>
     <string name="env_placeholder">KEY=VALUE, satu per baris. Baris yang diawali dengan # akan diabaikan.</string>
     <string name="env_lines_skipped">%1$d baris tidak dalam format KEY=VALUE</string>
-    <string name="ram_limit_percent_label">%1$d/%2$d MB (%3$.0f%%)</string>
     <string name="fetching_logs">Mengambil log...</string>
     <string name="journal_load_error_title">Tidak dapat memuat log</string>
     <string name="journal_load_error_message">Unit mungkin tidak memiliki jurnal, atau kontainer tidak dapat dijangkau.</string>

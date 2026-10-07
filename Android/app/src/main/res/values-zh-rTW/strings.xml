@@ -288,7 +288,6 @@
     <string name="cpu_usage_label">CPU 使用率</string>
     <string name="ram_usage_label">RAM 使用率</string>
     <string name="cpu_percent_label">%1$.1f%%</string>
-    <string name="ram_percent_label">%1$d MB (%2$.1f%%)</string>
     <string name="sessions_running_plural">%1$d 個 會話正在運行· 點擊恢復</string>
     <string name="session_running_singular">1個會話正在運行· 點擊恢復</string>
     <string name="logs_title">日誌: %1$s</string>
@@ -583,5 +582,4 @@
     <plurals name="cpu_cores">
         <item quantity="other">%1$s 核心</item>
     </plurals>
-    <string name="ram_limit_percent_label">%1$d/%2$d MB (%3$.0f%%)</string>
 </resources>

@@ -295,9 +295,9 @@ private fun hasOSInfoChanged(old: ContainerOSInfoManager.OSInfo, new: ContainerO
            old.ipAddress != new.ipAddress ||
            old.uptime != new.uptime ||
            old.cpuUsage != new.cpuUsage ||
-           old.ramUsageMb != new.ramUsageMb ||
+           old.ramUsedKb != new.ramUsedKb ||
            old.ramPercent != new.ramPercent ||
-           old.ramLimitMb != new.ramLimitMb
+           old.ramLimitKb != new.ramLimitKb
 }
 
 
