@@ -200,6 +200,57 @@ int ds_cgroup_has_controller(const char *name) {
   return q.found;
 }
 
+/* Without a cgroup namespace (kernels before 4.6) a v1 mount shows the whole
+ * host hierarchy, and the container is not its root. OpenRC moves every
+ * service it starts to the root of each hierarchy, "/sys/fs/cgroup/<ctrl>/
+ * tasks", which on the host is outside the container's cgroup: the memory
+ * limit then covers init and getty and nothing else. This is LXC 3's mixed
+ * mount for such kernels: the hierarchy's root is a read-only tmpfs directory
+ * with only the container's own cgroup bound into it, writable. The root has
+ * no tasks file, so OpenRC's move is a no-op, and the path the container sees
+ * in /proc/self/cgroup still resolves, which systemd needs. We were joined to
+ * the container's cgroup before the namespaces were unshared, so that file
+ * says where it is. Returns 0 when done, -1 to mount the hierarchy instead. */
+static int v1_mount_mixed(const char *mp, const char *ctrl) {
+  char host[PATH_MAX], own[PATH_MAX] = "", line[512];
+  if (access("/proc/self/ns/cgroup", F_OK) == 0 ||
+      !find_host_cgroup_mount(ctrl, host, sizeof(host)))
+    return -1;
+
+  FILE *f = fopen("/proc/self/cgroup", "re");
+  if (!f)
+    return -1;
+  while (fgets(line, sizeof(line), f)) {
+    char *ctrls = strchr(line, ':'), *path = ctrls ? strchr(ctrls + 1, ':') : 0;
+    if (!path)
+      continue;
+    *path++ = '\0';
+    path[strcspn(path, "\n")] = '\0';
+    for (char *t = strtok(ctrls + 1, ","); t; t = strtok(NULL, ","))
+      if (strcmp(t, ctrl) == 0 && strcmp(path, "/") != 0)
+        snprintf(own, sizeof(own), "%s", path);
+  }
+  fclose(f);
+  if (!own[0])
+    return -1;
+
+  char src[PATH_MAX], dst[PATH_MAX];
+  snprintf(src, sizeof(src), "%s%s", host, own);
+  snprintf(dst, sizeof(dst), "%s%s", mp, own);
+  unsigned long fl = MS_NOSUID | MS_NODEV | MS_NOEXEC;
+  /* Root goes read-only before the child mount goes in: a bind of the root
+   * onto itself is not recursive and would hide a child already there. */
+  if (mkdir_p(dst, 0755) < 0 || mount(mp, mp, NULL, MS_BIND, NULL) < 0 ||
+      mount(NULL, mp, NULL, MS_BIND | MS_REMOUNT | MS_RDONLY | fl, NULL) < 0 ||
+      mount(src, dst, NULL, MS_BIND, NULL) < 0) {
+    ds_warn("[CGROUP] %s: cannot bind %s into the container: %s", ctrl, src,
+            strerror(errno));
+    return -1;
+  }
+  ds_log("[CGROUP] v1 mounted: %s (no cgroup namespace, %s only)", ctrl, own);
+  return 0;
+}
+
 /* Runs inside the container. Every hierarchy already exists on the host by
  * now (ds_cgroup_v1_setup), so with a cgroup namespace each of these mounts
  * comes up rooted at the container's own cgroup. */
@@ -211,6 +262,9 @@ static void mount_v1_controller(const char *name, void *arg) {
     return; /* already set up or co-mounted */
 
   if (mkdir(mp, 0755) < 0 && errno != EEXIST)
+    return;
+
+  if (v1_mount_mixed(mp, name) == 0)
     return;
 
   if (mount("cgroup", mp, "cgroup", MS_NOSUID | MS_NODEV | MS_NOEXEC, name) !=
@@ -259,7 +313,8 @@ int setup_cgroups(int is_systemd, int force_cgroupv1) {
   if (is_systemd && !v2_active) {
     if (access("sys/fs/cgroup/systemd", F_OK) != 0) {
       mkdir("sys/fs/cgroup/systemd", 0755);
-      if (mount("cgroup", "sys/fs/cgroup/systemd", "cgroup",
+      if (v1_mount_mixed("sys/fs/cgroup/systemd", "name=systemd") != 0 &&
+          mount("cgroup", "sys/fs/cgroup/systemd", "cgroup",
                 MS_NOSUID | MS_NODEV | MS_NOEXEC, "none,name=systemd") < 0) {
         ds_error("Failed to mount systemd cgroup: %s", strerror(errno));
         return -1;
