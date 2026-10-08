@@ -933,7 +933,7 @@ static int open_loop_dev(long devnr, char *path_out, size_t path_size) {
  * loop_path_out is filled with the device node path for the mount() call.
  */
 static int loop_attach(const char *img_path, char *loop_path_out,
-                       size_t path_size) {
+                       size_t path_size, unsigned blksize) {
   int ctl_fd = open("/dev/loop-control", O_RDWR | O_CLOEXEC);
   if (ctl_fd < 0) {
     ds_error("open /dev/loop-control: %s", strerror(errno));
@@ -977,6 +977,19 @@ static int loop_attach(const char *img_path, char *loop_path_out,
 
   if (ioctl(loop_fd, LOOP_SET_STATUS64, &li) < 0)
     ds_warn("LOOP_SET_STATUS64: %s (continuing)", strerror(errno));
+
+  /* Buffered, the loop device's single worker blocks on every page cache
+   * miss, so a queue of 16 random reads is served one at a time: 4.7k IOPS
+   * cold against 63k with direct I/O on the same image, which hands each
+   * request to the backing filesystem asynchronously. The kernel refuses DIO
+   * while the loop's sector size is below the backing disk's (4 KiB on UFS),
+   * so raise it to the guest filesystem's block size first. Both ioctls are
+   * best effort: kernels before 4.14 and backing filesystems without O_DIRECT
+   * keep the buffered path. */
+  ioctl(loop_fd, LOOP_SET_BLOCK_SIZE, (unsigned long)blksize);
+  if (ioctl(loop_fd, LOOP_SET_DIRECT_IO, 1UL) < 0)
+    ds_log("[DEBUG] Loop direct I/O unavailable for %s: %s", img_path,
+           strerror(errno));
 
   return loop_fd;
 }
@@ -1078,6 +1091,13 @@ int mount_rootfs_img(const char *img_path, char *mount_point, size_t mp_size,
   unsigned long mnt_flags = MS_NOATIME | MS_NODIRATIME;
   const char *mnt_data = NULL;
 
+  /* Loop sector size for direct I/O. It must not exceed the filesystem's
+   * block size or ext4 refuses to mount; mkfs gives images under 512 MiB
+   * 1 KiB blocks (s_log_block_size at 0x18). */
+  unsigned blksize = 4096;
+  if (strcmp(fstype, "ext4") == 0 && sb[0x18] < 2)
+    blksize = 1024u << sb[0x18];
+
   if (strcmp(fstype, "ext4") == 0) {
     mnt_data = "nodelalloc,errors=remount-ro,init_itable=0";
   } else if (strcmp(fstype, "btrfs") == 0) {
@@ -1101,7 +1121,7 @@ int mount_rootfs_img(const char *img_path, char *mount_point, size_t mp_size,
     if (is_blk) {
       safe_strncpy(final_src, img_path, sizeof(final_src));
     } else {
-      loop_fd = loop_attach(img_path, final_src, sizeof(final_src));
+      loop_fd = loop_attach(img_path, final_src, sizeof(final_src), blksize);
       if (loop_fd < 0)
         goto retry;
     }
