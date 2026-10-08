@@ -37,7 +37,16 @@ fun getDSVersion(): String {
     return foundVersion
 }
 
+// Every commit gets its own build number, so CI APKs between version bumps
+// still install over each other. Needs full history: a shallow clone counts 1,
+// and a tarball without .git counts 0. Both still sort above the old scheme.
+val gitCommitCount = runCatching {
+    providers.exec { commandLine("git", "rev-list", "--count", "HEAD") }
+        .standardOutput.asText.get().trim().toInt()
+}.getOrDefault(0)
+
 val dsVersionName = getDSVersion()
+// ponytail: 10000 commits per release before the suffix spills into the next slot; still monotonic, just ugly
 val dsVersionCodeVal = dsVersionName.split(".").let { parts ->
     try {
         val major = parts.getOrNull(0)?.toInt() ?: 1
@@ -47,7 +56,7 @@ val dsVersionCodeVal = dsVersionName.split(".").let { parts ->
     } catch (e: Exception) {
         1
     }
-}
+} * 10000 + gitCommitCount
 
 android {
     namespace = "com.droidspaces.app"
@@ -264,14 +273,22 @@ tasks.register("generateSupportedLocalesList") {
 // ---------------------------------------------------------------------------
 // Sync boot-module/module.prop version with DS_VERSION from droidspace.h.
 // ---------------------------------------------------------------------------
+// The template lives outside assets and the result goes under build/, so the
+// per-commit versionCode never shows up as a diff.
+val modulePropTemplate = file("src/main/boot-module/module.prop")
+val generatedAssets = layout.buildDirectory.dir("generated/boot-module")
+android.sourceSets["main"].assets.srcDir(generatedAssets)
+
 tasks.register("generateModuleProp") {
-    val moduleProp = file("src/main/assets/boot-module/module.prop")
+    val moduleProp = generatedAssets.get().file("boot-module/module.prop").asFile
+    inputs.file(modulePropTemplate)
     inputs.property("dsVersionName", dsVersionName)
     inputs.property("dsVersionCodeVal", dsVersionCodeVal)
     outputs.file(moduleProp)
 
     doLast {
-        val lines = moduleProp.readLines().map { line ->
+        moduleProp.parentFile.mkdirs()
+        val lines = modulePropTemplate.readLines().map { line ->
             when {
                 line.startsWith("version=")     -> "version=v$dsVersionName"
                 line.startsWith("versionCode=") -> "versionCode=$dsVersionCodeVal"
