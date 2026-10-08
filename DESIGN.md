@@ -23,7 +23,8 @@ Never hardcode a hex colour, an sp size, or a radius you picked by eye.
 **Flat, always.** Nothing in this app is elevated. `tonalElevation = 0.dp` appears at 55 sites
 and there is not one `CardDefaults.cardElevation` in the tree. Depth is expressed by stepping
 the surface colour up one level and drawing a 1dp border. If you reach for a shadow, you have
-left the design.
+left the design. The one thing that floats is the FAB menu on the Containers tab, and that is a
+decided exception below, not a precedent.
 
 **`Surface` is the primitive.** 123 `Surface` uses against a single `Card()`. Buttons are
 clickable Surfaces, not Material `Button`s. Dialogs are `Dialog { Surface { } }`, not
@@ -162,6 +163,7 @@ moving every card header in the app, which is the intended way round.
 | Text field | 16 |
 | Action pill wrapper | 12 |
 | Status pill, small badge | 8 |
+| FAB and FAB menu items | component default, the toggle morphs its own radius |
 
 ## The action pill
 
@@ -193,6 +195,25 @@ flush inside it. Matching the two radii flattens the effect and has been reverte
 Two sites use it: `ui/component/ContainerCard.kt` and `ui/screen/InitServiceScreen.kt`. It is for
 a row of peer actions inside a card. A dialog's confirm and cancel are not that, and have their
 own rule below.
+
+## Floating action button
+
+A screen has at most one FAB. It sits bottom right in the screen's root `Box`, with
+`navigationBarsPadding()` and `padding(end = 24.dp, bottom = 88.dp)` so it clears the floating
+tab bar.
+
+More than one action behind a FAB is a Material 3 Expressive `FloatingActionButtonMenu` with a
+`ToggleFloatingActionButton` as its button, never a small FAB stacked on an extended one. The
+toggle shows a plus that morphs into a cross; the items rise above it, each with an icon and a
+short label, the most used one nearest the FAB. Two to six items. Colour, shape, size, icon
+animation and motion stay at the component defaults, which is the point of using the component.
+
+The expanded flag is `rememberSaveable` so it survives rotation. It closes on the toggle, on
+back press (`BackHandler`), on picking an item, and on a tap on the list behind it. The toggle
+carries a `contentDescription` and a `stateDescription`, and the last item carries a "Close
+menu" custom accessibility action because TalkBack reaches the toggle before the first item.
+
+One site uses it: `ui/screen/ContainersScreen.kt`. A second screen copies that block.
 
 ## Dialogs
 
@@ -298,6 +319,10 @@ action pill wrappers now do. An undocumented deviation is drift and the next con
 Looked at, deliberately left alone. Do not re-open these without a reason the original one
 misses.
 
+- **The FAB menu is elevated.** `ToggleFloatingActionButton` and `FloatingActionButtonMenuItem`
+  take no elevation parameter and draw the Material shadow. A button floating over a scrolling
+  list is the one place a shadow does structural work, and the extended FAB it replaced already
+  shipped with its default elevation.
 - **`TerminalDialog` and `ProgressDialog` do not use `DsDialog`.** The first is three quarters
   of the screen with its own header row, the second is not dismissible. If a third dialog ever
   wants either shape, that is the moment to widen the shared shell.

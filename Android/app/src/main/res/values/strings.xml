@@ -642,6 +642,11 @@
     <!-- Rootfs repository -->
     <string name="repo_title">Rootfs Repository</string>
     <string name="repo_fab_label">Repository</string>
+    <string name="add_container">Add container</string>
+    <string name="install_from_file">Install from file</string>
+    <string name="fab_menu_expanded">Expanded</string>
+    <string name="fab_menu_collapsed">Collapsed</string>
+    <string name="close_menu">Close menu</string>
     <string name="repo_refresh">Refresh</string>
     <string name="repo_banner_text">Rootfs tarballs under \"Droidspaces developers\" are open-source and transparent. You can manually download or inspect our changes by tapping this card.</string>
     <string name="repo_banner_url">https://github.com/Droidspaces/Droidspaces-rootfs-builder</string>

@@ -288,6 +288,7 @@ the language and about dialogs in `ui/screen/SettingsScreen.kt`). Do not import 
 | `SaveActionBottomBar(isSaved, isSaving, canSave, onSave, ...)` | `ui/component/SaveActionBottomBar.kt` | A save bar with the save, saving and saved states |
 | `PullToRefreshWrapper(onRefresh) { ... }` | `ui/component/PullToRefreshWrapper.kt` | Any pull to refresh list or tab body |
 | `showSuccess/showError/showInfo(snackbarHostState, message)` | `ui/util/SnackbarUtils.kt` | All snackbars. Never call `showSnackbar` directly |
+| `FloatingActionButtonMenu` + `ToggleFloatingActionButton` | `ui/screen/ContainersScreen.kt` | A screen with more than one floating action. Copy that block, never stack FABs. See DESIGN.md "Floating action button" |
 
 ### Android: cards and list items
 

@@ -4,6 +4,17 @@ import com.droidspaces.app.ui.component.DsDialog
 import com.droidspaces.app.ui.component.DsTextFieldDefaults
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.ToggleFloatingActionButtonDefaults.animateIcon
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -62,7 +73,7 @@ import androidx.compose.ui.draw.clip
 import com.droidspaces.app.R
 import androidx.compose.ui.window.Dialog
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ContainersScreen(
     isBackendAvailable: Boolean,
@@ -91,6 +102,7 @@ fun ContainersScreen(
     var pendingSparseOperation by remember { mutableStateOf<SparseOperation?>(null) }
     var pendingExportContainer by remember { mutableStateOf<ContainerInfo?>(null) }
     var showRepoSheet by remember { mutableStateOf(false) }
+    var fabMenuExpanded by rememberSaveable { mutableStateOf(false) }
 
     // File picker launcher - CreateDocument for saving the export archive
     val exportFileLauncher = rememberLauncherForActivityResult(
@@ -173,7 +185,10 @@ fun ContainersScreen(
                         .combinedClickable(
                             interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                             indication = null,
-                            onClick = { onExpandedContainerNameChange(null) }
+                            onClick = {
+                                onExpandedContainerNameChange(null)
+                                fabMenuExpanded = false
+                            }
                         )
                         .padding(horizontal = 16.dp),
                     contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp), // Clear floating tab bar
@@ -264,51 +279,66 @@ fun ContainersScreen(
             }
         }
 
-        // FAB LAYER (Above everything, below dialogs)
+        // One FAB, a Material 3 Expressive menu: the plus morphs into a cross and the two
+        // install routes rise above it. Replaces the small FAB stacked on an extended one.
         if (isBackendAvailable && isRootAvailable && isKernelSupported) {
-            Column(
+            BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
+
+            FloatingActionButtonMenu(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
-                    .padding(end = 24.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                // Small secondary FAB: browse online repo (icon only)
-                SmallFloatingActionButton(
-                    onClick = { showRepoSheet = true },
-                    shape = RoundedCornerShape(16.dp),
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = context.getString(R.string.repo_fab_label),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Primary FAB: install local file
-                ExtendedFloatingActionButton(
-                    onClick = { filePickerLauncher.launch("*/*") },
-                    shape = RoundedCornerShape(20.dp),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    icon = {
+                    .padding(end = 24.dp, bottom = 88.dp), // Clear floating tab bar
+                expanded = fabMenuExpanded,
+                button = {
+                    ToggleFloatingActionButton(
+                        modifier = Modifier.semantics {
+                            traversalIndex = -1f
+                            contentDescription = context.getString(R.string.add_container)
+                            stateDescription = context.getString(
+                                if (fabMenuExpanded) R.string.fab_menu_expanded else R.string.fab_menu_collapsed
+                            )
+                        },
+                        checked = fabMenuExpanded,
+                        onCheckedChange = { fabMenuExpanded = !fabMenuExpanded }
+                    ) {
+                        val imageVector by remember {
+                            derivedStateOf { if (checkedProgress > 0.5f) Icons.Default.Close else Icons.Default.Add }
+                        }
                         Icon(
-                            imageVector = Icons.Default.Add,
+                            painter = rememberVectorPainter(imageVector),
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    text = {
-                        Text(
-                            text = context.getString(R.string.install),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
+                            modifier = Modifier.animateIcon({ checkedProgress })
                         )
                     }
+                }
+            ) {
+                FloatingActionButtonMenuItem(
+                    onClick = {
+                        fabMenuExpanded = false
+                        showRepoSheet = true
+                    },
+                    icon = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
+                    text = { Text(context.getString(R.string.repo_fab_label)) }
+                )
+                // Last item, nearest the thumb. TalkBack reaches the close button before the
+                // first item, so the last one offers a close action of its own.
+                FloatingActionButtonMenuItem(
+                    modifier = Modifier.semantics {
+                        isTraversalGroup = true
+                        customActions = listOf(
+                            CustomAccessibilityAction(context.getString(R.string.close_menu)) {
+                                fabMenuExpanded = false
+                                true
+                            }
+                        )
+                    },
+                    onClick = {
+                        fabMenuExpanded = false
+                        filePickerLauncher.launch("*/*")
+                    },
+                    icon = { Icon(Icons.Default.FolderOpen, contentDescription = null) },
+                    text = { Text(context.getString(R.string.install_from_file)) }
                 )
             }
         }
