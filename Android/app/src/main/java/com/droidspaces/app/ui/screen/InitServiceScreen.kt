@@ -197,7 +197,7 @@ fun InitServiceScreen(
                     title = { Text(context.getString(titleRes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
                     navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back)) } },
                     actions = { IconButton(onClick = { fetchServices() }, enabled = screenState !is InitScreenState.Loading && actionState is InitActionState.Idle) { Icon(Icons.Default.Refresh, context.getString(R.string.refresh)) } },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
                 )
             },
             snackbarHost = { DsSnackbarHost(snackbarHostState) },

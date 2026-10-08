@@ -5,6 +5,7 @@ import java.util.Locale
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 // Load keystore properties from local.properties or gradle.properties
@@ -50,7 +51,7 @@ val dsVersionCodeVal = dsVersionName.split(".").let { parts ->
 
 android {
     namespace = "com.droidspaces.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.droidspaces.app"
@@ -185,10 +186,6 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
-    }
-
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -296,14 +293,15 @@ tasks.configureEach {
 
 dependencies {
     // Compose BOM
-    // 2024.02.00 shipped compose 1.6.1, whose M3 Slider drops out of drag after the
-    // first move events (JetBrains/compose-multiplatform#4366); 2024.06.00 is the
-    // last patch of the same 1.6.x line and carries the fix.
-    implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    // 2026.06.01 is the last BOM on the Compose 1.11 line; 1.12 wants compileSdk 37 and AGP 9.
+    implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
-    implementation("androidx.compose.material3:material3")
+    // material3 1.4.0 stable stripped every Expressive API (wavy progress, LoadingIndicator,
+    // ButtonGroup). 1.5.0-alpha18 is the alpha that promoted the wavy indicator to stable
+    // and the last one built against Compose 1.11; alpha20 onward needs Compose 1.12.
+    implementation("androidx.compose.material3:material3:1.5.0-alpha18")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.graphics:graphics-shapes:1.0.1")
 
@@ -324,8 +322,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
     // Drag-and-drop reordering for Compose lists (Auto boot priority screen)
-    // 2.1.x targets Compose 1.6.x, matching the BOM above.
-    implementation("sh.calvin.reorderable:reorderable:2.1.1")
+    // Every 2.x/3.x release pins Compose 1.7; the BOM above resolves it upward.
+    implementation("sh.calvin.reorderable:reorderable:3.1.0")
 
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")

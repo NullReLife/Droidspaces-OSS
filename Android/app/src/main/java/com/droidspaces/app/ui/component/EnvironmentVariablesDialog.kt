@@ -70,7 +70,7 @@ fun EnvironmentVariablesDialog(
             shape = RoundedCornerShape(16.dp),
             colors = DsTextFieldDefaults.surfaceColors(),
             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = JetBrainsMono),
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrect = false)
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false)
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(

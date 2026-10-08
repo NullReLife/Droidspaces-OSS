@@ -104,7 +104,7 @@ fun UnitDetailScreen(
                         IconButton(onClick = onViewLogs) { Icon(Icons.Default.Terminal, context.getString(R.string.view_logs)) }
                         IconButton(onClick = onEditOverride) { Icon(Icons.Default.Edit, context.getString(R.string.edit_override)) }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
             },
             containerColor = Color.Transparent

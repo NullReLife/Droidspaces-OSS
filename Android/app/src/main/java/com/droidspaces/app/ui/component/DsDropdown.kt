@@ -60,7 +60,7 @@ fun <T> DsDropdown(
             shape = fieldShape,
             colors = fieldColors,
             modifier = Modifier
-                .menuAnchor()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                 .fillMaxWidth()
         )
         DsMenuTheme {

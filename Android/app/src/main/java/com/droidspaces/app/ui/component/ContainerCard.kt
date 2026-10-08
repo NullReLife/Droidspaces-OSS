@@ -11,7 +11,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clip
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -90,7 +89,7 @@ fun ContainerCard(
                     if (container.isRunning) onEnter() else onToggleExpand()
                 },
                 onLongClick = onToggleExpand,
-                indication = rememberRipple(bounded = true),
+                indication = ripple(bounded = true),
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             ),
         shape = cardShape,

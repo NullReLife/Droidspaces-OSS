@@ -106,7 +106,7 @@ fun RootfsRepoSheet(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp,
-        windowInsets = WindowInsets(0),
+        contentWindowInsets = { WindowInsets(0) },
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         ClearFocusOnClickOutside(modifier = Modifier.fillMaxWidth()) {

@@ -97,7 +97,7 @@ fun JournaldScreen(
                             Icon(Icons.Default.Refresh, context.getString(R.string.refresh))
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                 )
             },
             containerColor = Color.Transparent
