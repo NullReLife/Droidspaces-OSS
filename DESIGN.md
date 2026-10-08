@@ -82,6 +82,7 @@ invent a parallel vocabulary.
 | --- | --- |
 | Running, healthy, start action | `primary` |
 | Stopped, failed, destructive, stop action | `error` |
+| Done with a caveat, warning | `warningContainer`, an extended colour in `ui/theme/Color.kt` |
 | Restart action | `secondary` |
 | In progress, restarting, downloading | `tertiary` |
 | Idle, unknown, nothing to report | `onSurfaceVariant` at `0.6f` |
@@ -301,10 +302,15 @@ is centred inside a card, it is probably wrong.
 
 Spinners come from `LoadingIndicator` with a `LoadingSize`, never a raw `.size(n.dp)` on a
 progress indicator. Whole screen loading is `FullScreenLoading`. `LoadingSize.Hero` (96) is
-the one setup-flow hero loader, used by the backend installer; the empty-state icon stays 64.
+the one setup-flow hero loader, used by the backend installer with `contained = true` so it sits
+in the same `primaryContainer` bubble as the pull-to-refresh pebble; the empty-state icon stays 64.
 Animation timings come from `AnimationUtils`.
-Hero state changes use the Material Expressive spring tokens: spatial 0.8 / 380 for
-size and position, effects 1.0 / 1600 for fades. Never `DampingRatioMediumBouncy` on a result.
+Hero state changes use `MaterialTheme.motionScheme`, which the theme sets to
+`MotionScheme.expressive()`: `defaultSpatialSpec()` for size and position, `defaultEffectsSpec()`
+for fades, `slowEffectsSpec()` for a result line fading in. Never hand-type a spring, and never
+`DampingRatioMediumBouncy` on a result.
+A result hero is a 128dp `MaterialShapes.Cookie12Sided` container in `primaryContainer`,
+`warningContainer` or `errorContainer` with a 56dp glyph; the backend installer is the one site.
 
 ## When the rule does not fit
 

@@ -3,7 +3,6 @@ package com.droidspaces.app.ui.screen
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -24,6 +23,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.droidspaces.app.R
 import com.droidspaces.app.ui.component.PrimaryActionBottomBar
+import com.droidspaces.app.ui.theme.onWarningContainer
+import com.droidspaces.app.ui.theme.warningContainer
 import com.droidspaces.app.ui.util.LoadingIndicator
 import com.droidspaces.app.ui.util.LoadingSize
 import com.droidspaces.app.ui.viewmodel.AppStateViewModel
@@ -31,15 +32,11 @@ import com.droidspaces.app.util.HostCapabilities
 
 private enum class InstallPhase { Installing, Success, Warning, Failed }
 
-/* Material Expressive motion tokens. Spatial springs move size and position and
- * may settle with a hint of overshoot; effects springs drive fades and colour and
- * never overshoot. The app's material3 predates MotionScheme, so they live here. */
-private const val SPATIAL_DAMPING = 0.8f
-private const val SPATIAL_STIFFNESS = 380f
-private const val EFFECTS_DAMPING = 1f
-private const val EFFECTS_STIFFNESS = 1600f
-private const val EFFECTS_SLOW_STIFFNESS = 800f
+/* The result container is larger than the loader it replaces, so the landing reads as
+ * the shape settling rather than a swap at equal size. */
+private val ResultHeroSize = 128.dp
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun InstallationScreen(
     appStateViewModel: AppStateViewModel,
@@ -66,6 +63,7 @@ fun InstallationScreen(
         else -> InstallPhase.Installing
     }
     val done = phase != InstallPhase.Installing
+    val motion = MaterialTheme.motionScheme
 
     // Completely block the back gesture in every state. This screen must be
     // left only via the Continue button, whose handler decides the next
@@ -105,38 +103,45 @@ fun InstallationScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // Hero slot: the morphing loader while work runs, then the result
-            // icon settling into the same box so nothing on the screen jumps.
+            // settling into the same box so nothing on the screen jumps.
             AnimatedContent(
                 targetState = phase,
                 transitionSpec = {
-                    (scaleIn(spring(SPATIAL_DAMPING, SPATIAL_STIFFNESS), initialScale = 0.9f) +
-                        fadeIn(spring(EFFECTS_DAMPING, EFFECTS_STIFFNESS)))
-                        .togetherWith(fadeOut(spring(EFFECTS_DAMPING, EFFECTS_STIFFNESS)))
+                    (scaleIn(motion.defaultSpatialSpec(), initialScale = 0.9f) +
+                        fadeIn(motion.defaultEffectsSpec()))
+                        .togetherWith(fadeOut(motion.defaultEffectsSpec()))
                 },
                 label = "install_hero"
             ) { target ->
-                Box(modifier = Modifier.size(LoadingSize.Hero.size), contentAlignment = Alignment.Center) {
-                    when (target) {
-                        InstallPhase.Installing -> LoadingIndicator(size = LoadingSize.Hero)
-                        InstallPhase.Success -> Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
+                Box(modifier = Modifier.size(ResultHeroSize), contentAlignment = Alignment.Center) {
+                    if (target == InstallPhase.Installing) {
+                        LoadingIndicator(size = LoadingSize.Hero, contained = true)
+                    } else {
+                        // The loader morphs through this shape family, so the result lands
+                        // in a shape it could have been. State lives in the colour, not the
+                        // shape: installed on a kernel that failed a MUST HAVE probe is a
+                        // warning, not a failure, so it is amber rather than red.
+                        val scheme = MaterialTheme.colorScheme
+                        val (container, onContainer, glyph) = when (target) {
+                            InstallPhase.Warning -> Triple(scheme.warningContainer, scheme.onWarningContainer, Icons.Default.Warning)
+                            InstallPhase.Failed -> Triple(scheme.errorContainer, scheme.onErrorContainer, Icons.Default.Close)
+                            else -> Triple(scheme.primaryContainer, scheme.onPrimaryContainer, Icons.Default.Check)
+                        }
+                        Surface(
                             modifier = Modifier.fillMaxSize(),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        // Installed, but a kernel that failed a MUST HAVE probe gets the warning, not the tick.
-                        InstallPhase.Warning -> Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        InstallPhase.Failed -> Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                            shape = MaterialShapes.Cookie12Sided.toShape(),
+                            color = container,
+                            tonalElevation = 0.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = glyph,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(56.dp),
+                                    tint = onContainer
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -160,8 +165,8 @@ fun InstallationScreen(
             // installing: the loader is the whole message.
             AnimatedVisibility(
                 visible = done,
-                enter = fadeIn(spring(EFFECTS_DAMPING, EFFECTS_SLOW_STIFFNESS)),
-                exit = fadeOut(spring(EFFECTS_DAMPING, EFFECTS_STIFFNESS))
+                enter = fadeIn(motion.slowEffectsSpec()),
+                exit = fadeOut(motion.defaultEffectsSpec())
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(modifier = Modifier.height(12.dp))
@@ -172,8 +177,11 @@ fun InstallationScreen(
                             else -> context.getString(R.string.backend_installed_success)
                         },
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (phase == InstallPhase.Success) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            else MaterialTheme.colorScheme.error,
+                        color = when (phase) {
+                            InstallPhase.Failed -> MaterialTheme.colorScheme.error
+                            InstallPhase.Warning -> MaterialTheme.colorScheme.onWarningContainer
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        },
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )

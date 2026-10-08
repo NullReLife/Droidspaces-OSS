@@ -30,19 +30,26 @@ enum class LoadingSize(val size: Dp) {
 }
 
 /**
- * The M3 Expressive loading indicator at one of the app's standard sizes.
+ * The M3 Expressive loading indicator at one of the app's standard sizes. [contained]
+ * puts it in its primaryContainer bubble, the same pebble the pull-to-refresh shows,
+ * for a hero that a result container will take over from.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingIndicator(
     size: LoadingSize,
     modifier: Modifier = Modifier,
-    color: Color? = null
+    color: Color? = null,
+    contained: Boolean = false
 ) {
-    androidx.compose.material3.LoadingIndicator(
-        modifier = modifier.size(size.size),
-        color = color ?: MaterialTheme.colorScheme.primary
-    )
+    if (contained) {
+        androidx.compose.material3.ContainedLoadingIndicator(modifier = modifier.size(size.size))
+    } else {
+        androidx.compose.material3.LoadingIndicator(
+            modifier = modifier.size(size.size),
+            color = color ?: MaterialTheme.colorScheme.primary
+        )
+    }
 }
 
 /**
