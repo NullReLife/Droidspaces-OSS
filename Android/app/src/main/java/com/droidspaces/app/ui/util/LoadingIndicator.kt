@@ -25,31 +25,23 @@ enum class LoadingSize(val size: Dp) {
     Small(16.dp),
     Medium(24.dp),
     Large(48.dp),
-    /** Full-screen setup-flow hero (backend installer). The empty-state icon stays 64. */
-    Hero(96.dp)
+    /** Inside the 240dp setup hero. The indicator only fills about 80% of its box, so
+     *  this is what it takes to carry the same weight as the 96dp glyph it stands in for. */
+    Hero(144.dp)
 }
 
-/**
- * The M3 Expressive loading indicator at one of the app's standard sizes. [contained]
- * puts it in its primaryContainer bubble, the same pebble the pull-to-refresh shows,
- * for a hero that a result container will take over from.
- */
+/** The M3 Expressive loading indicator at one of the app's standard sizes. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingIndicator(
     size: LoadingSize,
     modifier: Modifier = Modifier,
-    color: Color? = null,
-    contained: Boolean = false
+    color: Color? = null
 ) {
-    if (contained) {
-        androidx.compose.material3.ContainedLoadingIndicator(modifier = modifier.size(size.size))
-    } else {
-        androidx.compose.material3.LoadingIndicator(
-            modifier = modifier.size(size.size),
-            color = color ?: MaterialTheme.colorScheme.primary
-        )
-    }
+    androidx.compose.material3.LoadingIndicator(
+        modifier = modifier.size(size.size),
+        color = color ?: MaterialTheme.colorScheme.primary
+    )
 }
 
 /**
