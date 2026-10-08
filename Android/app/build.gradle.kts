@@ -205,11 +205,11 @@ android {
 // ---------------------------------------------------------------------------
 // Auto-generate language list from res/values-* directories.
 //
-// This task runs before every build and writes two files:
-//   1. src/main/assets/supported_locales.txt  — read by LocaleHelper at
-//      runtime to build the in-app language picker dynamically.
-//   2. src/main/res/xml/locales_config.xml    — keeps the Android 13+
-//      per-app language system setting in sync automatically.
+// This task runs before every build and writes two files under build/:
+//   1. assets/supported_locales.txt  — read by LocaleHelper at runtime to
+//      build the in-app language picker dynamically.
+//   2. res/xml/locales_config.xml    — keeps the Android 13+ per-app
+//      language system setting in sync automatically.
 //
 // Detection rule: a values-XX directory is a translation if it contains a
 // strings.xml file (case-insensitive). This cleanly excludes non-language
@@ -219,17 +219,23 @@ android {
 // Adding a new language via Weblate: just merge the PR — the next build
 // picks it up with zero manual changes required.
 // ---------------------------------------------------------------------------
+// Build-generated assets and resources live here, registered as extra source
+// roots, so nothing the build rewrites ever shows up as a diff.
+val generatedDir = layout.buildDirectory.dir("generated/droidspaces").get()
+android.sourceSets["main"].assets.srcDir(generatedDir.dir("assets"))
+android.sourceSets["main"].res.srcDir(generatedDir.dir("res"))
+
 tasks.register("generateSupportedLocalesList") {
     val resDir = file("src/main/res")
-    val assetsDir = file("src/main/assets")
-    val localesAsset = file("src/main/assets/supported_locales.txt")
-    val localesConfig = file("src/main/res/xml/locales_config.xml")
+    val localesAsset = generatedDir.file("assets/supported_locales.txt").asFile
+    val localesConfig = generatedDir.file("res/xml/locales_config.xml").asFile
 
     inputs.dir(resDir)
     outputs.files(localesAsset, localesConfig)
 
     doLast {
-        assetsDir.mkdirs()
+        localesAsset.parentFile.mkdirs()
+        localesConfig.parentFile.mkdirs()
 
         // Scan values-XX dirs; include only those with a strings.xml (any case)
         val localeCodes = resDir.listFiles()
@@ -273,14 +279,12 @@ tasks.register("generateSupportedLocalesList") {
 // ---------------------------------------------------------------------------
 // Sync boot-module/module.prop version with DS_VERSION from droidspace.h.
 // ---------------------------------------------------------------------------
-// The template lives outside assets and the result goes under build/, so the
-// per-commit versionCode never shows up as a diff.
+// The template lives outside assets so the per-commit versionCode never
+// shows up as a diff.
 val modulePropTemplate = file("src/main/boot-module/module.prop")
-val generatedAssets = layout.buildDirectory.dir("generated/boot-module")
-android.sourceSets["main"].assets.srcDir(generatedAssets)
 
 tasks.register("generateModuleProp") {
-    val moduleProp = generatedAssets.get().file("boot-module/module.prop").asFile
+    val moduleProp = generatedDir.file("assets/boot-module/module.prop").asFile
     inputs.file(modulePropTemplate)
     inputs.property("dsVersionName", dsVersionName)
     inputs.property("dsVersionCodeVal", dsVersionCodeVal)
