@@ -43,6 +43,7 @@ import com.droidspaces.app.ui.util.ClearFocusOnClickOutside
 import com.droidspaces.app.ui.util.FocusUtils
 import com.droidspaces.app.ui.util.FullScreenLoading
 import com.droidspaces.app.service.AssetDownloadState
+import com.droidspaces.app.service.RootfsDownloadService
 import com.droidspaces.app.ui.viewmodel.RepoUiState
 import com.droidspaces.app.ui.viewmodel.RootfsRepoViewModel
 import com.droidspaces.app.util.IconUtils
@@ -577,7 +578,10 @@ private fun RootfsAssetCard(
                     accentColor = MaterialTheme.colorScheme.onPrimary
                     btnIcon = Icons.Default.InstallMobile
                     btnText = context.getString(R.string.repo_install)
-                    onClickAction = { onInstall(state.uri) }
+                    onClickAction = {
+                        RootfsDownloadService.dismissDone(context, asset.downloadUrl)
+                        onInstall(state.uri)
+                    }
                 }
                 is AssetDownloadState.Failed -> {
                     btnColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
