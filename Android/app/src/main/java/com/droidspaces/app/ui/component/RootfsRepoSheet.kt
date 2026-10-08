@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -518,14 +518,20 @@ private fun RootfsAssetCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    LinearProgressIndicator(
-                        progress = { state.percent / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp),
+                    // The service reports whole percents, so the bar would step 1% at a time
+                    val progress by animateFloatAsState(
+                        targetValue = state.percent / 100f,
+                        animationSpec = WavyProgressIndicatorDefaults.ProgressAnimationSpec,
+                        label = "downloadProgress"
+                    )
+                    LinearWavyProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth(),
                         color = MaterialTheme.colorScheme.tertiary, // Match state pill
                         trackColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
-                        strokeCap = StrokeCap.Round
+                        // The default flattens the wave below 10% and above 95%; a bar that
+                        // only starts waving part way through a download looks broken.
+                        amplitude = { 1f }
                     )
                     Text(
                         text = "${state.percent}%",
@@ -933,5 +939,3 @@ private fun RepoSearchBar(query: String, onQueryChange: (String) -> Unit) {
         )
     }
 }
-
-
