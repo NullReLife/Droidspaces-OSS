@@ -41,17 +41,17 @@ private fun darkColorSchemeFor(palette: ThemePalette): ColorScheme {
 
     return darkColorScheme(
         primary = p,
-        onPrimary = Color(0xFF000000).blend(p, 0.08f),
+        onPrimary = p.blend(Color.Black, 0.70f),
         primaryContainer = p.blend(Color.Black, 0.40f),
         onPrimaryContainer = p.blend(Color.White, 0.75f),
 
         secondary = s,
-        onSecondary = Color(0xFF000000).blend(s, 0.08f),
+        onSecondary = s.blend(Color.Black, 0.70f),
         secondaryContainer = s.blend(Color.Black, 0.40f),
         onSecondaryContainer = s.blend(Color.White, 0.75f),
 
         tertiary = t,
-        onTertiary = Color(0xFF000000).blend(t, 0.08f),
+        onTertiary = t.blend(Color.Black, 0.70f),
         tertiaryContainer = t.blend(Color.Black, 0.40f),
         onTertiaryContainer = t.blend(Color.White, 0.75f),
 
@@ -89,17 +89,17 @@ private fun lightColorSchemeFor(palette: ThemePalette): ColorScheme {
 
     return lightColorScheme(
         primary = p,
-        onPrimary = Color.White,
+        onPrimary = p.blend(Color.White, 0.85f),
         primaryContainer = p.blend(Color.White, 0.55f),
         onPrimaryContainer = p.blend(Color.Black, 0.55f),
 
         secondary = s,
-        onSecondary = Color.White,
+        onSecondary = s.blend(Color.White, 0.85f),
         secondaryContainer = s.blend(Color.White, 0.55f),
         onSecondaryContainer = s.blend(Color.Black, 0.55f),
 
         tertiary = t,
-        onTertiary = Color.White,
+        onTertiary = t.blend(Color.White, 0.85f),
         tertiaryContainer = t.blend(Color.White, 0.55f),
         onTertiaryContainer = t.blend(Color.Black, 0.55f),
 
