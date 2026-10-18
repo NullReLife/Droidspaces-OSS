@@ -913,12 +913,34 @@ int ds_config_save(const char *config_path, struct ds_config *cfg) {
     }
   }
 
-  fclose(f_out);
+  /* Without the fsync the rename can reach disk before the data, and a hard
+   * reboot leaves an empty container.config that hides the container (#364).
+   * EINVAL means the filesystem has no fsync, the write itself still landed. */
+  int ok = fflush(f_out) == 0 && !ferror(f_out) &&
+           (fsync(fileno(f_out)) == 0 || errno == EINVAL);
+  if (fclose(f_out) != 0 || !ok) {
+    unlink(temp_path);
+    return -1;
+  }
 
   /* Step 4: Atomic rename commit */
   if (rename(temp_path, config_path) < 0) {
     unlink(temp_path);
     return -1;
+  }
+
+  /* The new name lives in the directory, so a first save also needs the
+   * directory synced or the rename itself can be lost. Best effort, the file
+   * is already in place. */
+  char *slash = strrchr(temp_path, '/');
+  if (slash) {
+    *slash = '\0';
+    int dfd = open(slash == temp_path ? "/" : temp_path,
+                   O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd >= 0) {
+      fsync(dfd);
+      close(dfd);
+    }
   }
 
   if (!cfg->config_file_existed) {
