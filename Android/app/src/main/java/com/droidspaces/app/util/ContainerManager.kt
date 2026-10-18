@@ -67,6 +67,8 @@ data class ContainerInfo(
     val memoryLimit: Long = 0,
     val cpuQuota: Long = 0,
     val pidsLimit: Long = 0,
+    /** Only matters with a memory limit: without one the container shares the host's swap anyway. */
+    val allowSwap: Boolean = false,
     val uuid: String = ""
 ) {
     val isRunning: Boolean
@@ -140,6 +142,7 @@ data class ContainerInfo(
             appendLine("privileged=$privileged")
         }
         if (memoryLimit > 0) appendLine("memory_limit=$memoryLimit")
+        appendLine("allow_swap=${if (allowSwap) "1" else "0"}")
         if (cpuQuota > 0) {
             appendLine("cpu_quota=$cpuQuota")
             appendLine("cpu_period=${ResourceLimits.CPU_PERIOD_US}")
@@ -440,6 +443,7 @@ object ContainerManager {
                 cpuQuota = (configMap["cpu_quota"]?.toLongOrNull() ?: 0) * ResourceLimits.CPU_PERIOD_US /
                     (configMap["cpu_period"]?.toLongOrNull()?.takeIf { it > 0 } ?: ResourceLimits.CPU_PERIOD_US),
                 pidsLimit = configMap["pids_limit"]?.toLongOrNull() ?: 0,
+                allowSwap = configMap["allow_swap"] == "1",
                 uuid = configMap["uuid"] ?: ""
             )
         } catch (e: Exception) {
