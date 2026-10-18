@@ -179,6 +179,20 @@ object ContainerManager {
     }
 
     /**
+     * Copy [src] over [dst] as root so a hard reboot leaves the old file or the new one, never
+     * an empty one. A plain cp truncates in place, and on f2fs nobarrier mounts the data can sit
+     * in page cache for seconds, so a crash dropped container.config (#364).
+     */
+    fun installFileDurably(src: String, dst: String, mode: String = "644"): Shell.Result {
+        val q = ContainerCommandBuilder::quote
+        val tmp = "$dst.new"
+        return Shell.cmd(
+            "{ cp ${q(src)} ${q(tmp)} && chmod $mode ${q(tmp)} && sync && mv -f ${q(tmp)} ${q(dst)} && sync; } 2>&1" +
+                " || { rm -f ${q(tmp)}; false; }"
+        ).exec()
+    }
+
+    /**
      * Get the rootfs path for a container (LXC-style: /rootfs subdirectory).
      *
      * [baseDir] relocates the bulk data to a chosen volume. The container's own directory
@@ -608,9 +622,12 @@ object ContainerManager {
             } else {
                 val tempEnvFile = File("${context.cacheDir}/.env_${sanitizedName}")
                 tempEnvFile.writeText(newConfig.envFileContent + "\n")
-                Shell.cmd("cp ${ContainerCommandBuilder.quote(tempEnvFile.absolutePath)} ${ContainerCommandBuilder.quote(envFilePath)}").exec()
-                Shell.cmd("chmod 644 ${ContainerCommandBuilder.quote(envFilePath)}").exec()
+                val envResult = installFileDurably(tempEnvFile.absolutePath, envFilePath)
                 tempEnvFile.delete()
+                if (!envResult.isSuccess) {
+                    val errorMsg = (envResult.out + envResult.err).joinToString("\n").trim()
+                    return@withContext Result.failure(Exception("Failed to update environment variables: $errorMsg"))
+                }
             }
 
             // Write config to temp file first (app can write to cache dir)
@@ -618,21 +635,13 @@ object ContainerManager {
             val tempConfigFile = File("${context.cacheDir}/container_${sanitizedName}.config")
             tempConfigFile.writeText(configContent)
 
-            // Copy temp config to final location using shell (root required)
-            // Quote paths to handle spaces and special characters
-            val copyResult = Shell.cmd("cp ${ContainerCommandBuilder.quote(tempConfigFile.absolutePath)} ${ContainerCommandBuilder.quote(configPath)} 2>&1").exec()
+            val copyResult = installFileDurably(tempConfigFile.absolutePath, configPath)
             if (!copyResult.isSuccess) {
                 // Check both stdout and stderr for error messages
                 val errorOutput = (copyResult.out + copyResult.err).joinToString("\n").trim()
                 val errorMsg = if (errorOutput.isNotEmpty()) errorOutput else "Unknown error (exit code: ${copyResult.code})"
                 tempConfigFile.delete()
                 return@withContext Result.failure(Exception("Failed to update container config: $errorMsg"))
-            }
-
-            // Set proper permissions
-            val chmodResult = Shell.cmd("chmod 644 ${ContainerCommandBuilder.quote(configPath)} 2>&1").exec()
-            if (!chmodResult.isSuccess) {
-                // Non-fatal, but log warning
             }
 
             // Clean up temp config file
