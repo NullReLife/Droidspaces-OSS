@@ -1758,8 +1758,10 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
   }
 
   long long lim_mem, lim_quota, lim_period, lim_pids;
+  int swap_capped;
   ds_cgroup_get_limits(cfg->container_name, &lim_mem, &lim_quota, &lim_period,
-                       &lim_pids);
+                       &lim_pids, &swap_capped);
+  int swap_allowed = !swap_capped;
 
   /* Success - print Host and detailed Container info */
   if (cfg->format_output) {
@@ -1859,6 +1861,7 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     ds_json_int("cpu_quota", lim_quota, &first);
     ds_json_int("cpu_period", lim_period, &first);
     ds_json_int("pids_limit", lim_pids, &first);
+    ds_json_int("swap_allowed", swap_allowed, &first);
     ds_json_int("sandboxing_allowed", cfg->sandboxing_allowed, &first);
     ds_json_int("vts_allowed", cfg->allow_vts, &first);
     ds_json_int("foreground_mode", cfg->foreground, &first);
@@ -2162,6 +2165,7 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
       } else {
         printf("  Memory : %s\n", lim);
       }
+      printf("  Swap   : %s\n", swap_allowed ? "allowed" : "not allowed");
     }
     if (lim_quota) {
       double cores = (double)lim_quota / (double)lim_period;

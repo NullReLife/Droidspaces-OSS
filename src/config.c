@@ -335,6 +335,8 @@ int ds_config_load(const char *config_path, struct ds_config *cfg) {
       cfg->sandboxing_allowed = parse_bool(val);
     } else if (strcmp(key, "allow_vts") == 0) {
       cfg->allow_vts = parse_bool(val);
+    } else if (strcmp(key, "allow_swap") == 0) {
+      cfg->allow_swap = parse_bool(val);
     } else if (strcmp(key, "volatile_mode") == 0) {
       cfg->volatile_mode = parse_bool(val);
     } else if (strcmp(key, "force_cgroupv1") == 0) {
@@ -702,6 +704,7 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
   fprintf(f, "selinux_permissive=%d\n", cfg->selinux_permissive);
   fprintf(f, "allow_sandboxing=%d\n", cfg->sandboxing_allowed);
   fprintf(f, "allow_vts=%d\n", cfg->allow_vts);
+  fprintf(f, "allow_swap=%d\n", cfg->allow_swap);
   fprintf(f, "volatile_mode=%d\n", cfg->volatile_mode);
   fprintf(f, "force_cgroupv1=%d\n", cfg->force_cgroupv1);
   if (cfg->memory_limit > 0)
