@@ -21,11 +21,11 @@ keywords: droidspaces, cli, linux, container, command, line, reference, flags, c
 | `restart` | 停止后再次启动。镜像挂载会保留，因此很快。 |
 | `enter [user]` | 在运行中的容器里打开 shell，默认以 root 身份。 |
 | `run [--] <cmd>` | 在运行中的容器里执行一条命令然后返回。`--user` 选择账号，`--stdin` 把你的输入管道进去。`run` 之后的内容都属于该命令，`--` 可以让命令本身以短横线开头。 |
-| `show` | 列出正在运行的容器。配合 `--format` 时输出 JSON，包含每个容器的发行版、主机名、IP、运行时间、CPU 和内存。 |
-| `info` | 显示容器的设置和状态。配合 `--format` 时输出 JSON。 |
+| `show` | 列出正在运行的容器。配合 `--json` 时输出 JSON，包含每个容器的发行版、主机名、IP、运行时间、CPU 和内存。 |
+| `info` | 显示容器的设置和状态。配合 `--json` 时输出 JSON。 |
 | `pid` | 打印容器 init 的 PID，或 `NONE`。 |
 | `scan` | 找出宿主侧记录丢失的运行中容器，并重新登记。 |
-| `check` | 探测内核是否具备 Droidspaces 使用的一切。配合 `--format` 时输出 JSON，每项探测为 `0` 或 `1`，另有 `requirements_met`。 |
+| `check` | 探测内核是否具备 Droidspaces 使用的一切。配合 `--json` 时输出 JSON，每项探测为 `0` 或 `1`，另有 `requirements_met`。 |
 | `daemon` | 启动守护进程。`--foreground` 让它附着在终端上，供服务管理器使用。 |
 | `mode` | 如果有守护进程在应答，打印 `daemon`，否则打印 `direct`。 |
 | `docs`、`help`、`version` | 内置文档、参数摘要和版本。 |
@@ -104,7 +104,7 @@ keywords: droidspaces, cli, linux, container, command, line, reference, flags, c
 | `-f`, `--foreground` | 在整个启动过程中把容器控制台留在你的终端上。 |
 | `-u`, `--user` | `run` 使用的账号。 |
 | `--stdin` | 把你的输入转发给 `run` 命令。不加它时命令收不到任何输入。 |
-| `--format` | `show`、`info` 和 `check` 的 JSON 输出。 |
+| `--json` | `show`、`info` 和 `check` 的 JSON 输出。 |
 
 ## 配置文件
 
@@ -155,7 +155,7 @@ sudo droidspaces --name=ubuntu --rootfs=/srv/ubuntu --net=macvlan --macvlan-pare
 sudo droidspaces --name=scratch --rootfs=/srv/ubuntu --volatile start
 
 # 以 JSON 查看正在运行的容器
-sudo droidspaces --format show
+sudo droidspaces --json show
 ```
 
 ## 文件位置
