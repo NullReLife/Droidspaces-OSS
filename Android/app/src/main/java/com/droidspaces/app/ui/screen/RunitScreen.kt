@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.droidspaces.app.R
 import com.droidspaces.app.util.ContainerRunitManager
@@ -51,7 +50,6 @@ fun RunitScreen(
         InitServiceFilterChip("RUNNING", R.string.running, statusColorFor(InitServiceUiStatus.ENABLED_RUNNING), R.string.no_running_services) { it.isRunning && it.isEnabled },
         InitServiceFilterChip("ENABLED", R.string.enabled_legend, statusColorFor(InitServiceUiStatus.ENABLED_STOPPED), R.string.no_enabled_services) { it.isEnabled && !it.isRunning },
         InitServiceFilterChip("DISABLED", R.string.disabled_legend, statusColorFor(InitServiceUiStatus.DISABLED_STOPPED), R.string.no_disabled_services) { !it.isEnabled && !it.isRunning },
-        InitServiceFilterChip("ABNORMAL", R.string.abnormal_legend, statusColorFor(InitServiceUiStatus.ABNORMAL), R.string.no_abnormal_services) { it.isRunning && !it.isEnabled },
         InitServiceFilterChip("ALL", R.string.all_legend, null, R.string.no_services_found) { true },
     )
 

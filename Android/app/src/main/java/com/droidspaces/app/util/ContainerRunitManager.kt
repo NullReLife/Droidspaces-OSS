@@ -33,14 +33,6 @@ object ContainerRunitManager {
         val isRunning: Boolean
     )
 
-    enum class ServiceFilter {
-        RUNNING,
-        ENABLED,
-        DISABLED,
-        ABNORMAL,
-        ALL
-    }
-
     data class CommandResult(
         val exitCode: Int,
         val output: List<String>,
@@ -201,16 +193,6 @@ object ContainerRunitManager {
         }
     }
 
-    fun filterServices(services: List<ServiceInfo>, filter: ServiceFilter): List<ServiceInfo> {
-        return when (filter) {
-            ServiceFilter.ALL -> services
-            ServiceFilter.RUNNING -> services.filter { it.isRunning && it.isEnabled }
-            ServiceFilter.ENABLED -> services.filter { it.isEnabled && !it.isRunning }
-            ServiceFilter.DISABLED -> services.filter { !it.isEnabled && !it.isRunning }
-            ServiceFilter.ABNORMAL -> services.filter { it.isRunning && !it.isEnabled }
-        }.sortedWith(compareByDescending<ServiceInfo> { it.isRunning }.thenBy { it.name })
-    }
-
     private suspend fun runSV(containerName: String, serviceName: String, buildCommand: (String) -> String): CommandResult {
         if (!ServiceManagerBase.isSafeServiceName(serviceName)) {
             return CommandResult(exitCode = 2, output = emptyList(), error = listOf("Invalid service name: $serviceName"))
@@ -218,70 +200,28 @@ object ContainerRunitManager {
         return executeRunitCommand(containerName, buildCommand(serviceName))
     }
 
+    // The script owns the sv / active directory discovery, so every action goes
+    // through it rather than trusting sv's compiled-in default directory.
+    private suspend fun runScriptAction(containerName: String, serviceName: String, flag: String): CommandResult {
+        val b64 = scriptBase64 ?: return CommandResult(exitCode = 1, output = emptyList(), error = listOf("chkrunit.sh not loaded"))
+        return runSV(containerName, serviceName) { "echo $b64 | base64 -d | sh -s -- $flag $it" }
+    }
+
     suspend fun startService(containerName: String, serviceName: String) =
-        runSV(containerName, serviceName) { "sv up $it" }
+        runScriptAction(containerName, serviceName, "--sv up")
 
     suspend fun stopService(containerName: String, serviceName: String) =
-        runSV(containerName, serviceName) { "sv down $it" }
+        runScriptAction(containerName, serviceName, "--sv down")
 
     suspend fun restartService(containerName: String, serviceName: String) =
-        runSV(containerName, serviceName) { "sv restart $it" }
+        runScriptAction(containerName, serviceName, "--sv restart")
 
     suspend fun enableService(containerName: String, serviceName: String) =
-        runSV(containerName, serviceName) { service ->
-            """
-            ACTIVE_DIR=""
-            for dir in /etc/service /service /var/service; do
-                if [ -d "${'$'}dir" ]; then
-                    ACTIVE_DIR="${'$'}dir"
-                    break
-                fi
-            done
-
-            SV_DIR=""
-            for dir in /etc/sv /etc/runit/sv /usr/local/etc/sv; do
-                if [ -d "${'$'}dir" ]; then
-                    SV_DIR="${'$'}dir"
-                    break
-                fi
-            done
-
-            ln -s "${'$'}SV_DIR/$service" "${'$'}ACTIVE_DIR/$service"
-            """.trimIndent()
-        }
+        runScriptAction(containerName, serviceName, "--enable")
 
     suspend fun disableService(containerName: String, serviceName: String) =
-        runSV(containerName, serviceName) { service ->
-            """
-            ACTIVE_DIR=""
-            for dir in /etc/service /service /var/service; do
-                if [ -d "${'$'}dir" ]; then
-                    ACTIVE_DIR="${'$'}dir"
-                    break
-                fi
-            done
-
-            sv down $service
-            rm "${'$'}ACTIVE_DIR/$service"
-            """.trimIndent()
-        }
+        runScriptAction(containerName, serviceName, "--disable")
 
     suspend fun toggleDefaultState(containerName: String, serviceName: String) =
-        runSV(containerName, serviceName) { service ->
-            """
-            SV_DIR=""
-            for dir in /etc/sv /etc/runit/sv /usr/local/etc/sv; do
-                if [ -d "${'$'}dir" ]; then
-                    SV_DIR="${'$'}dir"
-                    break
-                fi
-            done
-
-            if [ -f ${'$'}SV_DIR/$service/down ]; then
-                rm ${'$'}SV_DIR/$service/down
-            else
-                touch ${'$'}SV_DIR/$service/down
-            fi
-            """.trimIndent()
-        }
+        runScriptAction(containerName, serviceName, "--toggle-boot")
 }
