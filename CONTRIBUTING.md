@@ -579,7 +579,7 @@ an unknown line.
 | --- | --- |
 | `domount`, `domount_silent`, `bind_mount` | Mounting. Use these instead of raw `mount(2)` |
 | `ds_apply_jail_mask(hw_access, privileged_mask)` | Masking `/proc` and `/sys` entries |
-| `setup_dev`, `create_devices`, `setup_devpts`, `ds_fix_host_ptys` | Device node setup |
+| `setup_dev`, `create_devices`, `setup_devpts` | Device node setup |
 | `setup_custom_binds(cfg, rootfs)` | Applying `cfg->binds` |
 | `setup_volatile_overlay`, `cleanup_volatile_overlay`, `check_volatile_mode` | Volatile mode |
 | `mount_rootfs_img`, `unmount_rootfs_img` | Sparse image loop device lifecycle |
