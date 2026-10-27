@@ -104,7 +104,7 @@ Code contributions start with [CONTRIBUTING.md](CONTRIBUTING.md). App translatio
 ## Credits
 
 - [LXC](https://github.com/lxc/lxc), the architectural inspiration.
-- [BusyBox](https://busybox.net/), the static binary the app uses for extraction and setup ([our build](https://github.com/Droidspaces/busybox-droidspaces)).
+- [BusyBox](https://busybox.net/), the static binary the app uses for extraction and setup ([our build](https://github.com/Droidspaces/busybox-droidspaces), commit d14464f1).
 - [ReTerminal](https://github.com/RohitKushvaha01/ReTerminal), [Termux](https://github.com/termux/termux-app) and [LXC-Manager](https://github.com/Container-On-Android/LXC-Manager), the terminal emulator backend.
 - [JetBrains Mono](https://www.jetbrains.com/legalforms/fonts/), the monospace typeface in the app, under the [SIL Open Font License 1.1](https://scripts.sil.org/OFL).
 

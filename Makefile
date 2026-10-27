@@ -92,11 +92,9 @@ find-cc = $(shell \
 		echo "$(HOME)/toolchains/$(1)-cross/bin/$(1)-gcc"; \
 	elif command -v $(1)-gcc >/dev/null 2>&1; then \
 		echo "$(1)-gcc"; \
-	elif [ -f "/opt/cross/bin/$(1)-gcc" ]; then \
-		echo "/opt/cross/bin/$(1)-gcc"; \
 	fi)
 
-.PHONY: all help clean native x86_64 aarch64 armhf x86 riscv64 all-build tarball all-tarball debug-hardened format bump test
+.PHONY: all help clean native x86_64 aarch64 armhf x86 riscv64 all-build all-tarball debug-hardened format bump test
 
 all: help
 
@@ -113,7 +111,6 @@ help:
 	@echo ""
 	@echo "Advanced targets:"
 	@echo "  make all-build   - Build for all supported architectures"
-	@echo "  make tarball     - Create tarball for current binary"
 	@echo "  make all-tarball - Build all and create unified distribution"
 	@echo ""
 	@echo "Options:"
@@ -144,25 +141,20 @@ $(BINARY): $(OBJS)
 	$(Q)$(CC) $(OBJS) -o $@ $(LDFLAGS) $(LIBS)
 	@echo "[+] Built: $@"
 
-NATIVE_TRIPLET := $(shell $(CC) -dumpmachine 2>/dev/null)
-NATIVE_ARCH    := $(shell echo "$(NATIVE_TRIPLET)" | cut -d'-' -f1 | sed 's/i.86/i686/')
-ifneq ($(findstring musl,$(NATIVE_TRIPLET)),)
-  NATIVE_CC := $(CC)
-else
-  NATIVE_CC := $(call find-cc,$(NATIVE_ARCH)-linux-musl)
-endif
-
-# output/droidspaces is always the arch asked for last, built or not, for
-# `make tarball` and the device-test instructions
+# output/droidspaces is always the arch asked for last, built or not, for the
+# device-test instructions
 native:
 	@if [ -n "$(NATIVE_CC)" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(BINARY) CC="$(NATIVE_CC)" && cp -f $(BINARY) $(OUT_DIR)/$(BINARY_NAME); \
-	else echo "Error: $(NATIVE_ARCH)-linux-musl-gcc not found. Run scripts/install-musl.sh or set MUSL_CROSS"; exit 1; fi
+	else echo "Error: no musl toolchain for $(ARCH) ($(triplet_$(ARCH))-gcc). Run scripts/install-musl.sh $(ARCH) or set MUSL_CROSS"; exit 1; fi
 
 triplet_x86_64  = x86_64-linux-musl
 triplet_aarch64 = aarch64-linux-musl
 triplet_x86     = i686-linux-musl
 triplet_armhf   = arm-linux-musleabihf
 triplet_riscv64 = riscv64-linux-musl
+
+# A musl CC is used as is, anything else means the host arch's cross toolchain
+NATIVE_CC := $(if $(findstring musl,$(shell $(CC) -dumpmachine 2>/dev/null)),$(CC),$(call find-cc,$(triplet_$(ARCH))))
 
 # The sub-make re-derives ARCH, OBJ_DIR and BINARY from the cross compiler
 x86_64 aarch64 x86 armhf riscv64:
@@ -187,17 +179,6 @@ all-build:
 		$(MAKE) --no-print-directory $$a || exit 1; \
 	done
 	@echo "[+] All architectures built successfully in $(OUT_DIR)/"
-
-tarball:
-	@if [ ! -f $(OUT_DIR)/$(BINARY_NAME) ]; then \
-		echo "Error: $(OUT_DIR)/$(BINARY_NAME) not found. Build it first."; \
-		exit 1; \
-	fi
-	@DETECTED_ARCH=$$(file $(OUT_DIR)/$(BINARY_NAME) | grep -oP '(x86-64|ARM aarch64|UCB RISC-V|i386|ARM)' | sed 's/x86-64/amd64/; s/ARM aarch64/arm64/; s/UCB RISC-V/riscv64/; s/i386/x86/; s/ARM/armhf/'); \
-	TARBALL="$(BINARY_NAME)-$$DETECTED_ARCH-static-v$(VERSION).tar.gz"; \
-	echo "[*] Creating $$TARBALL..."; \
-	tar -czf $$TARBALL -C $(OUT_DIR) $(BINARY_NAME); \
-	echo "[+] Created: $$TARBALL ($$(du -h $$TARBALL | cut -f1))"
 
 all-tarball: all-build
 	@COMMIT_HASH=$$(git rev-parse --short HEAD 2>/dev/null || date +%Y-%m-%d); \

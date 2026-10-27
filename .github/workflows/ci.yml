@@ -56,11 +56,6 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y build-essential wget zstd
-
     # The release URL names a fixed set of toolchains, so it is the whole key
     - name: Cache Toolchains
       id: toolchains
@@ -110,13 +105,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        pip install -q requests
         python3 scripts/generate_contributors.py
 
     - name: Build Android App with Gradle
       run: |
         cd Android
-        chmod +x gradlew
         ./gradlew assembleRelease --no-daemon \
           -PKEYSTORE_PASSWORD="${{ secrets.KEYSTORE_PASSWORD }}" \
           -PKEY_ALIAS="${{ secrets.KEY_ALIAS }}" \

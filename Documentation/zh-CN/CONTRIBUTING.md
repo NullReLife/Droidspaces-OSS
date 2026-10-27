@@ -315,7 +315,6 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 | `LoadingIndicator`、`ContainedLoadingIndicator`、`MaterialShapes` | `androidx.compose.material3` | Expressive 指示器和形状来自库本身；`ui/util/LoadingIndicator.kt` 只封装了尺寸 |
 | `TerminalConsole(logs, isProcessing, maxHeight)` | `ui/component/TerminalConsole.kt` | 行内可滚动日志视图 |
 | `ShimmerAnimation(enabled) { ... }` | `ui/component/TerminalConsole.kt` | 骨架加载效果 |
-| `PercentCircle(percent, size, strokeWidth, ...)` | `ui/component/PercentCircle.kt` | 圆形百分比仪表。目前没有调用点，请先复用它再考虑另写 |
 
 ### Android：主题
 

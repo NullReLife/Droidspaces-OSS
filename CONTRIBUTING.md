@@ -337,7 +337,6 @@ the language and about dialogs in `ui/screen/SettingsScreen.kt`). Do not import 
 | `LoadingIndicator`, `ContainedLoadingIndicator`, `MaterialShapes` | `androidx.compose.material3` | The Expressive indicators and shapes come from the library; `ui/util/LoadingIndicator.kt` only wraps the sizes |
 | `TerminalConsole(logs, isProcessing, maxHeight)` | `ui/component/TerminalConsole.kt` | Inline scrolling log view |
 | `ShimmerAnimation(enabled) { ... }` | `ui/component/TerminalConsole.kt` | Skeleton loading effect |
-| `PercentCircle(percent, size, strokeWidth, ...)` | `ui/component/PercentCircle.kt` | Circular percentage gauge. Currently unused, reuse it before writing another |
 
 ### Android: theme
 

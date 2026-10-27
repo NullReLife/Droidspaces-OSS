@@ -96,13 +96,7 @@ done
 wait_for_network() {
     log "Boot completed, waiting for network..."
 
-    # Fallback for devices without /system/bin/ip
-    if [ ! -x /system/bin/ip ]; then
-        log "WARNING: /system/bin/ip not found, sleeping for 25 seconds as a fallback"
-        sleep 25
-        return 0
-    fi
-
+    [ -x /system/bin/ip ] || log "WARNING: /system/bin/ip missing, waiting blind"
     local timeout=25
     local count=0
     while [ $count -lt $timeout ]; do

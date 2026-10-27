@@ -104,7 +104,7 @@ Droidspaces 在已 root 的 Android 手机或 Linux PC 上，以容器方式运�
 ## 致谢
 
 - [LXC](https://github.com/lxc/lxc)，架构上的灵感来源。
-- [BusyBox](https://busybox.net/)，应用用于解压和初始化的静态二进制（[我们的构建](https://github.com/Droidspaces/busybox-droidspaces)）。
+- [BusyBox](https://busybox.net/)，应用用于解压和初始化的静态二进制（[我们的构建](https://github.com/Droidspaces/busybox-droidspaces)，提交 d14464f1）。
 - [ReTerminal](https://github.com/RohitKushvaha01/ReTerminal)、[Termux](https://github.com/termux/termux-app) 和 [LXC-Manager](https://github.com/Container-On-Android/LXC-Manager)，终端模拟器后端。
 - [JetBrains Mono](https://www.jetbrains.com/legalforms/fonts/)，应用中的等宽字体，遵循 [SIL Open Font License 1.1](https://scripts.sil.org/OFL)。
 
