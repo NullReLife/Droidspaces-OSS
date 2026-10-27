@@ -48,14 +48,9 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
     // Initialize with cached status to prevent UI glitches on boot
     var backendStatus: DroidspacesBackendStatus by mutableStateOf(
         prefsManager.cachedBackendStatus?.let { cached ->
-            when (cached) {
-                "UpdateAvailable" -> DroidspacesBackendStatus.UpdateAvailable
-                "NotInstalled" -> DroidspacesBackendStatus.NotInstalled
-                "ModuleMissing" -> DroidspacesBackendStatus.ModuleMissing
-                "Checking" -> DroidspacesBackendStatus.Checking
-                "" -> DroidspacesBackendStatus.Available
-                else -> DroidspacesBackendStatus.Checking
-            }
+            // Older builds cached Available as ""
+            if (cached == "") DroidspacesBackendStatus.Available
+            else DroidspacesBackendStatus.entries.firstOrNull { it.name == cached }
         } ?: DroidspacesBackendStatus.Checking
     )
         private set
@@ -123,15 +118,8 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
                 hasCompletedInitialCheck = true
 
                 // Only cache non-Checking statuses to prevent UI glitches
-                if (finalStatus !is DroidspacesBackendStatus.Checking) {
-                    prefsManager.cachedBackendStatus = when (finalStatus) {
-                        DroidspacesBackendStatus.UpdateAvailable -> "UpdateAvailable"
-                        DroidspacesBackendStatus.NotInstalled -> "NotInstalled"
-                        DroidspacesBackendStatus.ModuleMissing -> "ModuleMissing"
-                        DroidspacesBackendStatus.Available -> ""
-                        DroidspacesBackendStatus.Checking -> "" // Should not happen, but handle gracefully
-                    }
-                }
+                if (finalStatus != DroidspacesBackendStatus.Checking)
+                    prefsManager.cachedBackendStatus = finalStatus.name
             } catch (e: Exception) {
                 if (previousStatus != DroidspacesBackendStatus.NotInstalled) {
                     backendStatus = DroidspacesBackendStatus.NotInstalled
@@ -141,14 +129,6 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
                 isRefreshing = false
             }
         }
-    }
-
-    /**
-     * Force a refresh of backend status.
-     * Use this for pull-to-refresh or after installation.
-     */
-    fun forceRefresh() {
-        checkBackendStatus(force = true)
     }
 
     /**
@@ -195,7 +175,7 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
         }
         val wasDaemon = whichBackendMode == "DAEMON"
 
-        val isAtomicUpdate = backendStatus is DroidspacesBackendStatus.UpdateAvailable
+        val isAtomicUpdate = backendStatus == DroidspacesBackendStatus.UpdateAvailable
 
         // Capture symlink state before any module directory removal
         val wasSymlinkEnabled = withContext(Dispatchers.IO) {
@@ -245,14 +225,14 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
                         isInstalling = false
                         isInstallingModule = false
                         resetForPostInstallation()
-                        forceRefresh()
+                        checkBackendStatus(force = true)
                     },
                     onFailure = { error ->
                         installErrorMessage = error.message ?: context.getString(R.string.module_installation_failed)
                         isInstalling = false
                         isInstallingModule = false
                         resetForPostInstallation()
-                        forceRefresh()
+                        checkBackendStatus(force = true)
                     }
                 )
             },
@@ -260,7 +240,7 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
                 installErrorMessage = error.message ?: context.getString(R.string.binary_installation_failed)
                 isInstalling = false
                 resetForPostInstallation()
-                forceRefresh()
+                checkBackendStatus(force = true)
             }
         )
     }

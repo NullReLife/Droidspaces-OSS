@@ -535,7 +535,7 @@ fun SettingsScreen(
                             prefsManager.treatAs64Bit = checked
                             // The hash check now compares against the other arch's
                             // asset, so the update banner appears without a restart.
-                            appStateViewModel.forceRefresh()
+                            appStateViewModel.checkBackendStatus(force = true)
                         }
                     )
                 }

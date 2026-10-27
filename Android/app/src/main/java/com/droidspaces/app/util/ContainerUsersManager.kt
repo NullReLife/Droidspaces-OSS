@@ -86,15 +86,8 @@ object ContainerUsersManager {
      */
     fun getCachedUsers(containerName: String): List<String>? = cache[containerName]
 
-    /**
-     * Clear cache for a specific container or all containers.
-     */
-    fun clearCache(containerName: String? = null) {
-        if (containerName != null) {
-            cache.remove(containerName)
-        } else {
-            cache.clear()
-        }
+    fun clearCache(containerName: String) {
+        cache.remove(containerName)
     }
 }
 

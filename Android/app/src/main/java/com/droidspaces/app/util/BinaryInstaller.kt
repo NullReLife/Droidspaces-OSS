@@ -70,20 +70,10 @@ object BinaryInstaller {
 
             // Step 5: Verification (scripts are handled by ModuleInstaller)
 
-            val verifyDroidspaces = Shell.cmd("test -x $droidspacesTargetPath && echo 'verified' || echo 'verification_failed'").exec()
-            val verifyBusybox = Shell.cmd("test -x $busyboxTargetPath && echo 'verified' || echo 'verification_failed'").exec()
-
-            if (!verifyDroidspaces.isSuccess || !verifyDroidspaces.out.any { it.contains("verified") }) {
-                return@withContext Result.failure(
-                    Exception("Droidspaces binary verification failed: file is not executable")
-                )
-            }
-
-            if (!verifyBusybox.isSuccess || !verifyBusybox.out.any { it.contains("verified") }) {
-                return@withContext Result.failure(
-                    Exception("Busybox binary verification failed: file is not executable")
-                )
-            }
+            if (!Shell.cmd("test -x $droidspacesTargetPath").exec().isSuccess)
+                return@withContext Result.failure(Exception("Droidspaces binary verification failed: file is not executable"))
+            if (!Shell.cmd("test -x $busyboxTargetPath").exec().isSuccess)
+                return@withContext Result.failure(Exception("Busybox binary verification failed: file is not executable"))
 
             Result.success(Unit)
         } catch (e: Exception) {

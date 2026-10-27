@@ -29,20 +29,8 @@ object ContainerCommandBuilder {
      * Build start command for a container based on its configuration.
      * Uses the central config file instead of passing all flags individually.
      */
-    fun buildStartCommand(container: ContainerInfo): String {
-        val parts = mutableListOf<String>()
-
-        // Binary path
-        parts.add(DROIDSPACES_BINARY_PATH)
-
-        // Config file path
-        parts.add("--config=${quote(getConfigPath(container))}")
-
-        // Command
-        parts.add("start")
-
-        return parts.joinToString(" ")
-    }
+    fun buildStartCommand(container: ContainerInfo): String =
+        "$DROIDSPACES_BINARY_PATH --config=${quote(getConfigPath(container))} start"
 
     /**
      * Build stop command for a container.

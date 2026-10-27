@@ -172,73 +172,18 @@ object ContainerOSInfoManager {
         return null
     }
 
-    /**
-     * Clear cache for a specific container or all containers.
-     * Clears both in-memory and persistent cache.
-     */
-    fun clearCache(containerName: String? = null, appContext: Context? = null) {
-        val ctx = appContext ?: context
-        if (containerName != null) {
-            cache.remove(containerName)
-            if (ctx != null) {
-                PreferencesManager.getInstance(ctx).clearContainerOSInfo(containerName)
-            }
-        } else {
-            cache.clear()
-            // Note: Clearing all persistent cache would require tracking all container names
-            // For now, just clear in-memory cache. Individual containers can be cleared by name.
-        }
+    /** Forgets one container, in memory and in the persistent cache. */
+    fun clearCache(containerName: String, appContext: Context? = null) {
+        cache.remove(containerName)
+        (appContext ?: context)?.let { PreferencesManager.getInstance(it).clearContainerOSInfo(containerName) }
     }
 
-    /**
-     * Parse /etc/os-release output.
-     */
+    /** KEY=value lines, quotes stripped; the five fields the card shows. */
     private fun parseOSRelease(output: List<String>): OSInfo {
-        var prettyName: String? = null
-        var name: String? = null
-        var version: String? = null
-        var versionId: String? = null
-        var id: String? = null
-
-        for (line in output) {
-            val trimmed = line.trim()
-            when {
-                trimmed.startsWith("PRETTY_NAME=") -> {
-                    prettyName = extractValue(trimmed.substringAfter("="))
-                }
-                trimmed.startsWith("NAME=") -> {
-                    name = extractValue(trimmed.substringAfter("="))
-                }
-                trimmed.startsWith("VERSION=") -> {
-                    version = extractValue(trimmed.substringAfter("="))
-                }
-                trimmed.startsWith("VERSION_ID=") -> {
-                    versionId = extractValue(trimmed.substringAfter("="))
-                }
-                trimmed.startsWith("ID=") -> {
-                    id = extractValue(trimmed.substringAfter("="))
-                }
-            }
+        val kv = output.filter { "=" in it }.associate {
+            it.substringBefore("=").trim() to
+                it.substringAfter("=").trim().removeSurrounding("\"").removeSurrounding("'").ifEmpty { null }
         }
-
-        return OSInfo(prettyName, name, version, versionId, id, null, null, null)
-    }
-
-    /**
-     * Extract and clean value from os-release line (removes quotes, whitespace).
-     */
-    private fun extractValue(value: String): String? {
-        if (value.isEmpty()) return null
-
-        var cleaned = value.trim()
-        // Remove surrounding quotes
-        if (cleaned.startsWith("\"") && cleaned.endsWith("\"")) {
-            cleaned = cleaned.substring(1, cleaned.length - 1)
-        }
-        if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
-            cleaned = cleaned.substring(1, cleaned.length - 1)
-        }
-
-        return cleaned.takeIf { it.isNotEmpty() }
+        return OSInfo(kv["PRETTY_NAME"], kv["NAME"], kv["VERSION"], kv["VERSION_ID"], kv["ID"], null, null, null)
     }
 }

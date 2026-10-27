@@ -35,7 +35,7 @@ object SparseImageInstaller {
         imgPath: String,
         mountPoint: String,
         sizeGB: Int,
-        logger: ContainerLogger
+        logger: ViewModelLogger
     ) = withContext(Dispatchers.IO) {
         try {
             // 1. Create Sparse Image
@@ -130,7 +130,7 @@ object SparseImageInstaller {
     /**
      * Runs a root command and logs output. Returns result if successful, null otherwise.
      */
-    private suspend fun runRootCommand(cmd: String, logger: ContainerLogger): Shell.Result? {
+    private suspend fun runRootCommand(cmd: String, logger: ViewModelLogger): Shell.Result? {
         val result = Shell.cmd(cmd).exec()
         result.out.forEach { line -> if (line.isNotBlank()) logger.d(line) }
         result.err.forEach { line -> if (line.isNotBlank()) logger.w(line) }
@@ -140,7 +140,7 @@ object SparseImageInstaller {
     /**
      * Runs the post_extract_fixes.sh script on the given rootfs path.
      */
-    private suspend fun applyScriptFixes(context: Context, rootfs: String, logger: ContainerLogger) {
+    private suspend fun applyScriptFixes(context: Context, rootfs: String, logger: ViewModelLogger) {
         logger.i("[POST-FIX] Running post-extraction fixes script...")
         val postFixScriptFile = File("${context.cacheDir}/post_extract_fixes.sh")
         try {

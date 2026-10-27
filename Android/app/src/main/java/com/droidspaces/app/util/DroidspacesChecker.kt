@@ -7,13 +7,7 @@ import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.security.MessageDigest
 
-sealed class DroidspacesBackendStatus {
-    object Checking : DroidspacesBackendStatus()
-    object Available : DroidspacesBackendStatus()
-    object UpdateAvailable : DroidspacesBackendStatus()
-    object NotInstalled : DroidspacesBackendStatus()
-    object ModuleMissing : DroidspacesBackendStatus()
-}
+enum class DroidspacesBackendStatus { Checking, Available, UpdateAvailable, NotInstalled, ModuleMissing }
 
 object DroidspacesChecker {
     private const val DROIDSPACES_BINARY_PATH = Constants.DROIDSPACES_BINARY_PATH

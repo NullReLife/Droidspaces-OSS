@@ -46,37 +46,24 @@ object DroidspacesTerminalSession {
         containerUser: String? = null,
     ): TerminalSession {
         val safeName = containerName?.takeIf { SAFE_NAME.matches(it) }
-        return if (safeName != null) {
-            // Reject any username carrying shell metacharacters; fall back to root.
+        // No container, or a name carrying shell metacharacters: a bare root shell
+        // rather than an injectable payload. A username with metacharacters falls
+        // back to root the same way. safeName cannot hold " ' $ or `, the escape is
+        // belt-and-suspenders.
+        val shArg = if (safeName == null) "su" else {
             val user = containerUser?.takeIf { SAFE_USER.matches(it) } ?: "root"
-            // safeName cannot contain " / ' / $ / `, keep the escape as belt-and-suspenders.
-            val escapedName = safeName.replace("\"", "\\\"")
-
-            // Equivalent to: sh -c "su -c 'droidspaces -n "Name" enter user'"
-            val shArg = "su -c 'droidspaces -n \"$escapedName\" enter $user'"
-
-            TerminalSession(
-                /* shell      = */ "/system/bin/sh",
-                /* workingDir = */ "/sdcard",
-                // args[0] MUST be the shell path - the JNI uses args directly as argv,
-                // it does NOT prepend shellPath as argv[0].
-                /* args       = */ arrayOf("/system/bin/sh", "-c", shArg),
-                /* env        = */ buildEnv().toTypedArray(),
-                /* rows       = */ TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
-                /* client     = */ sessionClient,
-            )
-        } else {
-            // No container, or a name carrying shell metacharacters: open a bare
-            // interactive root shell rather than build an injectable payload.
-            TerminalSession(
-                /* shell      = */ "/system/bin/sh",
-                /* workingDir = */ "/sdcard",
-                /* args       = */ arrayOf("/system/bin/sh", "-c", "su"),
-                /* env        = */ buildEnv().toTypedArray(),
-                /* rows       = */ TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
-                /* client     = */ sessionClient,
-            )
+            "su -c 'droidspaces -n \"${safeName.replace("\"", "\\\"")}\" enter $user'"
         }
+        return TerminalSession(
+            /* shell      = */ "/system/bin/sh",
+            /* workingDir = */ "/sdcard",
+            // args[0] MUST be the shell path - the JNI uses args directly as argv,
+            // it does NOT prepend shellPath as argv[0].
+            /* args       = */ arrayOf("/system/bin/sh", "-c", shArg),
+            /* env        = */ buildEnv().toTypedArray(),
+            /* rows       = */ TerminalEmulator.DEFAULT_TERMINAL_TRANSCRIPT_ROWS,
+            /* client     = */ sessionClient,
+        )
     }
 
     private fun buildEnv(): List<String> {

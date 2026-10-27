@@ -291,8 +291,6 @@ CONFIG_TMPFS_XATTR=y
                         // Create logger
                         val logger = ViewModelLogger { level, message ->
                             checkLogs.add(level to message)
-                        }.apply {
-                            verbose = true
                         }
 
                         try {

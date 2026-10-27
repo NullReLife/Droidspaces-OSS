@@ -3,7 +3,6 @@ package com.droidspaces.app.util
 import android.content.Context
 import android.net.Uri
 import com.topjohnwu.superuser.Shell
-import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -26,7 +25,7 @@ object ContainerInstaller {
         context: Context,
         tarballUri: Uri,
         config: ContainerInfo,
-        logger: ContainerLogger
+        logger: ViewModelLogger
     ): Result<Unit> = withContext(Dispatchers.IO) {
         // Use sanitized name for directory (spaces -> dashes)
         val sanitizedName = ContainerManager.sanitizeContainerName(config.name)
@@ -90,9 +89,7 @@ object ContainerInstaller {
             logger.i("Creating container directory: $containerPath")
             val mkdirResult = Shell.cmd("mkdir -p ${quote(containerPath)} 2>&1").exec()
             if (!mkdirResult.isSuccess) {
-                val errorOutput = (mkdirResult.out + mkdirResult.err).joinToString("\n").trim()
-                val errorMsg = if (errorOutput.isNotEmpty()) errorOutput else "Unknown error (exit code: ${mkdirResult.code})"
-                throw Exception("Failed to create container directory: $errorMsg")
+                throw Exception("Failed to create container directory: ${mkdirResult.errorText()}")
             }
             createdPaths.add(containerPath)
 
@@ -100,9 +97,7 @@ object ContainerInstaller {
                 logger.i("Creating storage directory: $rootfsParent")
                 val mkdirExt = Shell.cmd("mkdir -p ${quote(rootfsParent)} 2>&1").exec()
                 if (!mkdirExt.isSuccess) {
-                    val errorOutput = (mkdirExt.out + mkdirExt.err).joinToString("\n").trim()
-                    val errorMsg = if (errorOutput.isNotEmpty()) errorOutput else "Unknown error (exit code: ${mkdirExt.code})"
-                    throw Exception("Failed to create storage directory: $errorMsg")
+                    throw Exception("Failed to create storage directory: ${mkdirExt.errorText()}")
                 }
                 createdPaths.add(rootfsParent)
             }
@@ -138,9 +133,7 @@ object ContainerInstaller {
                 // Create rootfs subdirectory
                 val mkdirRootfsResult = Shell.cmd("mkdir -p ${quote(rootfsPath)} 2>&1").exec()
                 if (!mkdirRootfsResult.isSuccess) {
-                    val errorOutput = (mkdirRootfsResult.out + mkdirRootfsResult.err).joinToString("\n").trim()
-                    val errorMsg = if (errorOutput.isNotEmpty()) errorOutput else "Unknown error (exit code: ${mkdirRootfsResult.code})"
-                    throw Exception("Failed to create rootfs directory: $errorMsg")
+                    throw Exception("Failed to create rootfs directory: ${mkdirRootfsResult.errorText()}")
                 }
 
                 logger.i("Extracting tarball to $rootfsPath...")
@@ -168,9 +161,7 @@ object ContainerInstaller {
 
             val copyResult = ContainerManager.installFileDurably(tempConfigFile.absolutePath, configFilePath)
             if (!copyResult.isSuccess) {
-                // Check both stdout and stderr for error messages
-                val errorOutput = (copyResult.out + copyResult.err).joinToString("\n").trim()
-                val errorMsg = if (errorOutput.isNotEmpty()) errorOutput else "Unknown error (exit code: ${copyResult.code})"
+                val errorMsg = copyResult.errorText()
                 logger.e("Failed to copy config: $errorMsg")
                 logger.e("Source: ${tempConfigFile.absolutePath}")
                 logger.e("Destination: $configFilePath")
@@ -209,17 +200,9 @@ object ContainerInstaller {
 
             // Step 7: Verify installation
             logger.i("Verifying installation...")
-            if (config.useSparseImage) {
-                val imgExists = Shell.cmd("test -f ${quote(rootfsPath)} && echo 'exists' || echo 'not_found'").exec()
-                if (!imgExists.isSuccess || !imgExists.out.any { it.contains("exists") }) {
-                    throw Exception("Container sparse image not found after extraction")
-                }
-            } else {
-            val rootfsExists = Shell.cmd("test -d ${quote(rootfsPath)} && echo 'exists' || echo 'not_found'").exec()
-            if (!rootfsExists.isSuccess || !rootfsExists.out.any { it.contains("exists") }) {
-                throw Exception("Container rootfs directory not found after extraction")
-                }
-            }
+            val test = if (config.useSparseImage) "-f" else "-d"
+            if (!Shell.cmd("test $test ${quote(rootfsPath)}").exec().isSuccess)
+                throw Exception("Container ${if (config.useSparseImage) "sparse image" else "rootfs directory"} not found after extraction")
 
             logger.i("Container installed successfully!")
             Result.success(Unit)
@@ -242,34 +225,9 @@ object ContainerInstaller {
         }
     }
 
-    /**
-     * Get the tarball extension (.xz or .gz) from the URI.
-     * Uses FilePickerUtils.getFileName() to reliably get the filename even for recent files.
-     */
-    private suspend fun getTarballExtension(context: Context, uri: Uri): String = withContext(Dispatchers.IO) {
-        // First, try to get the filename using FilePickerUtils (handles content URIs)
-        val fileName = FilePickerUtils.getFileName(context, uri)
-
-        if (fileName != null) {
-            val fileNameLower = fileName.lowercase()
-            return@withContext when {
-                fileNameLower.endsWith(".tar.xz") -> ".xz"
-                fileNameLower.endsWith(".tar.gz") -> ".gz"
-                else -> {
-                    // Fallback: default to .gz if we can't determine
-                    ".gz"
-                }
-            }
-        }
-
-        // Fallback: Check URI string directly (for file:// URIs)
-        val uriString = uri.toString().lowercase()
-        when {
-            uriString.endsWith(".tar.xz") -> ".xz"
-            uriString.endsWith(".tar.gz") -> ".gz"
-            else -> ".gz" // Default to .gz if we can't determine
-        }
-    }
+    /** ".xz" for a .tar.xz, ".gz" for anything else the picker handed over. */
+    private suspend fun getTarballExtension(context: Context, uri: Uri): String =
+        if (FilePickerUtils.getFileName(context, uri)?.endsWith(".xz", ignoreCase = true) == true) ".xz" else ".gz"
 
     /**
      * Shell command that unpacks [tarball] into [destination]. An exported archive
@@ -299,7 +257,7 @@ object ContainerInstaller {
     private suspend fun validateRootfsTarball(
         context: Context,
         tarball: String,
-        logger: ContainerLogger
+        logger: ViewModelLogger
     ) {
         logger.i("Inspecting tarball to verify it is a Linux rootfs...")
 
@@ -354,7 +312,7 @@ object ContainerInstaller {
     private suspend fun applyPostExtractionFixes(
         context: Context,
         rootfsPath: String,
-        logger: ContainerLogger
+        logger: ViewModelLogger
     ) {
         logger.i("Applying post-extraction fixes...")
 
@@ -418,7 +376,7 @@ object ContainerInstaller {
         }
     }
 
-    private suspend fun cleanup(paths: List<String>, logger: ContainerLogger) {
+    private suspend fun cleanup(paths: List<String>, logger: ViewModelLogger) {
         paths.reversed().forEach { path ->
             try {
                 val result = Shell.cmd("rm -rf ${ContainerCommandBuilder.quote(path)} 2>&1").exec()

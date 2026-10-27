@@ -23,9 +23,8 @@ import com.droidspaces.app.R
 import com.droidspaces.app.ui.component.TerminalConsole
 import com.droidspaces.app.util.ContainerInfo
 import com.droidspaces.app.util.ContainerInstaller
-import com.droidspaces.app.util.ContainerLogger
-import com.droidspaces.app.util.FilePickerUtils
 import com.droidspaces.app.util.ViewModelLogger
+import com.droidspaces.app.util.FilePickerUtils
 import kotlinx.coroutines.launch
 
 enum class InstallationState {
@@ -51,8 +50,6 @@ fun InstallationProgressScreen(
         ViewModelLogger { level, message ->
             // Direct add to SnapshotStateList - already on Main thread
             logs.add(level to message)
-        }.apply {
-            verbose = true
         }
     }
 

@@ -157,6 +157,10 @@ data class ContainerInfo(
     }
 }
 
+/** What a failed root command said, or its exit code when it said nothing. */
+fun Shell.Result.errorText(): String =
+    (out + err).joinToString("\n").trim().ifEmpty { "Unknown error (exit code: $code)" }
+
 object ContainerManager {
     private const val CONTAINERS_BASE_PATH = Constants.CONTAINERS_BASE_PATH
 
@@ -249,24 +253,7 @@ object ContainerManager {
                     return@forEach
                 }
 
-                // Try to load container config
-                val configPath = "$CONTAINERS_BASE_PATH/$sanitizedName/${Constants.CONTAINER_CONFIG_FILE}"
-                // Use sanitizedName as default, but config file will have the real name
-                val config = loadContainerConfig(configPath, sanitizedName)
-
-                if (config != null) {
-                    // Check if container is running (use the real name from config)
-                    val runningInfo = checkContainerStatus(config.name)
-                    val status = if (runningInfo.first) {
-                        ContainerStatus.RUNNING
-                    } else {
-                        ContainerStatus.STOPPED
-                    }
-                    containers.add(config.copy(
-                        status = status,
-                        pid = runningInfo.second
-                    ))
-                }
+                getContainerInfo(sanitizedName)?.let { containers.add(it) }
             }
         } catch (e: Exception) {
             // Return empty list on error
@@ -288,7 +275,7 @@ object ContainerManager {
      * The parent is removed with a plain rmdir, which fails harmlessly when it still holds
      * anything, so a shared destination folder never takes other containers down with it.
      */
-    private suspend fun deleteExternalRootfs(rootfsPath: String, logger: ContainerLogger) {
+    private suspend fun deleteExternalRootfs(rootfsPath: String, logger: ViewModelLogger) {
         val name = rootfsPath.substringAfterLast('/')
         if (name != "rootfs" && name != "rootfs.img") {
             logger.w("Rootfs at $rootfsPath is not named rootfs or rootfs.img, so it was not")
@@ -517,22 +504,10 @@ object ContainerManager {
     suspend fun getContainerInfo(name: String): ContainerInfo? = withContext(Dispatchers.IO) {
         val sanitizedName = sanitizeContainerName(name)
         val configPath = "$CONTAINERS_BASE_PATH/$sanitizedName/${Constants.CONTAINER_CONFIG_FILE}"
-        val config = loadContainerConfig(configPath, sanitizedName)
-
-        if (config != null) {
-            val runningInfo = checkContainerStatus(name)
-            val status = if (runningInfo.first) {
-                ContainerStatus.RUNNING
-            } else {
-                ContainerStatus.STOPPED
-            }
-            config.copy(
-                status = status,
-                pid = runningInfo.second
-            )
-        } else {
-            null
-        }
+        val config = loadContainerConfig(configPath, sanitizedName) ?: return@withContext null
+        // The pidfile is keyed by the real name from the config, not the directory's
+        val (running, pid) = checkContainerStatus(config.name)
+        config.copy(status = if (running) ContainerStatus.RUNNING else ContainerStatus.STOPPED, pid = pid)
     }
 
     /**
@@ -637,11 +612,8 @@ object ContainerManager {
 
             val copyResult = installFileDurably(tempConfigFile.absolutePath, configPath)
             if (!copyResult.isSuccess) {
-                // Check both stdout and stderr for error messages
-                val errorOutput = (copyResult.out + copyResult.err).joinToString("\n").trim()
-                val errorMsg = if (errorOutput.isNotEmpty()) errorOutput else "Unknown error (exit code: ${copyResult.code})"
                 tempConfigFile.delete()
-                return@withContext Result.failure(Exception("Failed to update container config: $errorMsg"))
+                return@withContext Result.failure(Exception("Failed to update container config: ${copyResult.errorText()}"))
             }
 
             // Clean up temp config file
@@ -663,7 +635,7 @@ object ContainerManager {
      */
     suspend fun uninstallContainer(
         container: ContainerInfo,
-        logger: ContainerLogger
+        logger: ViewModelLogger
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             logger.i("Starting uninstallation of container: ${container.name}")
@@ -760,15 +732,6 @@ object ContainerManager {
             if (!deleteResult.isSuccess) {
                 logger.e("Failed to delete container directory (exit code: ${deleteResult.code})")
                 return@withContext Result.failure(Exception("Failed to delete container directory"))
-            }
-
-            // Verify deletion
-            logger.i("")
-            logger.i("Verifying deletion...")
-            val verifyResult = Shell.cmd("test -d ${ContainerCommandBuilder.quote(containerPath)} && echo 'exists' || echo 'deleted' 2>&1").exec()
-            if (verifyResult.out.any { it.contains("exists") }) {
-                logger.e("Warning: Container directory still exists after deletion attempt!")
-                return@withContext Result.failure(Exception("Container directory still exists after deletion"))
             }
 
             logger.i("Container directory successfully deleted.")

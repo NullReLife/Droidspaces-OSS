@@ -32,7 +32,6 @@ import com.droidspaces.app.ui.component.DroidspacesStatus
 import com.droidspaces.app.ui.component.DroidspacesStatusCard
 import com.droidspaces.app.ui.component.SystemInfoCard
 import com.droidspaces.app.util.DroidspacesBackendStatus
-import com.droidspaces.app.util.PreferencesManager
 import com.droidspaces.app.util.SystemInfoManager
 import com.droidspaces.app.ui.viewmodel.AppStateViewModel
 import com.droidspaces.app.ui.viewmodel.ContainerViewModel
@@ -131,7 +130,7 @@ fun MainTabScreen(
 
             // Proactive recovery on first launch: Always run scan if backend available
             if (appStateViewModel.isBackendAvailable) {
-                containerViewModel.runScan()
+                containerViewModel.scan(showIndicator = true)
             } else {
                 // If not available immediately, ensure we fetch when it does become available
                 containerViewModel.fetchContainerList()
@@ -144,9 +143,9 @@ fun MainTabScreen(
         if (appStateViewModel.isBackendAvailable) {
             // Re-probe only after a reboot or a backend update, the cache covers the rest.
             HostCapabilities.refreshIfStale(context)
-            // Because runScan might be running, fetchContainerList is safe because it only
+            // Because scan might be running, fetchContainerList is safe because it only
             // cancels previous fetch jobs, and runs concurrently (which is fine, UI populates fast).
-            // We only trigger this if it's currently empty, to avoid double-fetching if runScan succeeded,
+            // We only trigger this if it's currently empty, to avoid double-fetching if scan succeeded,
             // or just always run it since it's cheap and ensures sync.
             if (containerViewModel.containerList.isEmpty()) {
                 containerViewModel.fetchContainerList()
@@ -154,63 +153,20 @@ fun MainTabScreen(
         }
     }
 
-    // Map backend status to UI status - remember previous status to prevent glitches
+    // The card keeps the last settled status through a Checking pass, which is what
+    // stops it flickering during a refresh; the ViewModel already seeds that from the
+    // cached status, so a cold start shows the right card at once.
     val currentBackendStatus = appStateViewModel.backendStatus
-    val prefsManager = remember { PreferencesManager.getInstance(context) }
-
-    // Initialize stable status from cached backend status to prevent initial boot glitch
-    val stableDroidspacesStatus = remember {
-        mutableStateOf<DroidspacesStatus?>(
-            prefsManager.cachedBackendStatus?.let { cached ->
-                when (cached) {
-                    "UpdateAvailable" -> DroidspacesStatus.UpdateAvailable
-                    "NotInstalled" -> DroidspacesStatus.NotInstalled
-                    "ModuleMissing" -> DroidspacesStatus.ModuleMissing
-                    "" -> DroidspacesStatus.Working
-                    else -> null
-                }
-            }
-        )
+    var stableDroidspacesStatus by remember { mutableStateOf(currentBackendStatus.toUi()) }
+    LaunchedEffect(currentBackendStatus) {
+        currentBackendStatus.toUi()?.let { stableDroidspacesStatus = it }
     }
-
-    // Track previous root status to detect when root becomes unavailable
-    var previousRootAvailable by remember { mutableStateOf(appStateViewModel.isRootAvailable) }
-
-    // Update stable status when backend status changes (but skip Checking to prevent flicker)
-    LaunchedEffect(currentBackendStatus, appStateViewModel.isRootAvailable) {
-        // Skip updates during Checking state to prevent flicker during refresh
-        if (currentBackendStatus is DroidspacesBackendStatus.Checking) {
-            return@LaunchedEffect
-        }
-
-        val newStatus = when (currentBackendStatus) {
-            is DroidspacesBackendStatus.Available -> DroidspacesStatus.Working
-            is DroidspacesBackendStatus.UpdateAvailable -> DroidspacesStatus.UpdateAvailable
-            is DroidspacesBackendStatus.NotInstalled -> DroidspacesStatus.NotInstalled
-            is DroidspacesBackendStatus.ModuleMissing -> DroidspacesStatus.ModuleMissing
-            is DroidspacesBackendStatus.Checking -> return@LaunchedEffect // Already handled above
-        }
-
-        // Always update stable status when we have a non-Checking status
-        // This allows updates from error to working (e.g., after installation)
-        stableDroidspacesStatus.value = newStatus
-
-        previousRootAvailable = appStateViewModel.isRootAvailable
-    }
-
-    // Use stable status if available, otherwise compute from current status
-    val droidspacesStatus: DroidspacesStatus = stableDroidspacesStatus.value ?: when (currentBackendStatus) {
-        is DroidspacesBackendStatus.Checking -> DroidspacesStatus.Working
-        is DroidspacesBackendStatus.Available -> DroidspacesStatus.Working
-        is DroidspacesBackendStatus.UpdateAvailable -> DroidspacesStatus.UpdateAvailable
-        is DroidspacesBackendStatus.NotInstalled -> DroidspacesStatus.NotInstalled
-        is DroidspacesBackendStatus.ModuleMissing -> DroidspacesStatus.ModuleMissing
-    }
+    val droidspacesStatus: DroidspacesStatus = stableDroidspacesStatus ?: DroidspacesStatus.Working
 
     // UI state from ViewModels
     val isBackendAvailable = appStateViewModel.isBackendAvailable
     // Only show checking on initial load when we don't have cached status
-    val isChecking = !appStateViewModel.hasCompletedInitialCheck && stableDroidspacesStatus.value == null
+    val isChecking = !appStateViewModel.hasCompletedInitialCheck && stableDroidspacesStatus == null
     val containerCount = containerViewModel.containerCount
     val runningCount = containerViewModel.runningCount
 
@@ -222,7 +178,7 @@ fun MainTabScreen(
         // Check root status first (in case user denied root access)
         appStateViewModel.checkRootStatus()
         // Then refresh backend status
-        appStateViewModel.forceRefresh()
+        appStateViewModel.checkBackendStatus(force = true)
         // Force refresh droidspaces version to get latest after backend updates
         if (appStateViewModel.isBackendAvailable) {
             SystemInfoManager.refreshDroidspacesVersion(context)
@@ -232,7 +188,7 @@ fun MainTabScreen(
             when (tab) {
                 TabItem.Home, TabItem.Containers -> {
                     // Home/Containers: Always run a full scan on refresh for maximum visibility
-                    containerViewModel.runScan()
+                    containerViewModel.scan(showIndicator = true)
                 }
                 TabItem.ControlPanel -> {
                     // Control Panel: snappy refresh, but background recovery
@@ -243,7 +199,7 @@ fun MainTabScreen(
 
                     if (!anyRunning) {
                         // Metadata missing for running containers? attempt foreground recovery
-                        containerViewModel.runScan()
+                        containerViewModel.scan(showIndicator = true)
                     } else {
                         // Running containers found, update UI normally (snappy)
                         withContext(Dispatchers.Main) {
@@ -251,7 +207,7 @@ fun MainTabScreen(
                         }
                         // Then scan in background silently to catch orphans
                         scope.launch {
-                            containerViewModel.silentScan()
+                            containerViewModel.scan(showIndicator = false)
                         }
                     }
                 }
@@ -720,4 +676,13 @@ private fun MainBottomBar(
             Spacer(modifier = Modifier.navigationBarsPadding())
         }
     }
+}
+
+/** The home card's view of the backend; null for Checking, which keeps the last one. */
+private fun DroidspacesBackendStatus.toUi(): DroidspacesStatus? = when (this) {
+    DroidspacesBackendStatus.Checking -> null
+    DroidspacesBackendStatus.Available -> DroidspacesStatus.Working
+    DroidspacesBackendStatus.UpdateAvailable -> DroidspacesStatus.UpdateAvailable
+    DroidspacesBackendStatus.NotInstalled -> DroidspacesStatus.NotInstalled
+    DroidspacesBackendStatus.ModuleMissing -> DroidspacesStatus.ModuleMissing
 }

@@ -111,7 +111,7 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
         logs.clear()
         prefsManager.clearContainerLogs(container.name)
 
-        val logger = ViewModelLogger { level, message -> logs.add(level to message) }.apply { verbose = true }
+        val logger = ViewModelLogger { level, message -> logs.add(level to message) }
 
         var scriptFile: File? = null
         var tempArchive: File? = null
@@ -192,7 +192,7 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
         onRefresh: () -> Unit,
     ) {
         val collectedLogs = mutableListOf<String>()
-        val logger = ViewModelLogger { _, message -> collectedLogs.add(message) }.apply { verbose = true }
+        val logger = ViewModelLogger { _, message -> collectedLogs.add(message) }
 
         try {
             val isRunning = ContainerManager.checkContainerStatus(container.name).first
@@ -250,16 +250,11 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
         prefsManager.clearContainerLogs(container.name)
         showLogViewerFor = container.name
 
-        val logger = ViewModelLogger { level, message -> logs.add(level to message) }.apply { verbose = true }
+        val logger = ViewModelLogger { level, message -> logs.add(level to message) }
 
         try {
             if (operation == "stop" || operation == "restart") {
-                appContext.startService(
-                    Intent(appContext, TerminalSessionService::class.java).apply {
-                        action = TerminalSessionService.ACTION_STOP_CONTAINER_SESSIONS
-                        putExtra(TerminalSessionService.EXTRA_CONTAINER_NAME, container.name)
-                    }
-                )
+                TerminalSessionService.stopContainerSessions(appContext, container.name)
                 onClearUsage(container.name)
             }
 
@@ -321,7 +316,7 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
         logs.clear()
         prefsManager.clearContainerLogs(container.name)
 
-        val logger = ViewModelLogger { level, message -> logs.add(level to message) }.apply { verbose = true }
+        val logger = ViewModelLogger { level, message -> logs.add(level to message) }
 
         var scriptFile: File? = null
         try {

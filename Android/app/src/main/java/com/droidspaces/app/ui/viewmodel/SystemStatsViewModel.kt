@@ -42,13 +42,7 @@ class SystemStatsViewModel(application: Application) : AndroidViewModel(applicat
             val live = ContainerOSInfoManager.fetchAll(getApplication())
             val dead = running.filter { it.name !in live }
             dead.forEach { container ->
-                val ctx = getApplication<Application>()
-                ctx.startService(
-                    android.content.Intent(ctx, com.droidspaces.app.service.TerminalSessionService::class.java).apply {
-                        action = com.droidspaces.app.service.TerminalSessionService.ACTION_STOP_CONTAINER_SESSIONS
-                        putExtra(com.droidspaces.app.service.TerminalSessionService.EXTRA_CONTAINER_NAME, container.name)
-                    }
-                )
+                com.droidspaces.app.service.TerminalSessionService.stopContainerSessions(getApplication(), container.name)
                 containerUsageMap.remove(container.name)
             }
             containerUsageMap.putAll(live)

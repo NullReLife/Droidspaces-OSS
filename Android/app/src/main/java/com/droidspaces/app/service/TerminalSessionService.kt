@@ -300,5 +300,13 @@ class TerminalSessionService : Service() {
         fun start(context: Context) {
             context.startService(Intent(context, TerminalSessionService::class.java))
         }
+
+        /** Closes every terminal tab of a container that stopped or is stopping. */
+        fun stopContainerSessions(context: Context, containerName: String) {
+            context.startService(Intent(context, TerminalSessionService::class.java).apply {
+                action = ACTION_STOP_CONTAINER_SESSIONS
+                putExtra(EXTRA_CONTAINER_NAME, containerName)
+            })
+        }
     }
 }

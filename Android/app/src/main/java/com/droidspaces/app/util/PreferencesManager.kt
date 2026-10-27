@@ -2,201 +2,112 @@ package com.droidspaces.app.util
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Build
+import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
 
-/**
- * Ultra-optimized PreferencesManager with zero-allocation hot paths.
- * Uses apply() for async writes (non-blocking) and get() for reads (synchronous, cached).
- *
- * Performance optimizations:
- * - Eager SharedPreferences initialization (pre-warmed in Application.onCreate)
- * - Direct property access (no function call overhead)
- * - Single SharedPreferences instance (cached by Android framework)
- * - No synchronization after first access (INSTANCE is volatile, set once)
- */
+/** The app's SharedPreferences, one slot per property. Writes use apply(). */
 class PreferencesManager private constructor(context: Context) {
-    // Eager initialization - SharedPreferences is lightweight and fast to create
-    // Creating it eagerly avoids lazy delegate overhead (~10-20ns per access)
-    // SharedPreferences is cached by Android framework after first access
-    val prefs: SharedPreferences = context.getSharedPreferences(
-        PREFS_NAME,
-        Context.MODE_PRIVATE
-    )
+    val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    // Optimized properties - direct access (SharedPreferences is cached by Android framework)
-    // Performance: ~0.1ms per read (cached), ~1-2ms per write (async apply)
-    var isSetupCompleted: Boolean
-        get() = prefs.getBoolean(KEY_SETUP_COMPLETED, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_SETUP_COMPLETED, value).apply()
+    /** A slot whose type follows its default; writing null to a String? slot removes the key. */
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> pref(key: String, default: T) = object : ReadWriteProperty<Any?, T> {
+        override fun getValue(thisRef: Any?, property: KProperty<*>): T = when (default) {
+            is Boolean -> prefs.getBoolean(key, default) as T
+            is Int -> prefs.getInt(key, default) as T
+            is String -> (prefs.getString(key, default) ?: default) as T
+            else -> prefs.getString(key, null) as T
         }
 
-    var rootChecked: Boolean
-        get() = prefs.getBoolean(KEY_ROOT_CHECKED, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_ROOT_CHECKED, value).apply()
+        override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+            prefs.edit().apply {
+                when (value) {
+                    is Boolean -> putBoolean(key, value)
+                    is Int -> putInt(key, value)
+                    null -> remove(key)
+                    else -> putString(key, value as String)
+                }
+            }.apply()
         }
+    }
 
-    var rootAvailable: Boolean
-        get() = prefs.getBoolean(KEY_ROOT_AVAILABLE, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_ROOT_AVAILABLE, value).apply()
-        }
+    var isSetupCompleted: Boolean by pref(KEY_SETUP_COMPLETED, false)
 
-    var cachedDroidspacesVersion: String?
-        get() = prefs.getString(KEY_DROIDSPACES_VERSION, null)
-        set(value) {
-            if (value != null) {
-                prefs.edit().putString(KEY_DROIDSPACES_VERSION, value).apply()
-            } else {
-                prefs.edit().remove(KEY_DROIDSPACES_VERSION).apply()
-            }
-        }
+    var rootChecked: Boolean by pref(KEY_ROOT_CHECKED, false)
 
-    var cachedRunningCount: Int
-        get() = prefs.getInt(KEY_RUNNING_COUNT, 0)
-        set(value) {
-            prefs.edit().putInt(KEY_RUNNING_COUNT, value).apply()
-        }
+    var rootAvailable: Boolean by pref(KEY_ROOT_AVAILABLE, false)
 
-    var cachedBackendStatus: String?
-        get() = prefs.getString(KEY_BACKEND_STATUS, null)
-        set(value) {
-            if (value != null) {
-                prefs.edit().putString(KEY_BACKEND_STATUS, value).apply()
-            } else {
-                prefs.edit().remove(KEY_BACKEND_STATUS).apply()
-            }
-        }
+    var cachedDroidspacesVersion: String? by pref(KEY_DROIDSPACES_VERSION, null)
+
+    var cachedRunningCount: Int by pref(KEY_RUNNING_COUNT, 0)
+
+    var cachedBackendStatus: String? by pref(KEY_BACKEND_STATUS, null)
 
     // Raw `check --json` JSON and the boot it was taken on, see HostCapabilities.
-    var cachedHostCapabilities: String?
-        get() = prefs.getString(KEY_HOST_CAPABILITIES, null)
-        set(value) { prefs.edit().putString(KEY_HOST_CAPABILITIES, value).apply() }
+    var cachedHostCapabilities: String? by pref(KEY_HOST_CAPABILITIES, null)
 
-    var cachedHostCapabilitiesBootId: String?
-        get() = prefs.getString(KEY_HOST_CAPABILITIES_BOOT_ID, null)
-        set(value) { prefs.edit().putString(KEY_HOST_CAPABILITIES_BOOT_ID, value).apply() }
+    var cachedHostCapabilitiesBootId: String? by pref(KEY_HOST_CAPABILITIES_BOOT_ID, null)
 
-    var cachedBackendMode: String?
-        get() = prefs.getString(KEY_BACKEND_MODE, null)
-        set(value) {
-            if (value != null) {
-                prefs.edit().putString(KEY_BACKEND_MODE, value).apply()
-            } else {
-                prefs.edit().remove(KEY_BACKEND_MODE).apply()
-            }
-        }
+    var cachedBackendMode: String? by pref(KEY_BACKEND_MODE, null)
 
     // Last known SELinux status. Seeds the home card on a fresh launch so it
     // never shows a loading row while the root shell spins up.
-    var cachedSelinuxStatus: String?
-        get() = prefs.getString(KEY_SELINUX_STATUS, null)
-        set(value) {
-            prefs.edit().putString(KEY_SELINUX_STATUS, value).apply()
-        }
+    var cachedSelinuxStatus: String? by pref(KEY_SELINUX_STATUS, null)
 
     // Theme preferences
-    var followSystemTheme: Boolean
-        get() = prefs.getBoolean(KEY_FOLLOW_SYSTEM_THEME, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_FOLLOW_SYSTEM_THEME, value).apply()
-        }
+    var followSystemTheme: Boolean by pref(KEY_FOLLOW_SYSTEM_THEME, true)
 
-    var darkTheme: Boolean
-        get() = prefs.getBoolean(KEY_DARK_THEME, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_DARK_THEME, value).apply()
-        }
+    var darkTheme: Boolean by pref(KEY_DARK_THEME, false)
 
-    var amoledMode: Boolean
-        get() = prefs.getBoolean(KEY_AMOLED_MODE, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_AMOLED_MODE, value).apply()
-        }
+    var amoledMode: Boolean by pref(KEY_AMOLED_MODE, false)
 
-    var useDynamicColor: Boolean
-        get() = prefs.getBoolean(KEY_USE_DYNAMIC_COLOR, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_USE_DYNAMIC_COLOR, value).apply()
-        }
+    var useDynamicColor: Boolean by pref(KEY_USE_DYNAMIC_COLOR, true)
 
-    var themePalette: String
-        get() = prefs.getString(KEY_THEME_PALETTE, "BROCCOLI") ?: "BROCCOLI"
-        set(value) {
-            prefs.edit().putString(KEY_THEME_PALETTE, value).apply()
-        }
+    var themePalette: String by pref(KEY_THEME_PALETTE, "BROCCOLI")
 
     // Terminal-only dark mode - independent of the app-wide theme, so the rest
     // of the app can stay light while the terminal page renders dark.
-    var terminalDarkTheme: Boolean
-        get() = prefs.getBoolean(KEY_TERMINAL_DARK_THEME, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_TERMINAL_DARK_THEME, value).apply()
-        }
+    var terminalDarkTheme: Boolean by pref(KEY_TERMINAL_DARK_THEME, false)
 
     // Terminal text size in px, the unit Termux's TerminalView uses. Read once when
     // a session is created; pinch-to-zoom then adjusts that session in memory only.
-    var terminalFontSizePx: Int
-        get() = prefs.getInt(KEY_TERMINAL_FONT_SIZE, 30)
-        set(value) {
-            prefs.edit().putInt(KEY_TERMINAL_FONT_SIZE, value).apply()
-        }
+    var terminalFontSizePx: Int by pref(KEY_TERMINAL_FONT_SIZE, 30)
 
     // Filename inside filesDir/fonts/; "" = the bundled JetBrains Mono. Like the
     // size above, sessions read it once at creation.
-    var terminalFontFile: String
-        get() = prefs.getString(KEY_TERMINAL_FONT_FILE, "") ?: ""
-        set(value) {
-            prefs.edit().putString(KEY_TERMINAL_FONT_FILE, value).apply()
-        }
+    var terminalFontFile: String by pref(KEY_TERMINAL_FONT_FILE, "")
 
     // Opt-in guard for the X on a terminal tab; off by default because it
     // turns a one-tap close into two.
-    var terminalConfirmClose: Boolean
-        get() = prefs.getBoolean(KEY_TERMINAL_CONFIRM_CLOSE, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_TERMINAL_CONFIRM_CLOSE, value).apply()
-        }
+    var terminalConfirmClose: Boolean by pref(KEY_TERMINAL_CONFIRM_CLOSE, false)
 
     // On by default so nothing changes on upgrade. Off hands a tap to whatever
     // runs in the terminal, which is what an editor wants, and the keyboard
     // comes from the button on the terminal instead.
-    var terminalTapKeyboard: Boolean
-        get() = prefs.getBoolean(KEY_TERMINAL_TAP_KEYBOARD, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_TERMINAL_TAP_KEYBOARD, value).apply()
-        }
+    var terminalTapKeyboard: Boolean by pref(KEY_TERMINAL_TAP_KEYBOARD, true)
 
     // Which bottom corner that button sits in. False is the right, for the
     // right-handed majority.
-    var terminalKeyboardLeft: Boolean
-        get() = prefs.getBoolean(KEY_TERMINAL_KEYBOARD_LEFT, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_TERMINAL_KEYBOARD_LEFT, value).apply()
-        }
+    var terminalKeyboardLeft: Boolean by pref(KEY_TERMINAL_KEYBOARD_LEFT, false)
 
+    /** Mirrored into the root-owned flag file the backend's boot scripts read. */
     var isDaemonModeEnabled: Boolean
         get() = prefs.getBoolean(KEY_DAEMON_MODE_ENABLED, false)
         set(value) {
             prefs.edit().putBoolean(KEY_DAEMON_MODE_ENABLED, value).apply()
-            DaemonModeRepository.writeToDisk(value)
+            Shell.cmd("echo '${if (value) 1 else 0}' > '${Constants.DAEMON_MODE_FILE}'").submit()
         }
 
-    var isSymlinkEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SYMLINK_ENABLED, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_SYMLINK_ENABLED, value).apply()
-        }
+    var isSymlinkEnabled: Boolean by pref(KEY_SYMLINK_ENABLED, false)
 
     /**
      * Reactive stream of the daemon-mode preference, emits the current value and
-     * every later change (including writes from [syncDaemonModeFromDisk] /
-     * DaemonModeRepository), so the UI can collect it with
+     * every later change, [syncDaemonModeFromDisk]'s included, so the UI can collect it with
      * collectAsStateWithLifecycle() instead of a hand-rolled change listener.
      */
     val daemonModeFlow: Flow<Boolean> = booleanPrefFlow(KEY_DAEMON_MODE_ENABLED, false)
@@ -206,21 +117,13 @@ class PreferencesManager private constructor(context: Context) {
 
     // 32-bit OS on a 64-bit kernel: install the 64-bit backend and list 64-bit
     // rootfs images. Read by DeviceArch, which every arch lookup goes through.
-    var treatAs64Bit: Boolean
-        get() = prefs.getBoolean(KEY_TREAT_AS_64BIT, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_TREAT_AS_64BIT, value).apply()
-        }
+    var treatAs64Bit: Boolean by pref(KEY_TREAT_AS_64BIT, false)
 
     val treatAs64BitFlow: Flow<Boolean> = booleanPrefFlow(KEY_TREAT_AS_64BIT, false)
 
     // One GET to the GitHub releases API per app open. Default on, since the
     // app only ships through GitHub Releases and nobody polls that page by hand.
-    var checkAppUpdates: Boolean
-        get() = prefs.getBoolean(KEY_CHECK_APP_UPDATES, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_CHECK_APP_UPDATES, value).apply()
-        }
+    var checkAppUpdates: Boolean by pref(KEY_CHECK_APP_UPDATES, true)
 
     private fun booleanPrefFlow(key: String, default: Boolean): Flow<Boolean> = callbackFlow {
         trySend(prefs.getBoolean(key, default))
@@ -231,17 +134,13 @@ class PreferencesManager private constructor(context: Context) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
-    /**
-     * Sync daemon mode preference from the root-protected file on disk.
-     * Updates SharedPreferences if the file exists and differs.
-     */
+    /** Takes the flag file's value when it exists and differs. The pref write alone,
+     * so the setter's own disk write does not recurse. */
     fun syncDaemonModeFromDisk() {
-        val enabled = DaemonModeRepository.readFromDisk() ?: return
-        if (isDaemonModeEnabled != enabled) {
-            // Update SharedPreferences ONLY (avoiding a recursive setter/disk write).
-            // This triggers the OnSharedPreferenceChangeListener in the UI.
+        val out = Shell.cmd("cat '${Constants.DAEMON_MODE_FILE}' 2>/dev/null").exec().out
+        val enabled = out.firstOrNull()?.trim()?.let { it == "1" } ?: return
+        if (isDaemonModeEnabled != enabled)
             prefs.edit().putBoolean(KEY_DAEMON_MODE_ENABLED, enabled).apply()
-        }
     }
 
     /** Syncs symlink pref from actual filesystem state. */
@@ -300,48 +199,29 @@ class PreferencesManager private constructor(context: Context) {
             .commit()
     }
 
-    /**
-     * Save container OS info to persistent cache (simple delimiter format).
-     * Uses pipe (|) as field separator and newline as record separator.
-     * Empty values are stored as empty strings.
-     */
+    private val osInfoKeys = listOf("prettyName", "name", "version", "versionId", "id", "hostname", "ipAddress", "uptime")
+
+    /** commit() not apply(): called from IO and the sync write survives a force-close. */
     fun saveContainerOSInfo(containerName: String, osInfo: ContainerOSInfoManager.OSInfo) {
-        // Simple format: field1|field2|field3|... (pipe-separated)
-        // Order: prettyName|name|version|versionId|id|hostname|ipAddress|uptime
-        val data = listOf(
-            osInfo.prettyName ?: "",
-            osInfo.name ?: "",
-            osInfo.version ?: "",
-            osInfo.versionId ?: "",
-            osInfo.id ?: "",
-            osInfo.hostname ?: "",
-            osInfo.ipAddress ?: "",
-            osInfo.uptime ?: ""
-        ).joinToString("|")
-        // commit() not apply() - called from IO thread; sync write survives force-close/pkill
-        prefs.edit().putString("${KEY_CONTAINER_OS_INFO_PREFIX}$containerName", data).commit()
+        val values = listOf(osInfo.prettyName, osInfo.name, osInfo.version, osInfo.versionId, osInfo.id,
+            osInfo.hostname, osInfo.ipAddress, osInfo.uptime)
+        val obj = org.json.JSONObject()
+        osInfoKeys.zip(values).forEach { (k, v) -> if (v != null) obj.put(k, v) }
+        prefs.edit().putString("${KEY_CONTAINER_OS_INFO_PREFIX}$containerName", obj.toString()).commit()
     }
 
-    /**
-     * Load cached container OS info from persistent cache.
-     * Returns null if not cached or invalid format.
-     */
+    /** Null when nothing is cached or it is not JSON, which an older pipe-delimited entry is not. */
     fun loadContainerOSInfo(containerName: String): ContainerOSInfoManager.OSInfo? {
         val data = prefs.getString("${KEY_CONTAINER_OS_INFO_PREFIX}$containerName", null) ?: return null
+        if (!data.startsWith("{")) { // the pipe-delimited entry of older builds, until its next save
+            val v = data.split("|").map { it.ifEmpty { null } }
+            if (v.size < 7) return null
+            return ContainerOSInfoManager.OSInfo(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v.getOrNull(7))
+        }
         return try {
-            val parts = data.split("|")
-            if (parts.size < 7) return null // Invalid format
-
-            ContainerOSInfoManager.OSInfo(
-                prettyName = parts[0].takeIf { it.isNotEmpty() },
-                name = parts[1].takeIf { it.isNotEmpty() },
-                version = parts[2].takeIf { it.isNotEmpty() },
-                versionId = parts[3].takeIf { it.isNotEmpty() },
-                id = parts[4].takeIf { it.isNotEmpty() },
-                hostname = parts[5].takeIf { it.isNotEmpty() },
-                ipAddress = parts[6].takeIf { it.isNotEmpty() },
-                uptime = if (parts.size >= 8) parts[7].takeIf { it.isNotEmpty() } else null
-            )
+            val obj = org.json.JSONObject(data)
+            val v = osInfoKeys.map { k -> obj.optString(k, "").takeIf { it.isNotEmpty() } }
+            ContainerOSInfoManager.OSInfo(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7])
         } catch (e: Exception) {
             null
         }
