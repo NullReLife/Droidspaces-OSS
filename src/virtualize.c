@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include "virtualize.h"
+#include "droidspace.h"
 #include <time.h>
 
 #define VPROC_PATH "/run/droidspaces/vproc"
@@ -448,29 +448,11 @@ static double cg_cpu_busy_secs(const char *container_name) {
   return usec < 0 ? -1.0 : (double)usec / 1e6;
 }
 
-/* Read container init PID's start time from /proc/<pid>/stat field 22.
- * Returns seconds-since-boot (same reference as CLOCK_BOOTTIME).
- * Ported from lxcfs get_reaper_start_time_in_sec(). */
+/* When the container's init started, in seconds since boot (the
+ * CLOCK_BOOTTIME reference), or -1. */
 static double container_start_time_secs(pid_t pid) {
-  char path[64];
-  snprintf(path, sizeof(path), "/proc/%d/stat", (int)pid);
-  FILE *f = fopen(path, "r");
-  if (!f)
-    return -1.0;
-  unsigned long long starttime = 0;
-  /* skip fields 1-21, read field 22 (starttime) */
-  int r = fscanf(f,
-                 "%*d %*s %*c %*d %*d %*d %*d %*d %*u " /* 1-9  */
-                 "%*u %*u %*u %*u %*u %*u %*d %*d "     /* 10-17 */
-                 "%*d %*d %*d %*d %llu",                /* 18-22 */
-                 &starttime);
-  fclose(f);
-  if (r != 1 || starttime == 0)
-    return -1.0;
-  long ticks = ds_clk_tck();
-  if (ticks <= 0)
-    return -1.0;
-  return (double)starttime / (double)ticks;
+  unsigned long long starttime = proc_starttime(pid);
+  return starttime ? (double)starttime / (double)ds_clk_tck() : -1.0;
 }
 
 /* /proc/uptime - lxcfs-style: uptime = CLOCK_BOOTTIME - container_init_start.

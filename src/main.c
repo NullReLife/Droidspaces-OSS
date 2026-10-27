@@ -141,33 +141,6 @@ void print_usage(void) {
 
 /* Validation Helpers */
 
-static int validate_kernel_version(void) {
-  int major = 0, minor = 0;
-  if (get_kernel_version(&major, &minor) < 0) {
-    ds_error("Failed to detect kernel version.");
-    return -1;
-  }
-
-  if (major < DS_MIN_KERNEL_MAJOR ||
-      (major == DS_MIN_KERNEL_MAJOR && minor < DS_MIN_KERNEL_MINOR)) {
-    printf("\n" C_RED C_BOLD "[ FATAL: UNSUPPORTED KERNEL ]" C_RESET "\n\n");
-    ds_error("Droidspaces requires at least Linux %d.%d.0.",
-             DS_MIN_KERNEL_MAJOR, DS_MIN_KERNEL_MINOR);
-    ds_log("Detected kernel: %d.%d", major, minor);
-    printf("\n" C_DIM
-           "Why? Droidspaces v3 relies on features like OverlayFS and mature\n"
-           "namespace isolation that are only stable on kernels %d.%d+.\n"
-           "Running on this kernel would lead to system instability or "
-           "crashes." C_RESET "\n\n",
-           DS_MIN_KERNEL_MAJOR, DS_MIN_KERNEL_MINOR);
-    ds_log("You can still use " C_BOLD "check, info, help, scan" C_RESET
-           " for diagnostics.");
-    return -1;
-  }
-
-  return 0;
-}
-
 /**
  * CLI-level configuration validation with professional error reporting.
  * Deters configuration errors early before entering the runtime.
@@ -1159,10 +1132,6 @@ int main(int argc, char **argv) {
       ret = 1;
       goto cleanup;
     }
-    if (validate_kernel_version() < 0) {
-      ret = 1;
-      goto cleanup;
-    }
     if (check_requirements_hw(cfg.hw_access) < 0) {
       ret = 1;
       goto cleanup;
@@ -1170,9 +1139,6 @@ int main(int argc, char **argv) {
     enforce_nat_safety(&cfg);
     print_ds_banner();
     ds_cgroup_host_bootstrap(cfg.force_cgroupv1);
-    if (cfg.container_name[0] == '\0' && cfg.rootfs_path[0])
-      generate_container_name(cfg.rootfs_path, cfg.container_name,
-                              sizeof(cfg.container_name));
     ret = start_rootfs(&cfg);
     goto cleanup;
   }
@@ -1216,20 +1182,12 @@ int main(int argc, char **argv) {
   }
 
   if (strcmp(cmd, "enter") == 0) {
-    if (validate_kernel_version() < 0) {
-      ret = 1;
-      goto cleanup;
-    }
     const char *user = (optind + 1 < argc) ? argv[optind + 1] : "root";
     ret = enter_rootfs(&cfg, user);
     goto cleanup;
   }
 
   if (strcmp(cmd, "run") == 0) {
-    if (validate_kernel_version() < 0) {
-      ret = 1;
-      goto cleanup;
-    }
     /* run [--] <cmd>: a leading "--" fences off a command that itself starts
      * with a dash, the way env(1) takes it. */
     char **run_argv = argv + optind + 1;

@@ -310,12 +310,6 @@ reboot_loop:;
       char pid_str[32];
       snprintf(pid_str, sizeof(pid_str), "%d", init_pid);
       write_file_atomic(cfg->pidfile, pid_str);
-
-      char global_pf[PATH_MAX];
-      resolve_pidfile_from_name(cfg->container_name, global_pf,
-                                sizeof(global_pf));
-      if (strcmp(cfg->pidfile, global_pf) != 0)
-        write_file_atomic(global_pf, pid_str);
     }
 
     /* Wait for init to exit */

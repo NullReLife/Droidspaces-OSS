@@ -43,62 +43,6 @@ int ensure_workspace(void) {
   return 0;
 }
 
-/* Container Naming */
-
-int generate_container_name(const char *rootfs_path, char *name, size_t size) {
-  char id[64], version[64];
-
-  if (parse_os_release(rootfs_path, id, version, sizeof(id)) < 0) {
-    /* Fallback if os-release is missing */
-    safe_strncpy(name, "linux-container", size);
-    return 0;
-  }
-
-  if (version[0])
-    snprintf(name, size, "%s-%s", id, version);
-  else
-    safe_strncpy(name, id, size);
-
-  return 0;
-}
-
-int find_available_name(const char *base_name, char *final_name, size_t size) {
-  char pidfile[PATH_MAX];
-  safe_strncpy(final_name, base_name, size);
-
-  for (int i = 0; i < DS_MAX_CONTAINERS; i++) {
-    if (i > 0) {
-      size_t base_len = strlen(base_name);
-      char suffix[16];
-      int suffix_len = snprintf(suffix, sizeof(suffix), "-%d", i);
-
-      if (base_len + suffix_len < size) {
-        memcpy(final_name, base_name, base_len);
-        memcpy(final_name + base_len, suffix, suffix_len);
-        final_name[base_len + suffix_len] = '\0';
-      } else {
-        /* Truncate base_name to fit the suffix */
-        size_t max_base = size - suffix_len - 1;
-        memcpy(final_name, base_name, max_base);
-        memcpy(final_name + max_base, suffix, suffix_len);
-        final_name[size - 1] = '\0';
-      }
-    }
-
-    resolve_pidfile_from_name(final_name, pidfile, sizeof(pidfile));
-    if (access(pidfile, F_OK) != 0)
-      return 0;
-
-    /* Check if it's a stale pidfile - reuse the name slot without
-     * unlinking (the next start will overwrite it). */
-    pid_t pid;
-    if (read_and_validate_pid(pidfile, &pid) < 0) {
-      return 0;
-    }
-  }
-  return -1;
-}
-
 static int is_pid_file(const char *name) {
   if (!name)
     return 0;
@@ -240,46 +184,6 @@ int count_running_containers(char *first_name, size_t size) {
   return count;
 }
 
-int auto_resolve_pidfile(struct ds_config *cfg) {
-  /* 1. If pidfile is explicitly provided, resolve name from it if needed */
-  if (cfg->pidfile[0]) {
-    if (cfg->container_name[0] == '\0') {
-      char *base = strrchr(cfg->pidfile, '/');
-      base = base ? base + 1 : cfg->pidfile;
-      safe_strncpy(cfg->container_name, base, sizeof(cfg->container_name));
-      char *dot = strrchr(cfg->container_name, '.');
-      if (dot)
-        *dot = '\0';
-    }
-    return 0;
-  }
-
-  /* 2. If name is provided, resolve pidfile from it */
-  if (cfg->container_name[0]) {
-    resolve_pidfile_from_name(cfg->container_name, cfg->pidfile,
-                              sizeof(cfg->pidfile));
-    return 0;
-  }
-
-  /* 3. Otherwise, look for the ONLY running container */
-  char found_name[256];
-  int count = count_running_containers(found_name, sizeof(found_name));
-
-  if (count == 1) {
-    safe_strncpy(cfg->container_name, found_name, sizeof(cfg->container_name));
-    resolve_pidfile_from_name(found_name, cfg->pidfile, sizeof(cfg->pidfile));
-    return 0;
-  }
-
-  if (count > 1) {
-    ds_error("Multiple containers running. Please specify --name.");
-    return -1;
-  }
-
-  ds_error("No containers running.");
-  return -1;
-}
-
 /* PID Discovery (UUID Scan) */
 
 pid_t find_container_init_pid(const char *uuid) {
@@ -361,17 +265,6 @@ pid_t find_container_by_name(const char *name) {
   if (pids)
     free(pids);
   return 0;
-}
-
-int sync_pidfile(const char *src_pidfile, const char *name) {
-  char dst[PATH_MAX];
-  if (resolve_pidfile_from_name(name, dst, sizeof(dst)) < 0)
-    return -1;
-
-  char buf[64];
-  if (read_file(src_pidfile, buf, sizeof(buf)) < 0)
-    return -1;
-  return write_file(dst, buf);
 }
 
 /* Status reporting */

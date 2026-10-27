@@ -112,21 +112,6 @@ int domount(const char *src, const char *tgt, const char *fstype,
   return 0;
 }
 
-/* Like domount but logs failures at [DEBUG] level - used for best-effort
- * mounts where failure is expected on some environments (e.g. cgroup
- * bind-mounts on ROMs with non-standard controller paths). */
-int domount_silent(const char *src, const char *tgt, const char *fstype,
-                   unsigned long flags, const char *data) {
-  if (mount(src, tgt, fstype, flags, data) < 0) {
-    if (errno != EBUSY) {
-      ds_log("[DEBUG] mount %s -> %s failed: %s", src ? src : "none",
-             tgt ? tgt : "none", strerror(errno));
-      return -1;
-    }
-  }
-  return 0;
-}
-
 /* Mask a sensitive path by self-binding and remounting read-only.
  * Silently skips if the path doesn't exist.  The resulting mount entry
  * preserves the parent filesystem type (e.g. "proc on /proc/kcore type

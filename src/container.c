@@ -394,11 +394,6 @@ void cleanup_container_resources(struct ds_config *cfg, pid_t pid,
     firmware_path_remove(fw_path);
   }
 
-  /* 2. Resolve global PID file path */
-  char global_pidfile[PATH_MAX];
-  resolve_pidfile_from_name(cfg->container_name, global_pidfile,
-                            sizeof(global_pidfile));
-
   /* 3. Handle Volatile Overlay Cleanup (upper/work/merged)
    * This MUST happen before unmounting the lower rootfs image.
    * When force_cleanup, use detach+force unmount to avoid hangs. */
@@ -432,12 +427,8 @@ void cleanup_container_resources(struct ds_config *cfg, pid_t pid,
 
   /* 5. Unlink PID files. A restart (skip_unmount) keeps them: the monitor
    * reads the dead PID in them as "nobody has claimed this exit yet". */
-  if (!skip_unmount) {
-    if (cfg->pidfile[0])
-      unlink(cfg->pidfile);
-    if (global_pidfile[0] && strcmp(cfg->pidfile, global_pidfile) != 0)
-      unlink(global_pidfile);
-  }
+  if (!skip_unmount)
+    unlink(cfg->pidfile);
 
   /* Network cleanup: remove host veth and owned network state. Any isolated
    * mode can be someone's gateway (an OpenWrt in --net=none, say), and its
@@ -775,15 +766,9 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
     firmware_path_add(fw_path);
   }
 
-  /* 5. Resolve target PID file names early so monitor inherits them */
-  char global_pidfile[PATH_MAX];
-  resolve_pidfile_from_name(cfg->container_name, global_pidfile,
-                            sizeof(global_pidfile));
-
-  /* If no pidfile specified, or we want to use the global one */
-  if (!cfg->pidfile[0]) {
-    safe_strncpy(cfg->pidfile, global_pidfile, sizeof(cfg->pidfile));
-  }
+  /* 5. Resolve the PID file path early so the monitor inherits it */
+  resolve_pidfile_from_name(cfg->container_name, cfg->pidfile,
+                            sizeof(cfg->pidfile));
 
   /* Three binder round trips into system_server. They used to run after the
    * host-side network setup, in series, with the whole start waiting on them.
@@ -885,17 +870,8 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
   char pid_str[32];
   snprintf(pid_str, sizeof(pid_str), "%d", cfg->container_pid);
 
-  /* Always save to global Pids directory (for --name lookups) */
-  if (write_file_atomic(global_pidfile, pid_str) < 0) {
-    ds_error("Failed to write PID file: %s", global_pidfile);
-  }
-
-  /* Also save to user-specified --pidfile if different */
-  if (cfg->pidfile[0] && strcmp(cfg->pidfile, global_pidfile) != 0) {
-    if (write_file_atomic(cfg->pidfile, pid_str) < 0) {
-      ds_error("Failed to write PID file: %s", cfg->pidfile);
-    }
-  }
+  if (write_file_atomic(cfg->pidfile, pid_str) < 0)
+    ds_error("Failed to write PID file: %s", cfg->pidfile);
 
   /* 11. Do not show the info or return until init has exec'd. A command that
    * returned earlier left init still logging to a terminal nobody was reading

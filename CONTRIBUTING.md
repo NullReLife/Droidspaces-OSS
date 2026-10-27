@@ -522,7 +522,7 @@ a verbosity flag.
 | `write_file_atomic(path, content)` | Anything persistent. `mkstemp` plus `fsync` plus `rename`, so a pre-planted symlink at a predictable temp name cannot win |
 | `write_file`, `read_file`, `write_all` | One-shot write, read to buffer, EINTR-safe full write. Never loop on bare `write()` |
 | `grep_file(path, pattern)` | Substring test over a file |
-| `mkdir_p`, `remove_recursive`, `copy_file` | The `mkdir -p`, `rm -rf`, and stream copy equivalents |
+| `mkdir_p`, `remove_recursive` | The `mkdir -p` and `rm -rf` equivalents |
 | `is_subpath(parent, child)` | Path escape validation. Realpath based, use this instead of `strncmp` |
 | `is_ramfs`, `is_mountpoint` | Filesystem type and mountpoint tests |
 | `build_proc_root_path(pid, suffix, buf, size)` | Building `/proc/<pid>/root/...` with truncation checked |
@@ -557,10 +557,9 @@ influenced, copy the `ds_bind_mount_socket` pattern: open with `O_NOFOLLOW|O_CLO
 | Symbol | Use it when |
 | --- | --- |
 | `is_android()` | The mandatory gate for every Android-only or Linux-only path, both directions |
-| `is_running_in_termux()` | Termux environment |
 | `get_kernel_version`, `check_kernel_recommendation` | Version gating against `DS_MIN_KERNEL_MAJOR` and `DS_MIN_KERNEL_MINOR` |
 | `check_ns(flag, name)` | Probing whether a `CLONE_NEW*` namespace is usable. The network namespace is answered from `/proc/self/ns/net` alone: creating one to test it stalls the real `unshare` behind its teardown on kernels before 4.17 |
-| `ds_cgroup_v2_usable`, `ds_cgroup_kernel_supports_v2`, `ds_cgroup_host_is_v2` | cgroup generation gates |
+| `ds_cgroup_host_is_v2` | cgroup generation gate |
 | `ds_nl_probe_nat_capability(reason, size)` | Kernel bridge, veth, and NAT capability. Fork free. Run before any NAT setup. A full pass is remembered for the boot in `Net/nat_caps`, keyed by boot_id; anything less is probed again |
 | `ds_get_selinux_status()`, `is_systemd_rootfs(path)` | SELinux mode, and rootfs flavour |
 
@@ -573,7 +572,6 @@ whole tree. It is almost entirely fixed-size, with three heap-owned lists.
 | --- | --- |
 | `ds_config_load` / `ds_config_load_by_name` | Loading a config. Prefer the by-name form over building the path yourself |
 | `ds_config_save` / `ds_config_save_by_name` | Saving |
-| `ds_config_validate` | Before acting on a loaded config |
 | `ds_config_add_bind(cfg, src, dest, ro)` | The only way to add a bind mount. Grows, de-dups, validates |
 | `ds_config_free` | Teardown. It calls the three per-list free functions |
 | `sort_bind_mounts(cfg)` | Before applying binds, so parents mount before children |
@@ -589,7 +587,7 @@ an unknown line.
 
 | Symbol | Use it when |
 | --- | --- |
-| `domount`, `domount_silent`, `bind_mount` | Mounting. Use these instead of raw `mount(2)` |
+| `domount`, `bind_mount` | Mounting. Use these instead of raw `mount(2)` |
 | `ds_apply_jail_mask(hw_access, privileged_mask)` | Masking `/proc` and `/sys` entries |
 | `setup_dev`, `create_devices`, `setup_devpts` | Device node setup |
 | `setup_custom_binds(cfg, rootfs)` | Applying `cfg->binds` |
@@ -600,7 +598,6 @@ an unknown line.
 | `ds_cgroup_ctrl_dir(ctrl, name, dir, size)` | Finding where a container's files for one controller live: its cgroup v2 dir, or the v1 hierarchy that owns the controller, wherever it is mounted. Returns the version. Never hardcode `/sys/fs/cgroup/...` or `/dev/memcg` for a controller file |
 | `ds_cgroup_apply_limits`, `ds_cgroup_get_limits`, `ds_cgroup_get_usage`, `print_cgroup_status` | Setting limits, reading back the ones in force, and usage. Report limits from `ds_cgroup_get_limits`, not from the config, which only says what was asked for |
 | `ds_cgroup_v1_setup`, `ds_cgroup_v1_join` | Giving a v1 container its own cgroup in every v1 hierarchy before the namespace is unshared, and moving the monitor in or out of them |
-| `ds_cg_word_in_list(list, name)` | Testing for a controller name. Do not `strstr` a controller list |
 | `get_workspace_dir`, `get_pids_dir`, `get_net_dir`, `get_logs_dir` | The only sanctioned way to build a workspace path. They switch between the Android and Linux roots |
 | `ensure_workspace` | Creating the tree |
 | `is_container_running`, `find_container_by_name`, `find_container_init_pid`, `is_container_init` | Container lookup |

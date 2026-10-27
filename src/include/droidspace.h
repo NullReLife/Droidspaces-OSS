@@ -57,6 +57,9 @@
 #ifndef TMPFS_MAGIC
 #define TMPFS_MAGIC 0x01021994
 #endif
+#ifndef CGROUP2_SUPER_MAGIC
+#define CGROUP2_SUPER_MAGIC 0x63677270
+#endif
 #ifndef BINDERFS_SUPER_MAGIC
 #define BINDERFS_SUPER_MAGIC 0x6c6f6f70
 #endif
@@ -83,12 +86,9 @@
 #define DS_AUTHOR "ravindu644"
 #define DS_REPO "https://github.com/ravindu644/Droidspaces-OSS"
 #define DS_UUID_LEN 32
-#define DS_MAX_CONTAINERS 1024
-#define DS_STOP_TIMEOUT 15 /* seconds */
-#define DS_PID_SCAN_RETRIES 20
-#define DS_PID_SCAN_DELAY_US 200000 /* 200ms */
-#define DS_RETRY_DELAY_US 200000    /* 200ms */
-#define DS_REBOOT_EXIT 249          /* exit code: in-container reboot */
+#define DS_STOP_TIMEOUT 15       /* seconds */
+#define DS_RETRY_DELAY_US 200000 /* 200ms */
+#define DS_REBOOT_EXIT 249       /* exit code: in-container reboot */
 
 /* Workspace paths */
 #define DS_WORKSPACE_ANDROID "/data/local/Droidspaces"
@@ -96,7 +96,6 @@
 #define DS_CONTAINERS_DIR "Containers"
 #define DS_PIDS_SUBDIR "Pids"
 #define DS_IMG_MOUNT_ROOT_UNIVERSAL "/mnt/Droidspaces"
-#define DS_MAX_MOUNT_TRIES 1024
 #define DS_BIND_INITIAL_CAP 4
 #define DS_DEFAULT_INIT "/sbin/init"
 #define DS_VOLATILE_SUBDIR "Volatile"
@@ -104,10 +103,6 @@
 #define DS_NET_SUBDIR "Net"
 #define DS_ANDROID_TMPFS_CONTEXT "u:object_r:tmpfs:s0"
 #define DS_ANDROID_VOLD_CONTEXT "u:object_r:vold_data_file:s0"
-#define DS_MAX_GPU_GROUPS 32
-
-/* Device nodes to create in container /dev (when using tmpfs) */
-#define DS_CONTAINER_MARKER "droidspaces"
 
 /* Default DNS servers */
 #define DS_DNS_DEFAULT_1 "1.1.1.1"
@@ -118,10 +113,7 @@
 
 /* Common Paths & Patterns */
 #define DS_PROC_ROOT_FMT "/proc/%d/root"
-#define DS_PROC_CMDLINE_FMT "/proc/%d/cmdline"
 #define DS_PROC_STATUS_FMT "/proc/%d/status"
-#define DS_PROC_MOUNTINFO "/proc/self/mountinfo"
-#define DS_OS_RELEASE "/etc/os-release"
 #define DS_FW_PATH_FILE "/sys/module/firmware_class/parameters/path"
 #define DS_SYSTEMD_CONTAINER_MARKER "/run/systemd/container"
 #define DS_DROIDSPACES_MARKER "/run/droidspaces"
@@ -165,8 +157,6 @@
 
 /* File Extensions */
 #define DS_EXT_PID ".pid"
-#define DS_EXT_XPID ".xpid"
-#define DS_EXT_VPID ".vpid"
 #define DS_EXT_LOCK ".lock"
 
 /* Signals */
@@ -224,15 +214,9 @@ struct ds_net_handshake {
 
 /* NAT networking constants */
 
-#ifndef DS_NAT_BRIDGE
 #define DS_NAT_BRIDGE "ds-br0"
-#endif
-#ifndef DS_NAT_GW_IP
 #define DS_NAT_GW_IP "172.28.0.1"
-#endif
-#ifndef DS_NAT_PREFIX
 #define DS_NAT_PREFIX 16
-#endif
 
 /* NAT66. One ULA /48 for everything we masquerade. RFC 4193 wants the global
  * ID random; ours is fixed (64:73:70 is "dsp") for the same reason the IPv4
@@ -284,21 +268,13 @@ struct ds_net_handshake {
  * DS_RULE_PRIO_FROM_SUBNET - "from 172.28.0.0/16 lookup <gw_table>"
  *   Routes container-originated traffic through the active uplink table.
  */
-#ifndef DS_RULE_PRIO_TO_SUBNET
 #define DS_RULE_PRIO_TO_SUBNET 6090
-#endif
-#ifndef DS_RULE_PRIO_TETHER
 #define DS_RULE_PRIO_TETHER 6095
-#endif
-#ifndef DS_RULE_PRIO_FROM_SUBNET
 #define DS_RULE_PRIO_FROM_SUBNET 6100
-#endif
 
 /* netd's fixed local_network routing table
  * (RouteController::ROUTE_TABLE_LOCAL_NETWORK, constant since Android 5.x). */
-#ifndef DS_ANDROID_TABLE_LOCAL_NETWORK
 #define DS_ANDROID_TABLE_LOCAL_NETWORK 97
-#endif
 
 /* Bind mount entry */
 struct ds_bind_mount {
@@ -361,7 +337,7 @@ struct ds_config {
   /* Paths */
   char rootfs_path[PATH_MAX];        /* --rootfs=  */
   char rootfs_img_path[PATH_MAX];    /* --rootfs-img= */
-  char pidfile[PATH_MAX];            /* --pidfile= or auto-resolved */
+  char pidfile[PATH_MAX];            /* Pids/<name>.pid */
   char container_name[256];          /* --name= (mandatory) */
   char hostname[256];                /* --hostname= or container_name */
   char dns_servers[1024];            /* --dns= (comma/space separated) */
@@ -406,7 +382,6 @@ struct ds_config {
   /* Runtime state */
   char volatile_dir[PATH_MAX]; /* temporary overlay dir */
   pid_t container_pid;         /* PID 1 of the container (host view) */
-  pid_t intermediate_pid;      /* intermediate fork pid */
   pid_t x11_pid;               /* PID of the Termux-X11 server process */
   pid_t virgl_pid;             /* PID of the VirGL server process */
   pid_t pulse_pid;             /* PID of the PulseAudio daemon process */
@@ -491,6 +466,8 @@ char *ds_resolve_path_arg(const char *path);
 void ds_resolve_argv_paths(int argc, char **argv);
 long ds_clk_tck(void);
 long ds_get_container_uptime(pid_t pid);
+/* Field 22 of /proc/<pid>/stat in clock ticks since boot, 0 if unreadable. */
+unsigned long long proc_starttime(pid_t pid);
 void ds_format_uptime(long uptime_sec, char *buf, size_t size);
 
 /* status.c */
@@ -524,7 +501,6 @@ void ds_json_int(const char *key, long long val, int *first);
 void ds_json_status(const struct ds_status *st, int *first);
 int is_ramfs(const char *path);
 int is_subpath(const char *parent, const char *child);
-int is_running_in_termux(void);
 int write_file(const char *path, const char *content);
 int read_file(const char *path, char *buf, size_t size);
 int write_file_atomic(const char *path, const char *content);
@@ -535,8 +511,6 @@ int mkdir_p(const char *path, mode_t mode);
 int remove_recursive(const char *path);
 int collect_pids(pid_t **pids_out, size_t *count_out);
 int build_proc_root_path(pid_t pid, const char *suffix, char *buf, size_t size);
-int parse_os_release(const char *rootfs_path, char *id_out, char *ver_out,
-                     size_t out_size);
 int grep_file(const char *path, const char *pattern);
 int read_and_validate_pid(const char *pidfile, pid_t *pid_out);
 void firmware_path_add(const char *fw_path);
@@ -575,7 +549,6 @@ void cleanup_container_resources(struct ds_config *cfg, pid_t pid,
                                  int skip_unmount, int force_cleanup);
 void ds_open_container_log(struct ds_config *cfg);
 void ds_close_container_log(void);
-int copy_file(const char *src, const char *dst);
 void sort_bind_mounts(struct ds_config *cfg);
 void sanitize_container_name(const char *name, char *out, size_t size);
 int validate_container_name(const char *name);
@@ -631,7 +604,6 @@ int ds_config_load(const char *config_path, struct ds_config *cfg);
 int ds_config_load_by_name(const char *name, struct ds_config *cfg);
 int ds_config_save(const char *config_path, struct ds_config *cfg);
 int ds_config_save_by_name(const char *name, struct ds_config *cfg);
-int ds_config_validate(struct ds_config *cfg);
 /* --net / net_mode= value to its mode, -1 if unknown. */
 int ds_parse_net_mode(const char *s);
 /* --macvlan-mode / macvlan_mode= value to MACVLAN_MODE_*, 0 if unknown. */
@@ -683,8 +655,6 @@ int ds_resolve_termux_uid(void);
 
 int domount(const char *src, const char *tgt, const char *fstype,
             unsigned long flags, const char *data);
-int domount_silent(const char *src, const char *tgt, const char *fstype,
-                   unsigned long flags, const char *data);
 int bind_mount(const char *src, const char *tgt);
 int ds_stage_dev_node(const char *staging, const char *dev_dir, const char *rel,
                       mode_t mode, dev_t dev, gid_t gid);
@@ -704,8 +674,6 @@ int ds_img_mount_point(const char *name, char *buf, size_t size);
 
 /* cgroup.c */
 
-int ds_cgroup_v2_usable(void);
-int ds_cgroup_kernel_supports_v2(void);
 int ds_cgroup_host_is_v2(void);
 int ds_cgroup_has_controller(const char *name);
 int setup_cgroups(int is_systemd, int force_cgroupv1);
@@ -731,13 +699,14 @@ int ds_cgroup_get_usage(const char *container_name, long long *mem,
                         long long *pids);
 long long ds_parse_size(const char *str);
 void ds_format_size(long long bytes, char *buf, size_t sz);
-/* Word-boundary controller name check (used by container.c for subtree_control
- * building; wraps the static ctrl_in_list in cgroup.c). */
-int ds_cg_word_in_list(const char *list, const char *name);
 
-/* virtualize.c */
+/* virtualize.c: the LXCFS-style views of /proc and /sys/devices/system/cpu */
 
+/* Inside the container before init execs: bind-mounts the virtual files the
+ * active limits need, no-op without limits. */
 int ds_virtualize_init(struct ds_config *cfg);
+/* From the monitor every 500 ms: rewrites the dynamic files in place so the
+ * bind-mounted inodes survive. */
 void ds_virtualize_update(struct ds_config *cfg);
 void ds_virtualize_join(pid_t init_pid);
 unsigned long ds_get_pid_ns_inode(pid_t pid);
@@ -953,17 +922,13 @@ const char *get_pids_dir(void);
 const char *get_net_dir(void);
 const char *get_logs_dir(void);
 int ensure_workspace(void);
-int generate_container_name(const char *rootfs_path, char *name, size_t size);
-int find_available_name(const char *base_name, char *final_name, size_t size);
 int resolve_pidfile_from_name(const char *name, char *pidfile, size_t size);
-int auto_resolve_pidfile(struct ds_config *cfg);
 int is_container_running(struct ds_config *cfg, pid_t *pid_out);
 int is_container_init(pid_t pid);
 int ds_metadata_sync(pid_t pid);
 int count_running_containers(char *first_name, size_t size);
 pid_t find_container_init_pid(const char *uuid);
 pid_t find_container_by_name(const char *name);
-int sync_pidfile(const char *src_pidfile, const char *name);
 int show_containers(struct ds_config *cfg);
 int scan_containers(void);
 int check_selinux_permissive_needs(void);
@@ -1016,7 +981,6 @@ void print_documentation(const char *argv0);
 
 /* check.c */
 
-int check_requirements(void);
 int check_requirements_hw(int hw_access);
 int check_requirements_detailed(int json_output);
 

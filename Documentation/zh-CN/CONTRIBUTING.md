@@ -495,7 +495,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `write_file_atomic(path, content)` | 任何需要持久化的写入。`mkstemp` 加 `fsync` 加 `rename`，这样预先埋在可预测临时名上的软链接无法得逞 |
 | `write_file`、`read_file`、`write_all` | 一次性写入、读入缓冲区、EINTR 安全的完整写入。绝不要自己循环调 `write()` |
 | `grep_file(path, pattern)` | 文件内子串查找 |
-| `mkdir_p`、`remove_recursive`、`copy_file` | 等价于 `mkdir -p`、`rm -rf` 和流式复制 |
+| `mkdir_p`、`remove_recursive` | 等价于 `mkdir -p` 和 `rm -rf` |
 | `is_subpath(parent, child)` | 路径逃逸校验。基于 realpath，用它而不是 `strncmp` |
 | `is_ramfs`、`is_mountpoint` | 文件系统类型与挂载点判断 |
 | `build_proc_root_path(pid, suffix, buf, size)` | 构造 `/proc/<pid>/root/...` 并检查截断 |
@@ -530,10 +530,9 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | 符号 | 何时使用 |
 | --- | --- |
 | `is_android()` | 每个 Android 专用或 Linux 专用路径的强制守卫，两个方向都要 |
-| `is_running_in_termux()` | Termux 环境 |
 | `get_kernel_version`、`check_kernel_recommendation` | 基于 `DS_MIN_KERNEL_MAJOR` 与 `DS_MIN_KERNEL_MINOR` 的版本判定 |
 | `check_ns(flag, name)` | 探测某个 `CLONE_NEW*` 命名空间是否可用。网络命名空间只看 `/proc/self/ns/net` 是否存在：为了探测而创建一个，会让随后真正的 `unshare` 在 4.17 之前的内核上等它拆完 |
-| `ds_cgroup_v2_usable`、`ds_cgroup_kernel_supports_v2`、`ds_cgroup_host_is_v2` | cgroup 版本判定 |
+| `ds_cgroup_host_is_v2` | cgroup 版本判定 |
 | `ds_nl_probe_nat_capability(reason, size)` | 内核网桥、veth 与 NAT 能力探测，不 fork。任何 NAT 配置前先跑它。完整通过的结果按 boot_id 记在 `Net/nat_caps` 里，本次开机内不再重探；任何不完整的结果都会重探 |
 | `ds_get_selinux_status()`、`is_systemd_rootfs(path)` | SELinux 模式，以及 rootfs 类型 |
 
@@ -546,7 +545,6 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | --- | --- |
 | `ds_config_load` / `ds_config_load_by_name` | 加载配置。优先用按名字的版本，不要自己拼路径 |
 | `ds_config_save` / `ds_config_save_by_name` | 保存 |
-| `ds_config_validate` | 在使用已加载的配置之前 |
 | `ds_config_add_bind(cfg, src, dest, ro)` | 添加挂载点的唯一方式。会自动扩容、去重和校验 |
 | `ds_config_free` | 释放。它会调用三个按列表的释放函数 |
 | `sort_bind_mounts(cfg)` | 应用挂载前调用，保证父目录先于子目录挂载 |
@@ -561,7 +559,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 
 | 符号 | 何时使用 |
 | --- | --- |
-| `domount`、`domount_silent`、`bind_mount` | 挂载。用它们代替裸的 `mount(2)` |
+| `domount`、`bind_mount` | 挂载。用它们代替裸的 `mount(2)` |
 | `ds_apply_jail_mask(hw_access, privileged_mask)` | 遮蔽 `/proc` 和 `/sys` 条目 |
 | `setup_dev`、`create_devices`、`setup_devpts` | 设备节点配置 |
 | `setup_custom_binds(cfg, rootfs)` | 应用 `cfg->binds` |
@@ -572,7 +570,6 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `ds_cgroup_ctrl_dir(ctrl, name, dir, size)` | 找到容器某个控制器的文件所在位置：它的 cgroup v2 目录，或拥有该控制器的 v1 层级，无论挂载在哪里。返回版本号。绝不要为控制器文件写死 `/sys/fs/cgroup/...` 或 `/dev/memcg` |
 | `ds_cgroup_apply_limits`、`ds_cgroup_get_limits`、`ds_cgroup_get_usage`、`print_cgroup_status` | 设置限制、读回当前生效的限制，以及用量。报告限制时以 `ds_cgroup_get_limits` 为准，而不是配置，配置只说明请求了什么 |
 | `ds_cgroup_v1_setup`、`ds_cgroup_v1_join` | 在 unshare 命名空间之前，为 v1 容器在每个 v1 层级中建立它自己的 cgroup，以及把监视器移入或移出这些 cgroup |
-| `ds_cg_word_in_list(list, name)` | 判断控制器名是否在列表中。不要对控制器列表用 `strstr` |
 | `get_workspace_dir`、`get_pids_dir`、`get_net_dir`、`get_logs_dir` | 构造工作目录路径的唯一认可方式。它们会在 Android 与 Linux 根目录之间切换 |
 | `ensure_workspace` | 创建目录树 |
 | `is_container_running`、`find_container_by_name`、`find_container_init_pid`、`is_container_init` | 容器查找 |

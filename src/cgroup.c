@@ -13,21 +13,6 @@
  * 2. If Cgroup Namespace is active (Linux 4.6+), mount hierarchies directly.
  * 3. Otherwise (Legacy), bind-mount the container's subset from the host.
  */
-#ifndef CGROUP2_SUPER_MAGIC
-#define CGROUP2_SUPER_MAGIC 0x63677270
-#endif
-
-/* Returns 1 if the kernel's cgroupv2 controllers are sufficiently complete
- * for systemd. The cpu/io/memory v2 controllers only became usable in 5.2.
- * On kernels like Android 4.14, cgroup2 mounts SUCCEED but the controllers
- * are absent - systemd probes them and falls apart. */
-int ds_cgroup_v2_usable(void) {
-  int major = 0, minor = 0;
-  if (get_kernel_version(&major, &minor) != 0)
-    return 0; /* unknown kernel - assume unusable, safe default */
-  return (major > 5 || (major == 5 && minor >= 2));
-}
-
 static int ctrl_in_list(const char *list, const char *name);
 static int ctrl_supported_v2(const char *cg_path, const char *name);
 
@@ -103,11 +88,6 @@ static int find_host_cgroup_mount(const char *ctrl, char *buf, size_t size) {
 /* Scans mountinfo to find any cgroup2 mount - covers /dev/cg2_bpf (Android)
  * and /sys/fs/cgroup placed by ds_cgroup_host_bootstrap(). */
 int ds_cgroup_host_is_v2(void) { return find_host_cgroup_mount(NULL, NULL, 0); }
-
-/* Returns 1 if the kernel supports cgroup2 (check /proc/filesystems). */
-int ds_cgroup_kernel_supports_v2(void) {
-  return (grep_file("/proc/filesystems", "cgroup2") > 0);
-}
 
 /* Mount cgroup2 on /sys/fs/cgroup if the host hasn't done so.
  * Android recovery kernels support cgroup2 but only mount it at /dev/cg2_bpf;
@@ -665,18 +645,10 @@ void ds_cgroup_cleanup_container(const char *container_name) {
     rmdir_cgroup_tree(dir);
 }
 
-static int ds_host_supports_v2_cached = -1;
-
 void print_cgroup_status(struct ds_config *cfg) {
-  if (cfg->force_cgroupv1) {
+  if (cfg->force_cgroupv1)
     ds_warn("Using legacy Cgroup V1 hierarchy (forced by --force-cgroupv1)");
-    return;
-  }
-
-  if (ds_host_supports_v2_cached == -1)
-    ds_host_supports_v2_cached = ds_cgroup_kernel_supports_v2();
-
-  if (!ds_host_supports_v2_cached)
+  else if (grep_file("/proc/filesystems", "cgroup2") <= 0)
     ds_warn("Host does not support Cgroup V2 (falling back to legacy V1)");
 }
 
@@ -694,11 +666,6 @@ static int ctrl_in_list(const char *list, const char *name) {
       p++;
   }
   return 0;
-}
-
-/* Public wrapper for cross-TU use (e.g. container.c). */
-int ds_cg_word_in_list(const char *list, const char *name) {
-  return ctrl_in_list(list, name);
 }
 
 /* Check controller availability before touching any cgroup files. */

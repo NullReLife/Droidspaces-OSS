@@ -159,10 +159,6 @@ static int check_kernel_version_supported(void) {
   return 1;
 }
 
-/* Minimal check for 'start' (used internaly) */
-
-int check_requirements(void) { return check_requirements_hw(0); }
-
 int check_requirements_hw(int hw_access) {
   int missing = 0;
 

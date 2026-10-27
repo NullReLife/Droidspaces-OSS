@@ -16,10 +16,6 @@
 #include "droidspace.h"
 #include <dirent.h>
 
-#ifndef TMPFS_MAGIC
-#define TMPFS_MAGIC 0x01021994
-#endif
-
 /*
  * Unified GPU group bridge.
  *

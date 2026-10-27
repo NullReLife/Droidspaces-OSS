@@ -360,13 +360,6 @@ int is_subpath(const char *parent, const char *child) {
   return result;
 }
 
-int is_running_in_termux(void) {
-  if (getenv("TERMUX_VERSION") || getenv("TERMUX_APP__PACKAGE_NAME") ||
-      getenv("TERMUX__PREFIX") || getenv("TERMUX_APP__APP_VERSION_CODE"))
-    return 1;
-  return 0;
-}
-
 int mkdir_p(const char *path, mode_t mode) {
   char tmp[PATH_MAX];
   char *p = NULL;
@@ -611,58 +604,6 @@ int build_proc_root_path(pid_t pid, const char *suffix, char *buf,
   else
     r = snprintf(buf, size, DS_PROC_ROOT_FMT, pid);
   return (r > 0 && (size_t)r < size) ? 0 : -1;
-}
-
-int parse_os_release(const char *rootfs_path, char *id_out, char *ver_out,
-                     size_t out_size) {
-  char path[PATH_MAX];
-  snprintf(path, sizeof(path), "%.4000s" DS_OS_RELEASE, rootfs_path);
-
-  char buf[4096];
-  if (read_file(path, buf, sizeof(buf)) < 0)
-    return -1;
-
-  /* Default values */
-  safe_strncpy(id_out, "linux", out_size);
-  if (ver_out)
-    ver_out[0] = '\0';
-
-  /* Parse ID */
-  char *p = strstr(buf, "\nID=");
-  if (!p && strncmp(buf, "ID=", 3) == 0)
-    p = buf;
-
-  if (p) {
-    if (*p == '\n')
-      p++;
-    p += 3;
-    if (*p == '"')
-      p++;
-    int i = 0;
-    while (p[i] && p[i] != '"' && p[i] != '\n' && (size_t)i < out_size - 1) {
-      id_out[i] = p[i];
-      i++;
-    }
-    id_out[i] = '\0';
-  }
-
-  /* Parse VERSION_ID */
-  if (ver_out) {
-    p = strstr(buf, "VERSION_ID=");
-    if (p) {
-      p += 11;
-      if (*p == '"')
-        p++;
-      int i = 0;
-      while (p[i] && p[i] != '"' && p[i] != '\n' && (size_t)i < out_size - 1) {
-        ver_out[i] = p[i];
-        i++;
-      }
-      ver_out[i] = '\0';
-    }
-  }
-
-  return 0;
 }
 
 /* Grep file for a pattern (simple substring search) */
@@ -1478,28 +1419,6 @@ int set_selinux_context(const char *path, const char *context) {
   return 0;
 }
 
-int copy_file(const char *src, const char *dst) {
-  FILE *in = fopen(src, "re");
-  if (!in)
-    return -1;
-  FILE *out = fopen(dst, "we");
-  if (!out) {
-    fclose(in);
-    return -1;
-  }
-  char buf[4096];
-  size_t n;
-  while ((n = fread(buf, 1, sizeof(buf), in)) > 0)
-    if (fwrite(buf, 1, n, out) != n) {
-      fclose(in);
-      fclose(out);
-      return -1;
-    }
-  fclose(in);
-  fclose(out);
-  return 0;
-}
-
 /* USER_HZ as the kernel announces it in the auxv. musl hardcodes
  * sysconf(_SC_CLK_TCK) to 100 and never looks, and a vendor kernel built
  * with USER_HZ=250 then puts every /proc tick count off by 2.5x. */
@@ -1511,7 +1430,7 @@ long ds_clk_tck(void) {
 /* Field 22 of /proc/<pid>/stat, in clock ticks since boot, or 0. Counted
  * from the last ')' because comm may hold spaces: the Termux:X11 server's is
  * "termux-x11 com.", which threw a plain whitespace split off by one. */
-static unsigned long long proc_starttime(pid_t pid) {
+unsigned long long proc_starttime(pid_t pid) {
   char path[64], buf[1024];
   snprintf(path, sizeof(path), "/proc/%d/stat", (int)pid);
   if (read_file(path, buf, sizeof(buf)) < 0)
@@ -1522,32 +1441,17 @@ static unsigned long long proc_starttime(pid_t pid) {
   return p ? strtoull(p + 1, NULL, 10) : 0;
 }
 
-/* Seconds since container init started: its starttime subtracted from
- * /proc/uptime. */
+/* Seconds since the container's init started, or -1. Its start is in ticks
+ * since boot, the CLOCK_BOOTTIME reference. */
 long ds_get_container_uptime(pid_t pid) {
-  if (pid <= 0)
-    return -1;
-
-  long clk_tck = ds_clk_tck();
-  if (clk_tck <= 0)
-    clk_tck = 100;
-
-  unsigned long long start_ticks = proc_starttime(pid);
+  unsigned long long start_ticks = pid > 0 ? proc_starttime(pid) : 0;
   if (start_ticks == 0)
     return -1;
-
-  FILE *f = fopen("/proc/uptime", "r");
-  if (!f)
-    return -1;
-
-  double host_uptime_sec = 0.0;
-  if (fscanf(f, "%lf", &host_uptime_sec) != 1)
-    host_uptime_sec = 0.0;
-  fclose(f);
-
-  long uptime_sec =
-      (long)(host_uptime_sec - (double)start_ticks / (double)clk_tck);
-  return (uptime_sec < 0) ? 0 : uptime_sec;
+  struct timespec now;
+  clock_gettime(CLOCK_BOOTTIME, &now);
+  double up = (double)now.tv_sec + (double)now.tv_nsec / 1e9 -
+              (double)start_ticks / (double)ds_clk_tck();
+  return up < 0 ? 0 : (long)up;
 }
 
 void ds_format_uptime(long uptime_sec, char *buf, size_t size) {

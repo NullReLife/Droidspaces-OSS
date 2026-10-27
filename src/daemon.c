@@ -138,7 +138,6 @@ static void daemon_log_tee(const char *prefix, const char *fmt, ...) {
  * without restarting the daemon.
  */
 static char g_self_path[PATH_MAX];
-static volatile sig_atomic_t g_sigusr2_received = 0;
 
 /* wire protocol helpers */
 
@@ -898,10 +897,11 @@ static void daemonize(int foreground) {
   ds_oom_protect();
 }
 
-static void sigusr2_handler(int sig) {
-  (void)sig;
-  g_sigusr2_received = 1;
-}
+/* The app sends SIGUSR2 after a live binary swap. New sessions pick the new
+ * binary up on their own, so the signal only must not kill the daemon. Not
+ * SIG_IGN: that survives execve and would reach every command the daemon
+ * runs on a client's behalf. */
+static void sigusr2_handler(int sig) { (void)sig; }
 
 /*
  * ds_selinux_transition - re-exec into the droidspacesd SELinux domain.
@@ -1033,7 +1033,6 @@ int ds_daemon_run(int foreground, char **argv) {
       g_self_path[0] = '\0'; /* reexec() will fall back gracefully */
   }
 
-  /* SIGUSR2: app sends this after a live binary swap as an acknowledgment */
   signal(SIGUSR2, sigusr2_handler);
 
   /* Write PID file so the Android app can signal us.  The daemon runs with
@@ -1092,13 +1091,6 @@ int ds_daemon_run(int foreground, char **argv) {
   for (;;) {
     /* Rotate log if it exceeds 4MB */
     rotate_daemon_log_if_needed();
-
-    /* Acknowledge a live binary swap signalled by the Android app. */
-    if (g_sigusr2_received) {
-      g_sigusr2_received = 0;
-      ds_log("Binary updated on disk (SIGUSR2). New sessions will use updated "
-             "binary automatically.");
-    }
 
     int conn = accept4(srv, NULL, NULL, SOCK_CLOEXEC);
     if (conn < 0) {

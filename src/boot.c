@@ -656,9 +656,6 @@ int internal_boot(struct ds_config *cfg) {
    *   cgroup2fs  → unified (v2 only)  → unified_cgroup_hierarchy=1
    *   tmpfs      → legacy / hybrid    → unified_cgroup_hierarchy=0
    * This is exactly what LXC does via lxc.init.cmd. */
-#ifndef CGROUP2_SUPER_MAGIC
-#define CGROUP2_SUPER_MAGIC 0x63677270
-#endif
   if (is_systemd && !cfg->custom_init[0]) {
     struct statfs _cgsfs;
     if (statfs("/sys/fs/cgroup", &_cgsfs) == 0) {
