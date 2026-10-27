@@ -191,9 +191,10 @@ jobs:
         API_HASH: ${{ secrets.API_HASH }}
         BOT_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
 
-    # Every commit since the previous tag. On a tag push HEAD is the tag, so
-    # the previous one is found from its parent; a manual run for a tag not
-    # made yet ends at HEAD
+    # Every commit since the previous tag, pull requests included, so GitHub's
+    # own notes, which list only pull requests, are not wanted on top. On a tag
+    # push HEAD is the tag, so the previous one is found from its parent; a
+    # manual run for a tag not made yet ends at HEAD
     - name: Generate Changelog
       if: env.TAG != ''
       run: |
@@ -205,6 +206,9 @@ jobs:
           echo "## What's Changed"
           git log --no-merges --pretty=format:"* %s (%h)" ${PREV:+${PREV}..}${END}
           echo
+          echo
+          echo "---"
+          echo "**Automated Release by Droidspaces CI**"
         } > dist/CHANGELOG.md
 
     - name: Publish GitHub Release
@@ -220,7 +224,6 @@ jobs:
           dist/*.deb
           dist/SHA256SUMS
         body_path: dist/CHANGELOG.md
-        generate_release_notes: true
         draft: false
         prerelease: false
 
