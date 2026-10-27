@@ -76,8 +76,6 @@ class Limits(DsTest):
         self.assertIsNotNone(c.pid())
         self.assertEqual(c.info()["force_cgroup_v1"], 1)
 
-    @unittest.expectedFailure
     def test_info_json_is_pure_json_with_limits_set(self):
-        # info --json appends a human "Resources:" block after the JSON when any limit is set (container.c).
         c = self.container("json-limits", "--memory=64M")
         json.loads(ds("--json", "-n", c.name, "info", check=True).stdout)

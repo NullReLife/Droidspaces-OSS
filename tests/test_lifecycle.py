@@ -140,10 +140,8 @@ class Run(DsTest):
     def test_environment_defaults(self):
         self.assertEqual(self.c.sh("echo $container; echo $HOME; pwd"), "droidspaces\n/root\n/")
 
-    @unittest.expectedFailure
     def test_command_arguments_are_opaque(self):
-        # "Anything after run belongs to the command." The daemon currently refuses the words
-        # `daemon` and `client` anywhere in argv ("recursive call refused"), so this echo fails.
+        # "Anything after run belongs to the command", the daemon's recursion guard included.
         self.assertEqual(self.c.run("echo", "daemon", "client").stdout.strip(), "daemon client")
 
     def test_missing_command(self):

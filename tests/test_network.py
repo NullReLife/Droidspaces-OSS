@@ -82,10 +82,7 @@ class Nat(DsTest):
         self.assertEqual(c.info()["disable_ipv6"], 1)
         self.assertEqual(c.saved_config()["disable_ipv6"], "1")
 
-    @unittest.expectedFailure
     def test_disable_ipv6_short_flag(self):
-        # -I is advertised by help and mapped in long_options, but missing from the getopt optstring
-        # (main.c), so getopt rejects it and the parser drops it on the floor.
         c = self.container("noipv6-short", "-I")
         self.assertEqual(c.sh("cat /proc/sys/net/ipv6/conf/all/disable_ipv6"), "1")
 

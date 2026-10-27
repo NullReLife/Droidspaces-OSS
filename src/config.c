@@ -117,12 +117,14 @@ static const struct {
     {DS_PRIV_FULL, "full"},
 };
 
-void parse_privileged(const char *value, struct ds_config *cfg) {
-  if (!value)
-    return;
-
-  /* Reset first so removing flags from config takes effect on reload */
+/* 0, or -1 with the mask left empty when a tag is not one of ours: a typo in
+ * the flag that removes security barriers must not start the container with
+ * whatever its other tags grant. */
+int parse_privileged(const char *value, struct ds_config *cfg) {
+  const size_t n = sizeof(priv_bits) / sizeof(priv_bits[0]);
   cfg->privileged_mask = 0;
+  if (!value)
+    return 0;
 
   char copy[1024];
   safe_strncpy(copy, value, sizeof(copy));
@@ -131,10 +133,20 @@ void parse_privileged(const char *value, struct ds_config *cfg) {
   for (char *tok = strtok_r(copy, ",", &saveptr); tok;
        tok = strtok_r(NULL, ",", &saveptr)) {
     const char *t = trim_whitespace(tok);
-    for (size_t i = 0; i < sizeof(priv_bits) / sizeof(priv_bits[0]); i++)
-      if (strcasecmp(t, priv_bits[i].name) == 0)
-        cfg->privileged_mask |= priv_bits[i].bit;
+    size_t i = 0;
+    while (i < n && strcasecmp(t, priv_bits[i].name) != 0)
+      i++;
+    if (i == n) {
+      ds_error(
+          "Unknown privileged tag '%s' (nomask, nocaps, noseccomp, shared, "
+          "full)",
+          t);
+      cfg->privileged_mask = 0;
+      return -1;
+    }
+    cfg->privileged_mask |= priv_bits[i].bit;
   }
+  return 0;
 }
 
 /* "full", or the set tags joined by sep, into buf. */
@@ -503,7 +515,12 @@ int ds_config_load(const char *config_path, struct ds_config *cfg) {
       else
         ds_warn("config: ignoring invalid pids_limit '%s'", val);
     } else if (strcmp(key, "privileged") == 0) {
-      parse_privileged(val, cfg);
+      if (parse_privileged(val, cfg) < 0) {
+        /* Kept as an unknown line so the next save does not erase the
+         * evidence; privileged stays off until it is fixed. */
+        ds_warn("config: privileged mode off until the tag is fixed");
+        add_unknown_line(cfg, line);
+      }
     } else if (strcmp(key, "custom_init") == 0) {
       if (val[0] != '/')
         ds_warn("config: ignoring non-absolute custom_init path '%s'", val);

@@ -112,7 +112,6 @@ class Privileged(DsTest):
         self.assertEqual((d["CapBnd"], d["Seccomp"]), (cap_mask(), "0"))
         self.assertIn(" /proc/sysrq-trigger ", c.mountinfo())
 
-    @unittest.expectedFailure
     def test_unknown_tag_is_refused(self):
         # The documented tags are nomask, nocaps, noseccomp, shared and full. A typo in a flag that
         # removes security barriers must fail closed, not start the container with a silent no-op.

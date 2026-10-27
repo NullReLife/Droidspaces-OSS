@@ -84,18 +84,15 @@ class AndroidOnlyFlags(DsTest):
         for key in ("enable_virgl", "enable_pulseaudio", "enable_anland", "tx11_extra_flags"):
             self.assertNotIn(key, saved, f"{key} must not be saved on Linux")
 
-    @unittest.expectedFailure
     def test_android_storage_short_flag(self):
-        # -S is advertised by help and mapped in long_options but missing from the getopt optstring (main.c).
         c = self.container("android-short", start=False)
         p = c.start("-S")
         self.assertIn("only supported on Android hosts", p.stdout + p.stderr)
 
 
 class DeviceNodes(DsTest):
-    @unittest.expectedFailure
     def test_dev_null_is_writable_by_everyone(self):
-        # Without -H the tmpfs /dev nodes come out 0620, so a non-root user cannot even write to /dev/null.
+        # getty chmods its tty to 0620; when ttyN was a symlink that landed on /dev/null itself.
         c = self.container("devnull")
         self.assertEqual(c.sh("echo x > /dev/null && echo ok", user="tester"), "ok")
 

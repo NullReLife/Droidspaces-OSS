@@ -294,6 +294,10 @@ static void enforce_nat_safety(struct ds_config *cfg) {
          cfg->net_bridgeless ? " (FALLBACK: No BRIDGE)" : "");
 }
 
+/* Every short flag. A letter missing here is rejected as an unknown option
+ * even though long_options maps it, so keep the two in sync. */
+#define DS_OPTSTRING "r:i:n:h:d:fHXPISvVB:C:E:u:"
+
 static struct option long_options[] = {
     {"rootfs", required_argument, 0, 'r'},
     {"rootfs-img", required_argument, 0, 'i'},
@@ -347,6 +351,21 @@ static struct option long_options[] = {
     {"help", no_argument, 0, 'v'},
     {0, 0, 0, 0}};
 
+/* The command word in argv: the first argument that is neither an option nor
+ * the value one takes, found with the real option table so a flag without a
+ * value cannot hide it. NULL when there is none. Resets getopt. */
+const char *ds_command_word(int argc, char **argv) {
+  const char *cmd = NULL;
+  int opt;
+  optind = 0;
+  while (!cmd && (opt = getopt_long(argc, argv, "-" DS_OPTSTRING, long_options,
+                                    NULL)) != -1)
+    if (opt == 1)
+      cmd = optarg;
+  optind = 0;
+  return cmd;
+}
+
 /* The CLI override pass: apply every flag in argv on top of whatever cfg
  * already holds (defaults or a disk load). main runs it as pass 3 of its
  * three-pass scheme, and restart runs it a SECOND time over the same argv
@@ -358,8 +377,7 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
   int opt;
 
   /* Strict mode for 'run' prevents stealing arguments from the sub-command. */
-  const char *optstring =
-      strict ? "+r:i:n:h:d:fHXPvVB:C:E:u:" : "r:i:n:h:d:fHXPvVB:C:E:u:";
+  const char *optstring = strict ? "+" DS_OPTSTRING : DS_OPTSTRING;
 
   /* --reset must wipe the config BEFORE the other flags land on top, but
    * getopt hands us options in argv order. Scan for it first so
@@ -522,7 +540,8 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
       break;
     }
     case 264:
-      parse_privileged(optarg, cfg);
+      if (parse_privileged(optarg, cfg) < 0)
+        return -1;
       break;
 
     case 258: {
@@ -674,8 +693,19 @@ int main(int argc, char **argv) {
 
   /* 1. Discovery Pass: Capture identity and command without permuting argv.
    * Using '-' at the start of optstring returns non-options as '1'. */
-  while ((opt = getopt_long(argc, argv, "-r:i:n:h:d:fHXPvVB:C:E:u:",
-                            long_options, NULL)) != -1) {
+  while ((opt = getopt_long(argc, argv, "-" DS_OPTSTRING, long_options,
+                            NULL)) != -1) {
+    if (opt == '?') {
+      /* opterr is 0, so this is the only word the user gets. optopt names a
+       * bad short letter; for a long option it is 0 and optind has moved
+       * past the word. */
+      if (optopt)
+        ds_error("Unknown or incomplete option: -%c", optopt);
+      else
+        ds_error("Unknown or incomplete option: %s", argv[optind - 1]);
+      ret = 1;
+      goto cleanup;
+    }
     if (opt == 1) { /* Non-option argument */
       if (!discovered_cmd) {
         discovered_cmd = optarg;

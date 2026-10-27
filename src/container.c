@@ -2053,49 +2053,48 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     if (feat_count == 0) {
       printf("  None\n");
     }
-  }
 
-  /* Resource limits in force. Live usage only for the info command: right
-   * after a start or restart there is nothing meaningful to report yet. */
-  if (lim_mem || lim_quota || lim_pids) {
-    long long mu = -1, cache = 0, cu = -1, pu = -1;
-    if (!trust_cfg_pid)
-      ds_cgroup_get_usage(cfg->container_name, &mu, &cache, &cu, &pu);
-    /* Used as free(1) counts it: without the reclaimable file cache */
-    if (mu >= cache)
-      mu -= cache;
-    printf("\n" C_GREEN "Resources:" C_RESET "\n");
+    /* Resource limits in force. Live usage only for the info command: right
+     * after a start or restart there is nothing meaningful to report yet. */
+    if (lim_mem || lim_quota || lim_pids) {
+      long long mu = -1, cache = 0, cu = -1, pu = -1;
+      if (!trust_cfg_pid)
+        ds_cgroup_get_usage(cfg->container_name, &mu, &cache, &cu, &pu);
+      /* Used as free(1) counts it: without the reclaimable file cache */
+      if (mu >= cache)
+        mu -= cache;
+      printf("\n" C_GREEN "Resources:" C_RESET "\n");
 
-    if (lim_mem) {
-      char used[32], lim[32];
-      ds_format_size(lim_mem, lim, sizeof(lim));
-      if (mu >= 0) {
-        ds_format_size(mu, used, sizeof(used));
-        printf("  Memory : %s / %s\n", used, lim);
-      } else {
-        printf("  Memory : %s\n", lim);
+      if (lim_mem) {
+        char used[32], lim[32];
+        ds_format_size(lim_mem, lim, sizeof(lim));
+        if (mu >= 0) {
+          ds_format_size(mu, used, sizeof(used));
+          printf("  Memory : %s / %s\n", used, lim);
+        } else {
+          printf("  Memory : %s\n", lim);
+        }
+        printf("  Swap   : %s\n", swap_allowed ? "allowed" : "not allowed");
       }
-      printf("  Swap   : %s\n", swap_allowed ? "allowed" : "not allowed");
+      if (lim_quota) {
+        double cores = (double)lim_quota / (double)lim_period;
+        printf("  CPU    : %.2f cores", cores);
+        long uptime = cu >= 0 ? ds_get_container_uptime(pid) : 0;
+        /* Average use of the allowed cores since boot. cu is in usec. */
+        if (uptime > 0)
+          printf(" (Avg usage: %.1f%%)",
+                 ((double)cu / 1e6 / (double)uptime) / cores * 100.0);
+        printf("\n");
+      }
+      if (lim_pids) {
+        printf("  PIDs   : %lld", lim_pids);
+        if (pu >= 0)
+          printf(" (current: %lld)", pu);
+        printf("\n");
+      }
     }
-    if (lim_quota) {
-      double cores = (double)lim_quota / (double)lim_period;
-      printf("  CPU    : %.2f cores", cores);
-      long uptime = cu >= 0 ? ds_get_container_uptime(pid) : 0;
-      /* Average use of the allowed cores since boot. cu is in usec. */
-      if (uptime > 0)
-        printf(" (Avg usage: %.1f%%)",
-               ((double)cu / 1e6 / (double)uptime) / cores * 100.0);
-      printf("\n");
-    }
-    if (lim_pids) {
-      printf("  PIDs   : %lld", lim_pids);
-      if (pu >= 0)
-        printf(" (current: %lld)", pu);
-      printf("\n");
-    }
+    printf("\n");
   }
-
-  printf("\n");
   return 0;
 }
 

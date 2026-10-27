@@ -633,7 +633,7 @@ void ds_free_split_flags(char **argv, int argc);
 char *ds_config_auto_path(const char *rootfs_path);
 void ds_config_reset_defaults(struct ds_config *cfg);
 void apply_reset_config(struct ds_config *cfg);
-void parse_privileged(const char *value, struct ds_config *cfg);
+int parse_privileged(const char *value, struct ds_config *cfg);
 
 /* android.c */
 
@@ -1005,6 +1005,7 @@ int ds_daemon_run(int foreground, char **argv);
  * want_stdin is --stdin: relay our stdin to a pipe-mode run instead of
  * handing it /dev/null. */
 int ds_client_run(int argc, char **argv, const char *cmd, int want_stdin);
+const char *ds_command_word(int argc, char **argv);
 int ds_daemon_probe(void);
 
 #endif /* DROIDSPACE_H */

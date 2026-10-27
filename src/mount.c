@@ -9,7 +9,7 @@
 #include <linux/loop.h>
 
 #define DS_VTTY_COUNT                                                          \
-  6 /* /dev/tty1..6: masked in hw mode, null symlinks otherwise */
+  6 /* /dev/tty1..6: masked in hw mode, null device nodes otherwise */
 
 /* Forward declarations for loop helpers used in find_available_mountpoint */
 static void loop_detach(const char *loop_dev);
@@ -508,15 +508,18 @@ int create_devices(const char *rootfs, const char *staging) {
     }
   }
 
-  /* Private tmpfs only: tty1..N as /dev/null symlinks so non-systemd inits
-   * (openrc, busybox) stop logging "can't open /dev/ttyN"; agetty opens
-   * /dev/null and exits cleanly.  hw mode masks the real VTs in setup_dev(). */
+  /* Private tmpfs only: tty1..N as their own 1:3 (null) nodes so non-systemd
+   * inits (openrc, busybox) stop logging "can't open /dev/ttyN" and their
+   * getty has a tty to own. Never symlinks to /dev/null: getty fchmods its
+   * tty to 0620 root:tty, and through a symlink that lands on /dev/null
+   * itself, the host's own node when it had to be bind-mounted above. Where
+   * mknod is refused the VT stays absent, which only costs a log line. hw
+   * mode masks the real VTs in setup_dev(). */
   for (int i = 1; !staging && i <= DS_VTTY_COUNT; i++) {
     snprintf(path, sizeof(path), "%s/tty%d", dev_dir, i);
     force_unlink(path);
-    if (symlink("/dev/null", path) < 0) {
-      /* best-effort, ignore */
-    }
+    if (mknod(path, S_IFCHR | 0666, makedev(1, 3)) == 0)
+      chmod(path, 0666); /* the umask of a direct start would land on it */
   }
 
   /* Standard symlinks.  A symlink cannot be bind-mounted, so in hw mode these

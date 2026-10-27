@@ -67,10 +67,8 @@ class Cli(DsTest):
         self.assertNotEqual(p.returncode, 0)
         self.assertIn("Unknown command", p.stdout + p.stderr)
 
-    @unittest.expectedFailure
     def test_unknown_option_is_rejected(self):
-        # A misspelt flag must not be dropped on the floor. Today the parser runs getopt with
-        # opterr=0 and ignores anything it does not know, so `--jsno show` prints the table and exits 0.
+        # A misspelt flag must not be dropped on the floor.
         p = ds("--bogus-option", "version")
         self.assertNotEqual(p.returncode, 0)
 

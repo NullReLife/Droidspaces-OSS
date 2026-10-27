@@ -767,24 +767,22 @@ static void handle_conn(int conn) {
   }
 
   /*
-   * Block recursive daemon/client invocations.
-   * We skip any argv[i] whose predecessor starts with '-', because that arg
-   * is an option VALUE (e.g. --name daemon-container), not a sub-command.
-   * DS_NO_PROXY=1 is the primary guard (set before reexec); this is a
-   * defence-in-depth check.
+   * Everything after the command word belongs to that command, run's command
+   * line and enter's user included, so only the word itself can start a
+   * daemon or client recursion. It is found the way the client found it,
+   * with the option table, so a flag without a value (--stdin run daemon)
+   * cannot shift it. DS_NO_PROXY=1 is the primary guard (set before reexec);
+   * this is defence-in-depth.
    */
-  for (int i = 0; i < req.argc; i++) {
-    /* If the previous token was an option flag, this token is its value. */
-    if (i > 0 && req.argv[i - 1][0] == '-')
-      continue;
-    if (strcmp(req.argv[i], "daemon") == 0 ||
-        strcmp(req.argv[i], "client") == 0) {
-      send_frame(conn, MSG_ERR, "daemon: recursive call refused\n", 31);
-      send_exit(conn, 1);
-      free_req(&req);
-      close(conn);
-      _exit(1);
-    }
+  char **av = make_exec_argv(&req);
+  const char *cmd = av ? ds_command_word(req.argc + 1, av) : NULL;
+  free(av);
+  if (cmd && (strcmp(cmd, "daemon") == 0 || strcmp(cmd, "client") == 0)) {
+    send_frame(conn, MSG_ERR, "daemon: recursive call refused\n", 31);
+    send_exit(conn, 1);
+    free_req(&req);
+    close(conn);
+    _exit(1);
   }
 
   /* log the request */
