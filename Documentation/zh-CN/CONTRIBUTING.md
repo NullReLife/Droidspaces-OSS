@@ -280,7 +280,7 @@ Android 路径相对于 `Android/app/src/main/java/com/droidspaces/app/`，C 路
 | `PrimaryActionBottomBar(label, icon, onClick, ...)` | `ui/component/PrimaryActionBottomBar.kt` | 任何向导或全屏页的"下一步""安装""继续"底栏。已有七个界面在用。接受 `content` 插槽的重载用于需要切换按钮内容的场景 |
 | `SaveActionBottomBar(isSaved, isSaving, canSave, onSave, ...)` | `ui/component/SaveActionBottomBar.kt` | 带"保存 / 保存中 / 已保存"状态的保存底栏 |
 | `PullToRefreshWrapper(onRefresh) { ... }` | `ui/component/PullToRefreshWrapper.kt` | 任何下拉刷新的列表或标签页内容 |
-| `showSuccess/showError/showInfo(snackbarHostState, message)` | `ui/util/SnackbarUtils.kt` | 所有 Snackbar。不要直接调用 `showSnackbar` |
+| `showSuccess/showError(snackbarHostState, message)` | `ui/util/SnackbarUtils.kt` | 所有 Snackbar。不要直接调用 `showSnackbar` |
 | `FloatingActionButtonMenu` + `ToggleFloatingActionButton` | `ui/screen/ContainersScreen.kt` | 有不止一个悬浮操作的界面。照搬那段代码，绝不要堆叠多个 FAB。见 DESIGN.md "Floating action button" |
 
 ### Android：卡片与列表项
@@ -411,7 +411,6 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `ContainerOpenRCManager` | `util/ContainerOpenRCManager.kt` | OpenRC 服务 |
 | `ContainerProcdManager` | `util/ContainerProcdManager.kt` | procd 服务。唯一一个连动作也做白名单校验的管理器 |
 | `ContainerRunitManager` | `util/ContainerRunitManager.kt` | runit 服务 |
-| `ContainerProcessManager` | `util/ContainerProcessManager.kt` | 容器内进程列表与结束进程 |
 | `ContainerUsersManager` | `util/ContainerUsersManager.kt` | 容器用户列表，带缓存 |
 | `ContainerOSInfoManager` | `util/ContainerOSInfoManager.kt` | 发行版名称、版本、图标与实时资源占用。`OSInfo.ramLabel(context)` 是内存文本唯一的格式化函数，会考虑限制值 |
 | `ContainerUsageCollector` | `util/ContainerUsageCollector.kt` | 一次调用拿到 CPU、内存、运行时长和 IP |
@@ -450,8 +449,8 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `RootfsDownloadManager` | `util/RootfsDownloadManager.kt` | rootfs 下载的入队、轮询和取消，以及电池优化豁免 |
 | `ContainerInstaller.installContainer(...)` | `util/ContainerInstaller.kt` | 从 tarball 安装。校验、检查空间、解压、写配置，失败时清理 |
 | `SparseImageInstaller.extract(...)` | `util/SparseImageInstaller.kt` | 稀疏镜像的创建、格式化、挂载、解压、卸载全流程 |
-| `BinaryInstaller` / `InstallationStep` | `util/BinaryInstaller.kt` | 安装后端二进制并通知守护进程 |
-| `ModuleInstaller` / `ModuleInstallationStep` | `util/ModuleInstaller.kt` | 安装 Magisk 模块 |
+| `BinaryInstaller` | `util/BinaryInstaller.kt` | 安装后端二进制并通知守护进程 |
+| `ModuleInstaller` | `util/ModuleInstaller.kt` | 安装 Magisk 模块 |
 | `SymlinkInstaller` | `util/SymlinkInstaller.kt` | 启用与关闭二进制软链接 |
 | `FilePickerUtils`、`IconUtils` | `util/` | 文件名解析、发行版图标查找。`FilePickerUtils.realPath(context, uri)` 把选中的文档转换成 root 可以原地读写的路径，对基于管道的提供方返回 null |
 

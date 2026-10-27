@@ -99,18 +99,6 @@ class ContainerViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /**
-     * Suspendable version of fetchContainerList for sequential logic (like scanning).
-     */
-    suspend fun refreshContainersSuspend(): List<ContainerInfo> {
-        val result = withContext(Dispatchers.IO) {
-            ContainerManager.listContainers()
-        }
-        updateState(result)
-        Log.i(TAG, "Suspend refresh completed: ${result.size} containers")
-        return result
-    }
-
-    /**
      * Updates the internal state and cache. Main-thread safe.
      */
     fun updateState(result: List<ContainerInfo>) {
@@ -187,15 +175,6 @@ class ContainerViewModel(application: Application) : AndroidViewModel(applicatio
      * Alias for fetchContainerList() for semantic clarity.
      */
     fun refresh() = fetchContainerList()
-
-    /**
-     * Clear container list (for logout or reset scenarios).
-     */
-    fun clear() {
-        refreshJob?.cancel()
-        _containers = emptyList()
-        isRefreshing = false
-    }
 
     init {
         // Trigger initial fetch on creation to prime state

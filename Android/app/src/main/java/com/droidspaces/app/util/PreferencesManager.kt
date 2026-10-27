@@ -41,26 +41,10 @@ class PreferencesManager private constructor(context: Context) {
             prefs.edit().putBoolean(KEY_ROOT_CHECKED, value).apply()
         }
 
-    var rootSkipped: Boolean
-        get() = prefs.getBoolean(KEY_ROOT_SKIPPED, false)
-        set(value) {
-            prefs.edit().putBoolean(KEY_ROOT_SKIPPED, value).apply()
-        }
-
     var rootAvailable: Boolean
         get() = prefs.getBoolean(KEY_ROOT_AVAILABLE, false)
         set(value) {
             prefs.edit().putBoolean(KEY_ROOT_AVAILABLE, value).apply()
-        }
-
-    var cachedRootProviderVersion: String?
-        get() = prefs.getString(KEY_ROOT_PROVIDER_VERSION, null)
-        set(value) {
-            if (value != null) {
-                prefs.edit().putString(KEY_ROOT_PROVIDER_VERSION, value).apply()
-            } else {
-                prefs.edit().remove(KEY_ROOT_PROVIDER_VERSION).apply()
-            }
         }
 
     var cachedDroidspacesVersion: String?
@@ -459,39 +443,37 @@ class PreferencesManager private constructor(context: Context) {
         }
 
     companion object {
-        private const val PREFS_NAME = Constants.PREFS_NAME
-        private const val KEY_SETUP_COMPLETED = Constants.KEY_SETUP_COMPLETED
-        private const val KEY_ROOT_CHECKED = Constants.KEY_ROOT_CHECKED
-        private const val KEY_ROOT_SKIPPED = Constants.KEY_ROOT_SKIPPED
-        private const val KEY_ROOT_AVAILABLE = Constants.KEY_ROOT_AVAILABLE
-        private const val KEY_ROOT_PROVIDER_VERSION = Constants.KEY_ROOT_PROVIDER_VERSION
-        private const val KEY_DROIDSPACES_VERSION = Constants.KEY_DROIDSPACES_VERSION
-        private const val KEY_RUNNING_COUNT = Constants.KEY_RUNNING_COUNT
-        private const val KEY_BACKEND_STATUS = Constants.KEY_BACKEND_STATUS
-        private const val KEY_BACKEND_MODE = Constants.KEY_BACKEND_MODE
-        private const val KEY_SELINUX_STATUS = Constants.KEY_SELINUX_STATUS
-        private const val KEY_HOST_CAPABILITIES = Constants.KEY_HOST_CAPABILITIES
-        private const val KEY_HOST_CAPABILITIES_BOOT_ID = Constants.KEY_HOST_CAPABILITIES_BOOT_ID
-        private const val KEY_FOLLOW_SYSTEM_THEME = Constants.KEY_FOLLOW_SYSTEM_THEME
-        private const val KEY_DARK_THEME = Constants.KEY_DARK_THEME
-        private const val KEY_AMOLED_MODE = Constants.KEY_AMOLED_MODE
-        private const val KEY_USE_DYNAMIC_COLOR = Constants.KEY_USE_DYNAMIC_COLOR
-        private const val KEY_TERMINAL_DARK_THEME = Constants.KEY_TERMINAL_DARK_THEME
-        private const val KEY_TERMINAL_FONT_SIZE = Constants.KEY_TERMINAL_FONT_SIZE
-        private const val KEY_TERMINAL_FONT_FILE = Constants.KEY_TERMINAL_FONT_FILE
-        private const val KEY_TERMINAL_CONFIRM_CLOSE = Constants.KEY_TERMINAL_CONFIRM_CLOSE
-        private const val KEY_TERMINAL_TAP_KEYBOARD = Constants.KEY_TERMINAL_TAP_KEYBOARD
-        private const val KEY_TERMINAL_KEYBOARD_LEFT = Constants.KEY_TERMINAL_KEYBOARD_LEFT
-        const val KEY_THEME_PALETTE = Constants.KEY_THEME_PALETTE
-        const val KEY_DAEMON_MODE_ENABLED = Constants.KEY_DAEMON_MODE_ENABLED
-        const val KEY_SYMLINK_ENABLED = Constants.KEY_SYMLINK_ENABLED
-        const val KEY_TREAT_AS_64BIT = Constants.KEY_TREAT_AS_64BIT
-        const val KEY_CHECK_APP_UPDATES = Constants.KEY_CHECK_APP_UPDATES
-        const val KEY_CONTAINER_LOG_PREFIX = Constants.KEY_CONTAINER_LOG_PREFIX
-        private const val KEY_CONTAINER_OS_INFO_PREFIX = Constants.KEY_CONTAINER_OS_INFO_PREFIX
-        private const val KEY_CACHED_CONTAINER_NAMES = Constants.KEY_CACHED_CONTAINER_NAMES
-        private const val KEY_CACHED_CONTAINER_CONFIG_PREFIX = Constants.KEY_CACHED_CONTAINER_CONFIG_PREFIX
-        private const val KEY_CUSTOM_REPOS = Constants.KEY_CUSTOM_REPOS
+        private const val PREFS_NAME = "droidspaces_prefs"
+        private const val KEY_SETUP_COMPLETED = "setup_completed"
+        private const val KEY_ROOT_CHECKED = "root_checked"
+        private const val KEY_ROOT_AVAILABLE = "root_available"
+        private const val KEY_DROIDSPACES_VERSION = "droidspaces_version"
+        private const val KEY_RUNNING_COUNT = "running_count"
+        private const val KEY_BACKEND_STATUS = "backend_status"
+        private const val KEY_BACKEND_MODE = "backend_mode"
+        private const val KEY_SELINUX_STATUS = "selinux_status"
+        private const val KEY_HOST_CAPABILITIES = "host_capabilities"
+        private const val KEY_HOST_CAPABILITIES_BOOT_ID = "host_capabilities_boot_id"
+        private const val KEY_FOLLOW_SYSTEM_THEME = "follow_system_theme"
+        private const val KEY_DARK_THEME = "dark_theme"
+        private const val KEY_AMOLED_MODE = "amoled_mode"
+        private const val KEY_USE_DYNAMIC_COLOR = "use_dynamic_color"
+        private const val KEY_TERMINAL_DARK_THEME = "terminal_dark_theme"
+        private const val KEY_TERMINAL_FONT_SIZE = "terminal_font_size_px"
+        private const val KEY_TERMINAL_FONT_FILE = "terminal_font_file"
+        private const val KEY_TERMINAL_CONFIRM_CLOSE = "terminal_confirm_close"
+        private const val KEY_TERMINAL_TAP_KEYBOARD = "terminal_tap_keyboard"
+        private const val KEY_TERMINAL_KEYBOARD_LEFT = "terminal_keyboard_button_left"
+        private const val KEY_THEME_PALETTE = "theme_palette"
+        private const val KEY_DAEMON_MODE_ENABLED = "daemon_mode_enabled"
+        private const val KEY_SYMLINK_ENABLED = "symlink_enabled"
+        private const val KEY_TREAT_AS_64BIT = "treat_as_64bit"
+        private const val KEY_CHECK_APP_UPDATES = "check_app_updates"
+        private const val KEY_CONTAINER_LOG_PREFIX = "container_log_"
+        private const val KEY_CONTAINER_OS_INFO_PREFIX = "container_os_info_"
+        private const val KEY_CACHED_CONTAINER_NAMES = "cached_container_names"
+        private const val KEY_CACHED_CONTAINER_CONFIG_PREFIX = "cached_container_config_"
+        private const val KEY_CUSTOM_REPOS = "custom_rootfs_repos"
 
         // Double-checked locking pattern for thread-safe singleton
         // @Volatile ensures visibility across threads without full synchronization

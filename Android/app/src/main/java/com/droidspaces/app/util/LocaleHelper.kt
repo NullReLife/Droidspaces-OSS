@@ -119,15 +119,6 @@ object LocaleHelper {
     }
 
     /**
-     * Get current language code (legacy method name).
-     * @deprecated Use getCurrentLanguageCode() instead
-     */
-    @Deprecated("Use getCurrentLanguageCode() instead", ReplaceWith("getCurrentLanguageCode()"))
-    fun getCurrentLanguage(): String {
-        return getCurrentLanguageCode()
-    }
-
-    /**
      * Get current app locale for display purposes.
      * Returns Locale object or null for system default.
      */
@@ -176,49 +167,4 @@ object LocaleHelper {
         }
     }
 
-    /**
-     * Get supported locales as Locale objects.
-     * Returns list including Locale.ROOT first (represents "System Default").
-     * Built dynamically from assets/supported_locales.txt.
-     */
-    fun getSupportedLocales(context: Context): List<Locale> {
-        val result = mutableListOf<Locale>()
-        result.add(Locale.ROOT) // System default always first
-
-        val codes = readSupportedLocaleCodes(context)
-
-        // Always include English
-        if (codes.none { it == "en" }) result.add(Locale.ENGLISH)
-
-        codes
-            .map { code ->
-                val bcp47 = code.replace("-r", "-")
-                Locale.forLanguageTag(bcp47)
-            }
-            .filter { it.language.isNotEmpty() }
-            .sortedBy { it.getDisplayName(it) }
-            .forEach { result.add(it) }
-
-        return result
-    }
-
-    // Legacy compatibility stubs, kept so existing call sites don't break.
-
-    @Deprecated("No longer needed with AppCompatDelegate.setApplicationLocales()")
-    val useSystemLanguageSettings: Boolean
-        get() = false
-
-    @Deprecated("No longer needed with AppCompatDelegate.setApplicationLocales()")
-    @Suppress("UNUSED_PARAMETER")
-    fun launchSystemLanguageSettings(context: Context) { /* no-op */ }
-
-    @Deprecated("Use changeLanguage() instead", ReplaceWith("changeLanguage(localeTag)"))
-    fun setApplicationLocale(localeTag: String) = changeLanguage(localeTag)
-
-    @Deprecated("No longer needed - AppCompatDelegate.setApplicationLocales() handles this automatically")
-    @Suppress("UNUSED_PARAMETER")
-    fun restartActivity(context: Context) { /* no-op */ }
-
-    @Deprecated("No longer needed with AppCompatDelegate.setApplicationLocales()")
-    fun applyLanguage(context: Context): Context = context
 }

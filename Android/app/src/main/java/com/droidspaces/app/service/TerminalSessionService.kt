@@ -88,12 +88,7 @@ class TerminalSessionService : Service() {
                         sessions[id]?.apply { if (emulator != null) finishIfRunning() }
                         sessions.remove(id)
                         if (sessions.isEmpty()) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                                stopForeground(STOP_FOREGROUND_REMOVE)
-                            } else {
-                                @Suppress("DEPRECATION")
-                                stopForeground(true)
-                            }
+                            stopForeground(STOP_FOREGROUND_REMOVE)
                             notificationManager.cancel(NOTIFICATION_ID)
                             stopSelf()
                         } else {
@@ -111,12 +106,7 @@ class TerminalSessionService : Service() {
             // Clear UI state IMMEDIATELY.
             sessionList.clear()
             globalSessionList.clear()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
+            stopForeground(STOP_FOREGROUND_REMOVE)
             notificationManager.cancel(NOTIFICATION_ID)
 
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -136,30 +126,26 @@ class TerminalSessionService : Service() {
                     ).also { it.acquire() }
                     // Request battery optimization exemption so Android doesn't
                     // kill the service while the wakelock is held.
-                    // API 23+ (Android 6+); safe no-op below that.
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val pm2 = getSystemService(POWER_SERVICE) as PowerManager
-                        if (!pm2.isIgnoringBatteryOptimizations(packageName)) {
+                    if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                        try {
+                            // Direct per-app exemption dialog (requires the manifest permission).
+                            startActivity(
+                                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:$packageName")
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                            )
+                        } catch (e: Exception) {
+                            // Fallback: open the general battery optimization settings screen.
+                            // Covers OEMs that block the direct intent (some Xiaomi/MIUI builds).
                             try {
-                                // Direct per-app exemption dialog (requires the manifest permission).
                                 startActivity(
-                                    Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                        data = Uri.parse("package:$packageName")
+                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
                                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                     }
                                 )
-                            } catch (e: Exception) {
-                                // Fallback: open the general battery optimization settings screen.
-                                // Covers OEMs that block the direct intent (some Xiaomi/MIUI builds).
-                                try {
-                                    startActivity(
-                                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        }
-                                    )
-                                } catch (e2: Exception) {
-                                    e2.printStackTrace()
-                                }
+                            } catch (e2: Exception) {
+                                e2.printStackTrace()
                             }
                         }
                     }
@@ -181,7 +167,7 @@ class TerminalSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) createNotificationChannel()
+        createNotificationChannel()
     }
 
     private fun promoteToForeground() {
@@ -224,8 +210,7 @@ class TerminalSessionService : Service() {
                 sessions.remove(id)
             }
             if (sessions.isEmpty()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
-                else @Suppress("DEPRECATION") stopForeground(true)
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 notificationManager.cancel(NOTIFICATION_ID)
                 stopSelf()
             } else {
@@ -278,12 +263,7 @@ class TerminalSessionService : Service() {
 
     private fun updateNotification() {
         if (sessions.isEmpty()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
+            stopForeground(STOP_FOREGROUND_REMOVE)
             notificationManager.cancel(NOTIFICATION_ID)
             stopSelf()
             return
@@ -297,14 +277,12 @@ class TerminalSessionService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.notification_channel_name),
-                NotificationManager.IMPORTANCE_LOW
-            ).apply { description = getString(R.string.notification_channel_desc) }
-            notificationManager.createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            getString(R.string.notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply { description = getString(R.string.notification_channel_desc) }
+        notificationManager.createNotificationChannel(channel)
     }
 
     companion object {

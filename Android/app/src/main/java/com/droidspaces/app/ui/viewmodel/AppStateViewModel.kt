@@ -13,9 +13,7 @@ import com.droidspaces.app.util.BinaryInstaller
 import com.droidspaces.app.util.Constants
 import com.droidspaces.app.util.DroidspacesBackendStatus
 import com.droidspaces.app.util.DroidspacesChecker
-import com.droidspaces.app.util.InstallationStep
 import com.droidspaces.app.util.ModuleInstaller
-import com.droidspaces.app.util.ModuleInstallationStep
 import com.droidspaces.app.util.PreferencesManager
 import com.droidspaces.app.util.RootChecker
 import com.droidspaces.app.util.RootStatus
@@ -53,7 +51,6 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
             when (cached) {
                 "UpdateAvailable" -> DroidspacesBackendStatus.UpdateAvailable
                 "NotInstalled" -> DroidspacesBackendStatus.NotInstalled
-                "Corrupted" -> DroidspacesBackendStatus.Corrupted
                 "ModuleMissing" -> DroidspacesBackendStatus.ModuleMissing
                 "Checking" -> DroidspacesBackendStatus.Checking
                 "" -> DroidspacesBackendStatus.Available
@@ -81,10 +78,6 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
     private var refreshJob: Job? = null
 
     // ── Installation flow state (drives InstallationScreen) ─────────────────────
-    var installCurrentStep by mutableStateOf<InstallationStep?>(null)
-        private set
-    var installCurrentModuleStep by mutableStateOf<ModuleInstallationStep?>(null)
-        private set
     var isInstalling by mutableStateOf(false)
         private set
     var isInstallSuccess by mutableStateOf(false)
@@ -134,7 +127,6 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
                     prefsManager.cachedBackendStatus = when (finalStatus) {
                         DroidspacesBackendStatus.UpdateAvailable -> "UpdateAvailable"
                         DroidspacesBackendStatus.NotInstalled -> "NotInstalled"
-                        DroidspacesBackendStatus.Corrupted -> "Corrupted"
                         DroidspacesBackendStatus.ModuleMissing -> "ModuleMissing"
                         DroidspacesBackendStatus.Available -> ""
                         DroidspacesBackendStatus.Checking -> "" // Should not happen, but handle gracefully
@@ -187,8 +179,6 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
         if (isInstalling) return
         isInstalling = true
 
-        installCurrentStep = null
-        installCurrentModuleStep = null
         isInstallingModule = false
         isInstallSuccess = false
         installErrorMessage = null
@@ -222,14 +212,11 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
 
         if (!isAtomicUpdate) {
             // Clean Slate: Remove the old module, but NEVER the bin directory.
-            installCurrentStep = InstallationStep.CreatingDirectories("Nuking existing module...")
             Shell.cmd("rm -rf '/data/adb/modules/droidspaces' 2>&1").exec()
         }
 
         // Step 2: Install binaries (atomic mv to canonical path)
-        val binaryResult = BinaryInstaller.install(context) { step ->
-            installCurrentStep = step
-        }
+        val binaryResult = BinaryInstaller.install(context)
         binaryResult.fold(
             onSuccess = {
                 if (wasDaemon) {
@@ -237,9 +224,7 @@ class AppStateViewModel(application: Application) : AndroidViewModel(application
                 }
                 // Step 3: Install module
                 isInstallingModule = true
-                val moduleResult = ModuleInstaller.install(context) { step ->
-                    installCurrentModuleStep = step
-                }
+                val moduleResult = ModuleInstaller.install(context)
                 moduleResult.fold(
                     onSuccess = {
                         val daemonFileExists = withContext(Dispatchers.IO) {

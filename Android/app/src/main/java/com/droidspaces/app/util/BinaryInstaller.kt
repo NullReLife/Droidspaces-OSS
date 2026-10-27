@@ -1,67 +1,22 @@
 package com.droidspaces.app.util
 
 import android.content.Context
-import android.os.Build
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
-sealed class InstallationStep {
-    data class DetectingArchitecture(val arch: String) : InstallationStep()
-    data class CreatingDirectories(val path: String) : InstallationStep()
-    data class CopyingBinary(val binary: String) : InstallationStep()
-    data class SettingPermissions(val path: String) : InstallationStep()
-    data class Verifying(val path: String) : InstallationStep()
-    object Success : InstallationStep()
-    data class Error(val message: String) : InstallationStep()
-}
-
 object BinaryInstaller {
     private const val INSTALL_PATH = Constants.INSTALL_PATH
-    private const val DROIDSPACES_BINARY_NAME = Constants.DROIDSPACES_BINARY_NAME
-    private const val BUSYBOX_BINARY_NAME = Constants.BUSYBOX_BINARY_NAME
 
     /**
-     * Map Android architecture to binary name suffix
+     * Install the droidspaces and busybox binaries for this device's arch.
      */
-    private fun getArchitectureSuffix(context: Context): String = DeviceArch.suffix(context)
-
-    /**
-     * Get droidspaces binary name for architecture
-     */
-    private fun getDroidspacesBinaryName(context: Context): String {
-        return "droidspaces-${getArchitectureSuffix(context)}"
-    }
-
-    /**
-     * Get busybox binary name for architecture
-     */
-    private fun getBusyboxBinaryName(context: Context): String {
-        return "busybox-${getArchitectureSuffix(context)}"
-    }
-
-
-    /**
-     * Get human-readable architecture name
-     */
-    fun getArchitectureName(context: Context): String = DeviceArch.displayName(context)
-
-    /**
-     * Install droidspaces binary with progress updates
-     */
-    suspend fun install(
-        context: Context,
-        onProgress: (InstallationStep) -> Unit
-    ): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun install(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            // Step 1: Detect architecture
-            val arch = getArchitectureName(context)
-            onProgress(InstallationStep.DetectingArchitecture(arch))
-
-            val droidspacesBinaryName = getDroidspacesBinaryName(context)
-            val busyboxBinaryName = getBusyboxBinaryName(context)
+            val droidspacesBinaryName = "droidspaces-${DeviceArch.suffix(context)}"
+            val busyboxBinaryName = "busybox-${DeviceArch.suffix(context)}"
 
             // Always install to the canonical path. The daemon's g_self_path fix
             // means this is safe even while the daemon is running - the mv is
@@ -70,7 +25,6 @@ object BinaryInstaller {
             val busyboxTargetPath = Constants.BUSYBOX_BINARY_PATH
 
             // Step 2: Create directories
-            onProgress(InstallationStep.CreatingDirectories(INSTALL_PATH))
             val mkdirResult = Shell.cmd("mkdir -p $INSTALL_PATH").exec()
             if (!mkdirResult.isSuccess) {
                 return@withContext Result.failure(
@@ -83,7 +37,6 @@ object BinaryInstaller {
             // Strategy: Copy to temp file in same directory, then use mv (atomic on same filesystem).
             // This works even if the target binary is currently executing.
             fun installBinary(assetName: String, targetPath: String, displayName: String): Result<Unit> {
-                onProgress(InstallationStep.CopyingBinary(displayName))
                 val assetManager = context.assets
                 val inputStream = assetManager.open("binaries/$assetName")
 
@@ -96,7 +49,6 @@ object BinaryInstaller {
 
                 // The rename inside installFileDurably also dodges "text file busy" while the
                 // daemon is running the old binary.
-                onProgress(InstallationStep.SettingPermissions(targetPath))
                 val installResult = ContainerManager.installFileDurably(tempFile.absolutePath, targetPath, "755")
                 tempFile.delete()
                 if (!installResult.isSuccess) {
@@ -118,7 +70,6 @@ object BinaryInstaller {
 
             // Step 5: Verification (scripts are handled by ModuleInstaller)
 
-            onProgress(InstallationStep.Verifying("droidspaces and busybox"))
             val verifyDroidspaces = Shell.cmd("test -x $droidspacesTargetPath && echo 'verified' || echo 'verification_failed'").exec()
             val verifyBusybox = Shell.cmd("test -x $busyboxTargetPath && echo 'verified' || echo 'verification_failed'").exec()
 
@@ -134,12 +85,8 @@ object BinaryInstaller {
                 )
             }
 
-            // Success
-            onProgress(InstallationStep.Success)
             Result.success(Unit)
-
         } catch (e: Exception) {
-            onProgress(InstallationStep.Error(e.message ?: "Unknown error"))
             Result.failure(e)
         }
     }
@@ -158,16 +105,5 @@ object BinaryInstaller {
         }
     }
 
-    /**
-     * Check if binaries are already installed
-     */
-    suspend fun isInstalled(): Boolean = withContext(Dispatchers.IO) {
-        val droidspacesResult = Shell.cmd("test -x $INSTALL_PATH/$DROIDSPACES_BINARY_NAME && echo 'installed' || echo 'not_installed'").exec()
-        val busyboxResult = Shell.cmd("test -x $INSTALL_PATH/$BUSYBOX_BINARY_NAME && echo 'installed' || echo 'not_installed'").exec()
-        val droidspacesOk = droidspacesResult.isSuccess && droidspacesResult.out.any { it.contains("installed") }
-        val busyboxOk = busyboxResult.isSuccess && busyboxResult.out.any { it.contains("installed") }
-
-        droidspacesOk && busyboxOk
-    }
 }
 

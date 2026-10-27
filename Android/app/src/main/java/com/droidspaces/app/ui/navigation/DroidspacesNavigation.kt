@@ -281,7 +281,6 @@ fun DroidspacesNavigation(
                     navController.navigate(Screen.Installation.route)
                 },
                 onSkip = {
-                    prefsManager.rootSkipped = true
                     prefsManager.isSetupCompleted = true
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Welcome.route) { inclusive = true }

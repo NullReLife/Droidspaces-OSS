@@ -830,16 +830,6 @@ private fun getAppVersion(context: Context): String {
     }
 }
 
-private fun getAppVersionCode(context: Context): Int {
-    return try {
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        @Suppress("DEPRECATION")
-        packageInfo.versionCode
-    } catch (e: PackageManager.NameNotFoundException) {
-        0
-    }
-}
-
 /**
  * Requirements Card - Clickable card that navigates to requirements page
  */

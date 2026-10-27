@@ -12,7 +12,6 @@ sealed class DroidspacesBackendStatus {
     object Available : DroidspacesBackendStatus()
     object UpdateAvailable : DroidspacesBackendStatus()
     object NotInstalled : DroidspacesBackendStatus()
-    object Corrupted : DroidspacesBackendStatus()
     object ModuleMissing : DroidspacesBackendStatus()
 }
 
@@ -29,17 +28,7 @@ object DroidspacesChecker {
      * Performance: ~10-20ms (runs in background, never blocks UI)
      */
     private suspend fun checkModuleInstalled(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val dirCheck = Shell.cmd("test -d '$MAGISK_MODULE_PATH'").exec()
-            if (!dirCheck.isSuccess) {
-                return@withContext false
-            }
-
-            val propCheck = Shell.cmd("test -f '$MODULE_PROP_PATH'").exec()
-            propCheck.isSuccess
-        } catch (e: Exception) {
-            false
-        }
+        Shell.cmd("test -d '$MAGISK_MODULE_PATH' && test -f '$MODULE_PROP_PATH'").exec().isSuccess
     }
 
     /**
@@ -54,25 +43,13 @@ object DroidspacesChecker {
                 return@withContext DroidspacesBackendStatus.ModuleMissing
             }
 
-            fun checkBinary(binaryPath: String): Boolean {
-                val existsCheck = Shell.cmd("test -f '$binaryPath'").exec()
-                if (!existsCheck.isSuccess) return false
+            fun checkBinary(binaryPath: String) =
+                Shell.cmd("test -f '$binaryPath' -a -x '$binaryPath'").exec().isSuccess
 
-                val execCheck = Shell.cmd("test -x '$binaryPath'").exec()
-                if (!execCheck.isSuccess) return false
-
-                return true
-            }
-
-
-            val droidspacesOk = checkBinary(DROIDSPACES_BINARY_PATH)
-            val busyboxOk = checkBinary(BUSYBOX_BINARY_PATH)
-
-            when {
-                droidspacesOk && busyboxOk -> DroidspacesBackendStatus.Available
-                !droidspacesOk || !busyboxOk -> DroidspacesBackendStatus.NotInstalled
-                else -> DroidspacesBackendStatus.Corrupted
-            }
+            if (checkBinary(DROIDSPACES_BINARY_PATH) && checkBinary(BUSYBOX_BINARY_PATH))
+                DroidspacesBackendStatus.Available
+            else
+                DroidspacesBackendStatus.NotInstalled
         } catch (e: Exception) {
             DroidspacesBackendStatus.NotInstalled
         }
@@ -135,25 +112,8 @@ object DroidspacesChecker {
     /**
      * Calculate MD5 hash of an InputStream.
      */
-    private fun calculateMD5(inputStream: InputStream): String {
-        val md = MessageDigest.getInstance("MD5")
-        val buffer = ByteArray(8192)
-        var bytesRead: Int
-        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-            md.update(buffer, 0, bytesRead)
-        }
-        val digest = md.digest()
-        return digest.joinToString("") { "%02x".format(it) }
-    }
+    private fun calculateMD5(inputStream: InputStream): String =
+        MessageDigest.getInstance("MD5").digest(inputStream.readBytes()).joinToString("") { "%02x".format(it) }
 
-    /**
-     * Quick synchronous check (for cached state).
-     * Returns null if check hasn't been performed yet.
-     */
-    fun quickCheck(): DroidspacesBackendStatus? {
-        // This is just a placeholder - actual check must be async
-        // Used for initial state before async check completes
-        return null
-    }
 }
 

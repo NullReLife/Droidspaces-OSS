@@ -7,16 +7,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
-sealed class ModuleInstallationStep {
-    data class RemovingOldModule(val path: String) : ModuleInstallationStep()
-    data class ExtractingAssets(val path: String) : ModuleInstallationStep()
-    data class CopyingModule(val path: String) : ModuleInstallationStep()
-    data class SettingPermissions(val path: String) : ModuleInstallationStep()
-    data class Verifying(val path: String) : ModuleInstallationStep()
-    object Success : ModuleInstallationStep()
-    data class Error(val message: String) : ModuleInstallationStep()
-}
-
 object ModuleInstaller {
     private const val MAGISK_MODULE_PATH = "/data/adb/modules/droidspaces"
     private const val MODULE_PROP_PATH = "$MAGISK_MODULE_PATH/module.prop"
@@ -25,10 +15,7 @@ object ModuleInstaller {
      * Install Magisk module from assets to /data/adb/modules/droidspaces
      * Simple approach: remove old, extract assets to temp, copy everything
      */
-    suspend fun install(
-        context: Context,
-        onProgress: (ModuleInstallationStep) -> Unit
-    ): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun install(context: Context): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val tempDir = File(context.cacheDir, "boot-module-temp")
             val assetManager = context.assets
@@ -37,11 +24,9 @@ object ModuleInstaller {
             val wasSymlinkEnabled = SymlinkInstaller.isSymlinkEnabled()
 
             // Step 1: Remove old module directory
-            onProgress(ModuleInstallationStep.RemovingOldModule(MAGISK_MODULE_PATH))
             Shell.cmd("rm -rf '$MAGISK_MODULE_PATH' 2>&1").exec()
 
             // Step 2: Extract all assets from boot-module to temp directory
-            onProgress(ModuleInstallationStep.ExtractingAssets(tempDir.absolutePath))
             tempDir.deleteRecursively()
             tempDir.mkdirs()
 
@@ -83,7 +68,6 @@ object ModuleInstaller {
             }
 
             // Step 3: Create module directory and copy everything
-            onProgress(ModuleInstallationStep.CopyingModule(MAGISK_MODULE_PATH))
             val mkdirResult = Shell.cmd("mkdir -p '$MAGISK_MODULE_PATH' 2>&1").exec()
             if (!mkdirResult.isSuccess) {
                 tempDir.deleteRecursively()
@@ -101,7 +85,6 @@ object ModuleInstaller {
             }
 
             // Step 4: Set permissions
-            onProgress(ModuleInstallationStep.SettingPermissions(MAGISK_MODULE_PATH))
             val chmodScriptsResult = Shell.cmd("chmod 755 '$MAGISK_MODULE_PATH'/*.sh 2>&1 && chmod 644 '$MAGISK_MODULE_PATH'/*.prop 2>&1 && chmod 644 '$MAGISK_MODULE_PATH'/sepolicy.rule 2>&1").exec()
             if (!chmodScriptsResult.isSuccess) {
                 return@withContext Result.failure(
@@ -110,7 +93,6 @@ object ModuleInstaller {
             }
 
             // Step 5: Verify installation
-            onProgress(ModuleInstallationStep.Verifying(MAGISK_MODULE_PATH))
             val verifyDirResult = Shell.cmd("test -d '$MAGISK_MODULE_PATH' 2>&1").exec()
             val verifyPropResult = Shell.cmd("test -f '$MODULE_PROP_PATH' 2>&1").exec()
 
@@ -138,7 +120,6 @@ object ModuleInstaller {
                 SymlinkInstaller.enable()
             }
 
-            onProgress(ModuleInstallationStep.Success)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

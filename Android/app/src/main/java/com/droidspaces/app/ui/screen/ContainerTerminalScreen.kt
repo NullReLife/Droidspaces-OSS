@@ -533,7 +533,7 @@ private fun TerminalTabView(
                         binder.getSession(tab.id)?.let { virtualKeysViewClient = VirtualKeysListener(it) }
                         buttonTextColor = terminalForeground
                         try {
-                            reload(VirtualKeysInfo(VIRTUAL_KEYS_LAYOUT, "", VirtualKeysConstants.CONTROL_CHARS_ALIASES))
+                            reload(VirtualKeysInfo(VIRTUAL_KEYS_LAYOUT, VirtualKeysConstants.EXTRA_KEY_DISPLAY_MAPS.DEFAULT_CHAR_DISPLAY, VirtualKeysConstants.CONTROL_CHARS_ALIASES))
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }

@@ -50,16 +50,6 @@ object ContainerSystemdManager {
         val isStatic: Boolean
     )
 
-    enum class ServiceFilter {
-        RUNNING,    // Enabled + Running (healthy running)
-        ENABLED,    // Enabled but NOT running
-        DISABLED,   // Disabled and NOT running
-        ABNORMAL,   // Running but not enabled, static, or masked
-        STATIC,     // Explicitly static services
-        MASKED,
-        ALL
-    }
-
     /**
      * Result of inspecting a single unit: parsed `systemctl show` properties,
      * raw `systemctl status` text, and its dependency tree.
@@ -79,7 +69,6 @@ object ContainerSystemdManager {
         val error: List<String>
     ) {
         val isSuccess: Boolean get() = exitCode == 0
-        val hasLogs: Boolean get() = exitCode > 1
     }
 
     /**
@@ -284,21 +273,6 @@ object ContainerSystemdManager {
             Log.e(TAG, "Error fetching services", e)
             emptyList()
         }
-    }
-
-    /**
-     * Filter services - each category is mutually exclusive (except ALL).
-     */
-    fun filterServices(services: List<ServiceInfo>, filter: ServiceFilter): List<ServiceInfo> {
-        return when (filter) {
-            ServiceFilter.ALL -> services
-            ServiceFilter.RUNNING -> services.filter { it.isRunning && it.isEnabled && !it.isMasked }  // Healthy running
-            ServiceFilter.STATIC -> services.filter { it.isStatic }
-            ServiceFilter.ABNORMAL -> services.filter { it.isRunning && !it.isEnabled && !it.isStatic && !it.isMasked } // Running but not enabled/static
-            ServiceFilter.ENABLED -> services.filter { it.isEnabled && !it.isRunning && !it.isMasked } // Enabled but stopped
-            ServiceFilter.DISABLED -> services.filter { !it.isEnabled && !it.isRunning && !it.isMasked && !it.isStatic } // Disabled and stopped
-            ServiceFilter.MASKED -> services.filter { it.isMasked }
-        }.sortedWith(compareByDescending<ServiceInfo> { it.isRunning }.thenBy { it.name })
     }
 
     // Systemctl commands. Every service name is validated against the shared

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.droidspaces.app.util.AppUpdateInfo
+import com.droidspaces.app.util.PreferencesManager
 import com.droidspaces.app.util.SystemInfoManager
 import com.droidspaces.app.R
 
@@ -34,7 +35,6 @@ enum class DroidspacesStatus {
     Working,
     UpdateAvailable,
     NotInstalled,
-    Corrupted,
     ModuleMissing
 }
 
@@ -56,10 +56,10 @@ fun DroidspacesStatusCard(
     val kernelBlocked = isRootAvailable && !isKernelSupported && status == DroidspacesStatus.Working
 
     var droidspacesVersion by remember {
-        mutableStateOf(version ?: SystemInfoManager.getCachedDroidspacesVersion(context))
+        mutableStateOf(version ?: PreferencesManager.getInstance(context).cachedDroidspacesVersion)
     }
     var backendMode by remember {
-        mutableStateOf(if (isWorking) SystemInfoManager.getCachedBackendMode(context) else null)
+        mutableStateOf(if (isWorking) PreferencesManager.getInstance(context).cachedBackendMode else null)
     }
 
     LaunchedEffect(status, isRootAvailable, isKernelSupported, refreshTrigger) {
@@ -146,7 +146,7 @@ fun DroidspacesStatusCard(
                         !isRootAvailable -> context.getString(R.string.root_unavailable)
                         kernelBlocked -> context.getString(R.string.kernel_unsupported)
                         status == DroidspacesStatus.NotInstalled -> context.getString(R.string.backend_not_installed)
-                        else -> context.getString(R.string.backend_corrupted)
+                        else -> context.getString(R.string.backend_not_installed) // ModuleMissing: the click leads to the installer too
                     },
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,

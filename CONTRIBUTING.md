@@ -302,7 +302,7 @@ the language and about dialogs in `ui/screen/SettingsScreen.kt`). Do not import 
 | `PrimaryActionBottomBar(label, icon, onClick, ...)` | `ui/component/PrimaryActionBottomBar.kt` | Any wizard or full screen "Next", "Install", "Continue" bar. Seven screens use it. The overload taking a `content` slot is for buttons that swap their contents |
 | `SaveActionBottomBar(isSaved, isSaving, canSave, onSave, ...)` | `ui/component/SaveActionBottomBar.kt` | A save bar with the save, saving and saved states |
 | `PullToRefreshWrapper(onRefresh) { ... }` | `ui/component/PullToRefreshWrapper.kt` | Any pull to refresh list or tab body |
-| `showSuccess/showError/showInfo(snackbarHostState, message)` | `ui/util/SnackbarUtils.kt` | All snackbars. Never call `showSnackbar` directly |
+| `showSuccess/showError(snackbarHostState, message)` | `ui/util/SnackbarUtils.kt` | All snackbars. Never call `showSnackbar` directly |
 | `FloatingActionButtonMenu` + `ToggleFloatingActionButton` | `ui/screen/ContainersScreen.kt` | A screen with more than one floating action. Copy that block, never stack FABs. See DESIGN.md "Floating action button" |
 
 ### Android: cards and list items
@@ -437,7 +437,6 @@ All four init managers share the same shape. The container name is always quoted
 | `ContainerOpenRCManager` | `util/ContainerOpenRCManager.kt` | OpenRC services |
 | `ContainerProcdManager` | `util/ContainerProcdManager.kt` | procd services. The only manager that also allow-lists the action |
 | `ContainerRunitManager` | `util/ContainerRunitManager.kt` | runit services |
-| `ContainerProcessManager` | `util/ContainerProcessManager.kt` | Process list and kill inside a container |
 | `ContainerUsersManager` | `util/ContainerUsersManager.kt` | Container user list, cached |
 | `ContainerOSInfoManager` | `util/ContainerOSInfoManager.kt` | Distro name, version, icon, and live usage. `OSInfo.ramLabel(context)` is the one formatter for the RAM text, limit aware |
 | `ContainerUsageCollector` | `util/ContainerUsageCollector.kt` | CPU, RAM, uptime, IP in one call |
@@ -476,8 +475,8 @@ validation. Prefer the wrappers.
 | `RootfsDownloadManager` | `util/RootfsDownloadManager.kt` | Enqueueing, polling, and cancelling a rootfs download, plus battery exemption |
 | `ContainerInstaller.installContainer(...)` | `util/ContainerInstaller.kt` | Installing from a tarball. Validates, checks storage, extracts, writes config, cleans up on failure |
 | `SparseImageInstaller.extract(...)` | `util/SparseImageInstaller.kt` | The sparse image truncate, format, mount, extract, unmount lifecycle |
-| `BinaryInstaller` / `InstallationStep` | `util/BinaryInstaller.kt` | Installing the backend binary and signalling the daemon |
-| `ModuleInstaller` / `ModuleInstallationStep` | `util/ModuleInstaller.kt` | Installing the Magisk module |
+| `BinaryInstaller` | `util/BinaryInstaller.kt` | Installing the backend binary and signalling the daemon |
+| `ModuleInstaller` | `util/ModuleInstaller.kt` | Installing the Magisk module |
 | `SymlinkInstaller` | `util/SymlinkInstaller.kt` | Enabling and disabling the binary symlink |
 | `FilePickerUtils`, `IconUtils` | `util/` | File name resolution, distro icon lookup. `FilePickerUtils.realPath(context, uri)` turns a picked document into a path root can read or write in place, null for pipe-backed providers |
 

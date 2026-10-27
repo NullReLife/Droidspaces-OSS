@@ -44,15 +44,6 @@ object ContainerProcdManager {
         val isRunning: Boolean
     )
 
-    enum class ServiceFilter {
-        RUNNING,
-        ENABLED,
-        DISABLED,
-        ABNORMAL,
-        UNKNOWN,
-        ALL
-    }
-
     data class CommandResult(
         val exitCode: Int,
         val output: List<String>,
@@ -139,17 +130,6 @@ object ContainerProcdManager {
             Log.e(TAG, "Error fetching procd services", e)
             emptyList()
         }
-    }
-
-    fun filterServices(services: List<ServiceInfo>, filter: ServiceFilter): List<ServiceInfo> {
-        return when (filter) {
-            ServiceFilter.ALL -> services
-            ServiceFilter.RUNNING -> services.filter { it.isRunning && it.isEnabled }
-            ServiceFilter.ENABLED -> services.filter { it.isEnabled && !it.isRunning && it.status != ServiceStatus.UNKNOWN }
-            ServiceFilter.DISABLED -> services.filter { !it.isEnabled && !it.isRunning && it.status != ServiceStatus.UNKNOWN }
-            ServiceFilter.ABNORMAL -> services.filter { it.isRunning && !it.isEnabled }
-            ServiceFilter.UNKNOWN -> services.filter { it.status == ServiceStatus.UNKNOWN }
-        }.sortedWith(compareByDescending<ServiceInfo> { it.isRunning }.thenBy { it.name })
     }
 
     private fun isSafeServiceName(serviceName: String): Boolean = ServiceManagerBase.isSafeServiceName(serviceName)

@@ -165,7 +165,6 @@ fun MainTabScreen(
                 when (cached) {
                     "UpdateAvailable" -> DroidspacesStatus.UpdateAvailable
                     "NotInstalled" -> DroidspacesStatus.NotInstalled
-                    "Corrupted" -> DroidspacesStatus.Corrupted
                     "ModuleMissing" -> DroidspacesStatus.ModuleMissing
                     "" -> DroidspacesStatus.Working
                     else -> null
@@ -188,7 +187,6 @@ fun MainTabScreen(
             is DroidspacesBackendStatus.Available -> DroidspacesStatus.Working
             is DroidspacesBackendStatus.UpdateAvailable -> DroidspacesStatus.UpdateAvailable
             is DroidspacesBackendStatus.NotInstalled -> DroidspacesStatus.NotInstalled
-            is DroidspacesBackendStatus.Corrupted -> DroidspacesStatus.Corrupted
             is DroidspacesBackendStatus.ModuleMissing -> DroidspacesStatus.ModuleMissing
             is DroidspacesBackendStatus.Checking -> return@LaunchedEffect // Already handled above
         }
@@ -206,7 +204,6 @@ fun MainTabScreen(
         is DroidspacesBackendStatus.Available -> DroidspacesStatus.Working
         is DroidspacesBackendStatus.UpdateAvailable -> DroidspacesStatus.UpdateAvailable
         is DroidspacesBackendStatus.NotInstalled -> DroidspacesStatus.NotInstalled
-        is DroidspacesBackendStatus.Corrupted -> DroidspacesStatus.Corrupted
         is DroidspacesBackendStatus.ModuleMissing -> DroidspacesStatus.ModuleMissing
     }
 
@@ -441,7 +438,6 @@ private fun HomeTabContent(
                         return@DroidspacesStatusCard
                     }
                     if (droidspacesStatus == DroidspacesStatus.NotInstalled ||
-                        droidspacesStatus == DroidspacesStatus.Corrupted ||
                         droidspacesStatus == DroidspacesStatus.UpdateAvailable ||
                         droidspacesStatus == DroidspacesStatus.ModuleMissing
                     ) {

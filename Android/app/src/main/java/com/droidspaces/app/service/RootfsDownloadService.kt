@@ -70,11 +70,9 @@ class RootfsDownloadService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, getString(R.string.repo_dl_channel_name), NotificationManager.IMPORTANCE_LOW)
-            )
-        }
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, getString(R.string.repo_dl_channel_name), NotificationManager.IMPORTANCE_LOW)
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

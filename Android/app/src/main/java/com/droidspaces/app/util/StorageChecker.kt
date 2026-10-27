@@ -190,7 +190,7 @@ object StorageChecker {
      *
      * Performance: ~10-50ms (runs in background)
      */
-    suspend fun getFreeSpaceGB(path: String = "/data"): Int? = withContext(Dispatchers.IO) {
+    private suspend fun getFreeSpaceGB(path: String): Int? = withContext(Dispatchers.IO) {
         try {
             val quoted = ContainerCommandBuilder.quote(path)
 
@@ -224,16 +224,4 @@ object StorageChecker {
         }
     }
 
-    /**
-     * Check if sufficient space is available (default 4GB minimum) at [path].
-     * Returns true if space is sufficient, false otherwise.
-     * Returns null if unable to determine.
-     */
-    suspend fun hasSufficientSpace(
-        requiredGB: Int = Constants.MIN_STORAGE_GB,
-        path: String = "/data",
-    ): Boolean? = withContext(Dispatchers.IO) {
-        val freeGB = getFreeSpaceGB(path) ?: return@withContext null
-        freeGB >= requiredGB
-    }
 }

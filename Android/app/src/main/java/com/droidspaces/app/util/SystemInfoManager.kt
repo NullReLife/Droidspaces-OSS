@@ -22,9 +22,6 @@ object SystemInfoManager {
     // Cache mutable info (loaded once on boot)
     // Use @Volatile for thread-safe access without synchronization overhead
     @Volatile
-    private var rootProviderVersionCache: String? = null
-
-    @Volatile
     private var selinuxStatusCache: String? = null
 
     @Volatile
@@ -54,9 +51,6 @@ object SystemInfoManager {
     }
     val androidVersion: String get() = androidVersionCache
 
-    // Manager version is constant - no allocation needed
-    val managerVersion: String get() = "1.0.0 (1)"
-
     /**
      * Initialize all system info in parallel on boot.
      * Optimized to minimize I/O operations and cache aggressively.
@@ -79,19 +73,15 @@ object SystemInfoManager {
         coroutineScope {
             // Load cached values first (instant access, ~0.1ms)
             val prefs = PreferencesManager.getInstance(ctx)
-            val cachedRootVersion = prefs.cachedRootProviderVersion
             val cachedDroidspacesVersion = prefs.cachedDroidspacesVersion
             if (selinuxStatusCache == null) selinuxStatusCache = prefs.cachedSelinuxStatus
             HostCapabilities.load(ctx)
 
-            // Load root provider, SELinux status, and droidspaces version in parallel (non-blocking)
-            val rootProviderDeferred = async { loadRootProviderVersion() }
+            // Load the SELinux status and droidspaces version in parallel (non-blocking)
             val selinuxDeferred = async { SELinuxChecker.getSELinuxStatus() }
             val droidspacesVersionDeferred = async { DroidspacesChecker.getDroidspacesVersion() }
 
             // Wait for all to complete (parallel execution)
-            val newRootVersion = rootProviderDeferred.await()
-            rootProviderVersionCache = newRootVersion
             selinuxStatusCache = selinuxDeferred.await().also { prefs.cachedSelinuxStatus = it }
             val newDroidspacesVersion = droidspacesVersionDeferred.await()
             droidspacesVersionCache = newDroidspacesVersion
@@ -109,9 +99,6 @@ object SystemInfoManager {
             backendModeCache = newBackendMode
 
             // Save to preferences if changed (async write, non-blocking)
-            if (newRootVersion != cachedRootVersion && newRootVersion != "Unknown") {
-                PreferencesManager.getInstance(ctx).cachedRootProviderVersion = newRootVersion
-            }
             if (newDroidspacesVersion != cachedDroidspacesVersion && newDroidspacesVersion != null) {
                 PreferencesManager.getInstance(ctx).cachedDroidspacesVersion = newDroidspacesVersion
             }
@@ -124,59 +111,6 @@ object SystemInfoManager {
     }
 
     /**
-     * Get cached root provider version synchronously (for instant UI display).
-     * Optimized hot path - direct property access.
-     *
-     * Performance: ~0.1ms (SharedPreferences cached read)
-     */
-    fun getCachedRootProviderVersion(context: Context): String? {
-        return PreferencesManager.getInstance(context).cachedRootProviderVersion
-    }
-
-    /**
-     * Get root provider version (cached after initialization).
-     * Optimized to avoid redundant I/O operations.
-     *
-     * Performance: ~0.1ms if cached, ~50-100ms if not cached
-     */
-    suspend fun getRootProviderVersion(context: Context? = null): String = withContext(Dispatchers.IO) {
-        // Update context if provided (only once)
-        val appContext = context?.applicationContext
-        if (appContext != null) {
-            this@SystemInfoManager.context = appContext
-        }
-
-        // Fast path: return cached value immediately
-        val cached = rootProviderVersionCache
-        if (cached != null && isInitialized) {
-            return@withContext cached
-        }
-
-        // Initialize if not done yet
-        if (!isInitialized) {
-            initialize(context)
-            // Return cached value after initialization
-            return@withContext rootProviderVersionCache ?: "Unknown"
-        }
-
-        // Fallback: load if cache is null (shouldn't happen after init)
-        val newVersion = loadRootProviderVersion().also {
-            rootProviderVersionCache = it
-        }
-
-        // Save to preferences if we have context and value changed
-        val ctx = this@SystemInfoManager.context
-        if (ctx != null && newVersion != "Unknown") {
-            val prefsManager = PreferencesManager.getInstance(ctx)
-            if (prefsManager.cachedRootProviderVersion != newVersion) {
-                prefsManager.cachedRootProviderVersion = newVersion
-            }
-        }
-
-        newVersion
-    }
-
-    /**
      * Live SELinux status. The UI seeds from [cachedSelinuxStatus] and then calls
      * this, so a changed status corrects itself without ever showing a loading row.
      */
@@ -185,32 +119,6 @@ object SystemInfoManager {
             selinuxStatusCache = it
             context?.let { ctx -> PreferencesManager.getInstance(ctx).cachedSelinuxStatus = it }
         }
-    }
-
-    /**
-     * Load root provider version - optimized with minimal allocations
-     */
-    private suspend fun loadRootProviderVersion(): String = withContext(Dispatchers.IO) {
-        return@withContext try {
-            val result = Shell.cmd("su -v").exec()
-            if (result.isSuccess && result.out.isNotEmpty()) {
-                result.out[0].trim()
-            } else {
-                "Unknown"
-            }
-        } catch (e: Exception) {
-            "Unknown"
-        }
-    }
-
-    /**
-     * Get cached droidspaces version synchronously (for instant UI display).
-     * Optimized hot path - direct property access.
-     *
-     * Performance: ~0.1ms (SharedPreferences cached read)
-     */
-    fun getCachedDroidspacesVersion(context: Context): String? {
-        return PreferencesManager.getInstance(context).cachedDroidspacesVersion
     }
 
     /**
@@ -282,13 +190,6 @@ object SystemInfoManager {
         }
 
         newVersion
-    }
-
-    /**
-     * Get cached backend mode synchronously.
-     */
-    fun getCachedBackendMode(context: Context): String? {
-        return PreferencesManager.getInstance(context).cachedBackendMode
     }
 
     /**

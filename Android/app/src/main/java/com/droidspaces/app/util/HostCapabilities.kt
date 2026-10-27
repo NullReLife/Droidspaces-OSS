@@ -139,7 +139,7 @@ data class HostCapabilities(
             val boot = bootId()
             val sameBoot = boot.isNotEmpty() && boot == prefs.cachedHostCapabilitiesBootId
             val cached = if (sameBoot) prefs.cachedHostCapabilities?.let { parse(context, it) } else null
-            val installed = SystemInfoManager.getCachedDroidspacesVersion(context)?.removePrefix("v")
+            val installed = prefs.cachedDroidspacesVersion?.removePrefix("v")
             if (cached != null && (installed == null || installed == cached.backendVersion)) {
                 if (_state.value == null) _state.value = cached
                 return@withContext
