@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 
 object ContainerInstaller {
     /* Every path below reaches a root shell, and the rootfs one is now user-chosen. */
@@ -246,133 +245,68 @@ object ContainerInstaller {
         return "cd ${quote(destination)} && $unpack 2>&1"
     }
 
-
+    /** [name] from the assets copied into cacheDir and made executable; the caller deletes it. */
+    internal fun deployAsset(context: Context, name: String): File {
+        val file = File(context.cacheDir, name)
+        context.assets.open(name).use { input -> file.outputStream().use { input.copyTo(it) } }
+        // Fail closed: a script that could not be made executable is never run through a
+        // fallback, the caller's error path is the place to say so.
+        if (!Shell.cmd("chmod 755 ${quote(file.absolutePath)}").exec().isSuccess) {
+            file.delete()
+            error("Could not make $name executable")
+        }
+        return file
+    }
 
     /**
-     * Inspect the tarball (without extracting) to confirm it contains a Linux
-     * rootfs, so users can't install arbitrary archives (photo backups, source
-     * zips, etc.). Throws on a confirmed-invalid archive; a validator that fails
-     * to load is treated as non-fatal (warn and continue).
+     * Inspect the tarball (without extracting) to confirm it contains a Linux rootfs,
+     * so users cannot install arbitrary archives (photo backups, source zips). Throws
+     * on a confirmed-invalid archive, and on a validator that could not be deployed:
+     * the rootfs is later run as root, so an unverified one is never installed.
      */
-    private suspend fun validateRootfsTarball(
-        context: Context,
-        tarball: String,
-        logger: ViewModelLogger
-    ) {
+    private suspend fun validateRootfsTarball(context: Context, tarball: String, logger: ViewModelLogger) {
         logger.i("Inspecting tarball to verify it is a Linux rootfs...")
-
-        // Copy validator script from assets
-        val scriptFile = File("${context.cacheDir}/validate_rootfs.sh")
-        try {
-            context.assets.open("validate_rootfs.sh").use { inputStream ->
-                FileOutputStream(scriptFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
+        val script = try {
+            deployAsset(context, "validate_rootfs.sh")
         } catch (e: Exception) {
-            // Fail CLOSED: if the validator itself can't be loaded, do not install an
-            // unverified rootfs, it is later run as root.
             logger.e("Failed to load rootfs validator: ${e.message}")
             throw Exception("Could not verify rootfs: validator unavailable (${e.message})")
         }
-
         try {
-            // Make script executable
-            val chmodResult = Shell.cmd("chmod 755 ${quote(scriptFile.absolutePath)} 2>&1").exec()
-            if (!chmodResult.isSuccess) {
-                // Fail CLOSED: never run a validator we could not make executable.
-                logger.e("Failed to make rootfs validator executable")
-                throw Exception("Could not verify rootfs: validator not executable")
-            }
-
-            val result = Shell.cmd(
-                "BUSYBOX_PATH=$BUSYBOX_PATH ${quote(scriptFile.absolutePath)} ${quote(tarball)} 2>&1"
-            ).exec()
-
+            val result = Shell.cmd("BUSYBOX_PATH=$BUSYBOX_PATH ${quote(script.absolutePath)} ${quote(tarball)} 2>&1").exec()
             if (!result.isSuccess) {
-                val reason = result.out
-                    .map { it.trim() }
-                    .firstOrNull { it.isNotEmpty() }
+                val reason = result.out.map { it.trim() }.firstOrNull { it.isNotEmpty() }
                     ?: "selected file does not look like a Linux rootfs"
                 logger.e(reason)
                 throw Exception(reason)
             }
         } finally {
-            try {
-                scriptFile.delete()
-            } catch (e: Exception) {
-                logger.w("Warning: Failed to clean up validator script: ${e.message}")
-            }
+            script.delete()
         }
     }
 
-    /**
-     * Apply post-extraction fixes to the rootfs (both sparse and directory modes).
-     */
-    private suspend fun applyPostExtractionFixes(
-        context: Context,
-        rootfsPath: String,
-        logger: ViewModelLogger
-    ) {
+    /** post_extract_fixes.sh over a freshly extracted rootfs; a failure is logged, never fatal. */
+    internal suspend fun applyPostExtractionFixes(context: Context, rootfsPath: String, logger: ViewModelLogger) {
         logger.i("Applying post-extraction fixes...")
-
-        // Copy post-extraction fix script from assets
-        val postFixScriptFile = File("${context.cacheDir}/post_extract_fixes.sh")
-        try {
-            context.assets.open("post_extract_fixes.sh").use { inputStream ->
-                FileOutputStream(postFixScriptFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
+        val script = try {
+            deployAsset(context, "post_extract_fixes.sh")
         } catch (e: Exception) {
-            logger.w("Warning: Failed to load post_extract_fixes.sh from assets: ${e.message}")
+            logger.w("Warning: Failed to load post_extract_fixes.sh: ${e.message}")
             return
         }
-
-        // Make script executable
-        val chmodResult = Shell.cmd("chmod 755 ${quote(postFixScriptFile.absolutePath)} 2>&1").exec()
-        if (!chmodResult.isSuccess) {
-            logger.w("Warning: Failed to make post-fix script executable")
-            postFixScriptFile.delete()
-            return
-        }
-
         try {
-            // Execute the script
-            val result = Shell.cmd("BUSYBOX_PATH=$BUSYBOX_PATH ${quote(postFixScriptFile.absolutePath)} ${quote(rootfsPath)} 2>&1").exec()
-
-            // Log all output from the script
-            result.out.forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.isNotEmpty()) {
-                    when {
-                        trimmed.startsWith("[POST-FIX-WARN]") -> logger.w(trimmed)
-                        trimmed.startsWith("[POST-FIX]") -> logger.i(trimmed)
-                        else -> logger.d(trimmed)
-                    }
+            val result = Shell.cmd("BUSYBOX_PATH=$BUSYBOX_PATH ${quote(script.absolutePath)} ${quote(rootfsPath)} 2>&1").exec()
+            result.out.map { it.trim() }.filter { it.isNotEmpty() }.forEach { line ->
+                when {
+                    line.startsWith("[POST-FIX-WARN]") -> logger.w(line)
+                    line.startsWith("[POST-FIX]") -> logger.i(line)
+                    else -> logger.d(line)
                 }
             }
-
-            // Log errors
-            result.err.forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.isNotEmpty()) {
-                    logger.w(trimmed)
-                }
-            }
-
-            if (!result.isSuccess) {
-                logger.w("Warning: Post-extraction fixes failed, but continuing installation")
-            } else {
-                logger.i("Post-extraction fixes completed successfully")
-            }
+            if (result.isSuccess) logger.i("Post-extraction fixes completed successfully")
+            else logger.w("Warning: Post-extraction fixes failed, but continuing installation")
         } finally {
-            // Clean up script file
-            try {
-                postFixScriptFile.delete()
-            } catch (e: Exception) {
-                logger.w("Warning: Failed to clean up post-fix script file: ${e.message}")
-            }
+            script.delete()
         }
     }
 

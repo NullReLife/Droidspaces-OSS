@@ -181,8 +181,8 @@ fun MainTabScreen(
         appStateViewModel.checkBackendStatus(force = true)
         // Force refresh droidspaces version to get latest after backend updates
         if (appStateViewModel.isBackendAvailable) {
-            SystemInfoManager.refreshDroidspacesVersion(context)
-            SystemInfoManager.refreshBackendMode(context)
+            SystemInfoManager.getDroidspacesVersion(context, force = true)
+            SystemInfoManager.getBackendMode(context, force = true)
             HostCapabilities.refresh(context)
 
             when (tab) {

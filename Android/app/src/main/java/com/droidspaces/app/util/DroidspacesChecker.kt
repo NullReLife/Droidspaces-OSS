@@ -32,21 +32,17 @@ object DroidspacesChecker {
      * Performance: ~10-50ms (runs in background, never blocks UI)
      */
     suspend fun checkBackendStatus(): DroidspacesBackendStatus = withContext(Dispatchers.IO) {
-        try {
-            if (!checkModuleInstalled()) {
-                return@withContext DroidspacesBackendStatus.ModuleMissing
-            }
-
-            fun checkBinary(binaryPath: String) =
-                Shell.cmd("test -f '$binaryPath' -a -x '$binaryPath'").exec().isSuccess
-
-            if (checkBinary(DROIDSPACES_BINARY_PATH) && checkBinary(BUSYBOX_BINARY_PATH))
-                DroidspacesBackendStatus.Available
-            else
-                DroidspacesBackendStatus.NotInstalled
-        } catch (e: Exception) {
-            DroidspacesBackendStatus.NotInstalled
+        if (!checkModuleInstalled()) {
+            return@withContext DroidspacesBackendStatus.ModuleMissing
         }
+
+        fun checkBinary(binaryPath: String) =
+            Shell.cmd("test -f '$binaryPath' -a -x '$binaryPath'").exec().isSuccess
+
+        if (checkBinary(DROIDSPACES_BINARY_PATH) && checkBinary(BUSYBOX_BINARY_PATH))
+            DroidspacesBackendStatus.Available
+        else
+            DroidspacesBackendStatus.NotInstalled
     }
 
     /**
@@ -56,17 +52,8 @@ object DroidspacesChecker {
      * Performance: ~10-50ms (runs in background, never blocks UI)
      */
     suspend fun getDroidspacesVersion(): String? = withContext(Dispatchers.IO) {
-        try {
-            val result = Shell.cmd("$DROIDSPACES_BINARY_PATH version 2>&1").exec()
-            if (result.isSuccess && result.out.isNotEmpty()) {
-                // Version command outputs "v2.5.0-beta" - trim whitespace
-                result.out[0].trim()
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            null
-        }
+        val result = Shell.cmd("$DROIDSPACES_BINARY_PATH version 2>&1").exec()
+        if (result.isSuccess) result.out.firstOrNull()?.trim() else null
     }
 
     /**
@@ -76,31 +63,14 @@ object DroidspacesChecker {
      * Performance: ~50-200ms (reads both files and calculates hashes)
      */
     suspend fun checkUpdateAvailable(context: Context): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val binaryName = "droidspaces-${DeviceArch.suffix(context)}"
-
-            // Calculate hash of installed binary
-            val installedHashResult = Shell.cmd("md5sum $DROIDSPACES_BINARY_PATH 2>&1 | cut -d' ' -f1").exec()
-            if (!installedHashResult.isSuccess || installedHashResult.out.isEmpty()) {
-                return@withContext false
-            }
-            val installedHash = installedHashResult.out[0].trim()
-
-            // Calculate hash of asset binary
-            val assetManager = context.assets
-            val assetHash = try {
-                assetManager.open("binaries/$binaryName").use { inputStream ->
-                    calculateMD5(inputStream)
-                }
-            } catch (e: Exception) {
-                return@withContext false
-            }
-
-            // Compare hashes - if different, update is available
-            installedHash != assetHash
+        val installed = Shell.cmd("md5sum $DROIDSPACES_BINARY_PATH 2>&1 | cut -d' ' -f1").exec()
+        if (!installed.isSuccess || installed.out.isEmpty()) return@withContext false
+        val assetHash = try {
+            context.assets.open("binaries/droidspaces-${DeviceArch.suffix(context)}").use { calculateMD5(it) }
         } catch (e: Exception) {
-            false
+            return@withContext false
         }
+        installed.out[0].trim() != assetHash
     }
 
     /**

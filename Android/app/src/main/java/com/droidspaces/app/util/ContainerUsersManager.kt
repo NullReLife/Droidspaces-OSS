@@ -1,6 +1,5 @@
 package com.droidspaces.app.util
 
-import android.util.Log
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,8 +9,6 @@ import kotlinx.coroutines.withContext
  * Uses in-memory caching for fast access.
  */
 object ContainerUsersManager {
-    private const val TAG = "ContainerUsersManager"
-
     // In-memory cache for users (container name -> List of users)
     private val cache = mutableMapOf<String, List<String>>()
 
@@ -26,26 +23,21 @@ object ContainerUsersManager {
             cache[containerName]?.let { return@withContext it }
         }
 
-        try {
-            val result = Shell.cmd(
-                "${Constants.DROIDSPACES_BINARY_PATH} --name=${ContainerCommandBuilder.quote(containerName)} run 'awk -F: \"\\\$3 >= 1000 && \\\$3 < 65534 && \\\$1 !~ /^(nixbld)/ {print \\\$1}\" /etc/passwd 2>/dev/null | tr \"\\n\" \",\" | sed \"s/,\\$//\"'"
-            ).exec()
+        val result = Shell.cmd(
+            "${Constants.DROIDSPACES_BINARY_PATH} --name=${ContainerCommandBuilder.quote(containerName)} run 'awk -F: \"\\\$3 >= 1000 && \\\$3 < 65534 && \\\$1 !~ /^(nixbld)/ {print \\\$1}\" /etc/passwd 2>/dev/null | tr \"\\n\" \",\" | sed \"s/,\\$//\"'"
+        ).exec()
 
-            if (!result.isSuccess) return@withContext emptyList()
+        if (!result.isSuccess) return@withContext emptyList()
 
-            // A container with only root yields an empty list. Cache that too, or a
-            // stale entry from a previous container of the same name outlives refresh.
-            val users = result.out.joinToString("").trim()
-                .split(",")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
+        // A container with only root yields an empty list. Cache that too, or a
+        // stale entry from a previous container of the same name outlives refresh.
+        val users = result.out.joinToString("").trim()
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
 
-            cache[containerName] = users
-            users
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting users for $containerName", e)
-            emptyList()
-        }
+        cache[containerName] = users
+        users
     }
 
     // Each `run` joins the container's namespaces, so the details page asks for
@@ -66,19 +58,14 @@ object ContainerUsersManager {
      * regular users, from one `run`. Null if the container could not be entered.
      */
     suspend fun probe(containerName: String): Pair<String, List<String>>? = withContext(Dispatchers.IO) {
-        try {
-            val out = Shell.cmd(
-                "${Constants.DROIDSPACES_BINARY_PATH} --name=${ContainerCommandBuilder.quote(containerName)} run ${ContainerCommandBuilder.quote(PROBE_SCRIPT)}"
-            ).exec().out.map { it.trim() }.filter { it.isNotEmpty() }
+        val out = Shell.cmd(
+            "${Constants.DROIDSPACES_BINARY_PATH} --name=${ContainerCommandBuilder.quote(containerName)} run ${ContainerCommandBuilder.quote(PROBE_SCRIPT)}"
+        ).exec().out.map { it.trim() }.filter { it.isNotEmpty() }
 
-            val init = out.firstOrNull()?.takeIf { it in INIT_SYSTEMS } ?: return@withContext null
-            val users = out.drop(1)
-            cache[containerName] = users
-            init to users
-        } catch (e: Exception) {
-            Log.e(TAG, "Error probing $containerName", e)
-            null
-        }
+        val init = out.firstOrNull()?.takeIf { it in INIT_SYSTEMS } ?: return@withContext null
+        val users = out.drop(1)
+        cache[containerName] = users
+        init to users
     }
 
     /**

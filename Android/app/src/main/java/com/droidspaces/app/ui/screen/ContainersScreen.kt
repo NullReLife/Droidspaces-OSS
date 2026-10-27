@@ -71,7 +71,7 @@ import com.droidspaces.app.ui.component.RootfsRepoSheet
 import com.droidspaces.app.ui.viewmodel.ContainerViewModel
 import com.droidspaces.app.ui.viewmodel.ContainerOperationsViewModel
 import com.droidspaces.app.ui.viewmodel.UninstallState
-import com.droidspaces.app.ui.viewmodel.SparseOperation
+import com.droidspaces.app.ui.viewmodel.SparseOp
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import com.droidspaces.app.R
@@ -104,7 +104,7 @@ fun ContainersScreen(
 
     // UI-only state (dialog triggers / pending pickers).
     var showUninstallConfirmation by remember { mutableStateOf<ContainerInfo?>(null) }
-    var pendingSparseOperation by remember { mutableStateOf<SparseOperation?>(null) }
+    var pendingSparseOperation by remember { mutableStateOf<Pair<ContainerInfo, SparseOp>?>(null) }
     var pendingExportContainer by remember { mutableStateOf<ContainerInfo?>(null) }
     var pendingExportEnv by remember { mutableStateOf(false) }
     var askExportEnv by remember { mutableStateOf<ContainerInfo?>(null) }
@@ -264,11 +264,11 @@ fun ContainersScreen(
                                 },
                                 onMigrate = {
                                     onExpandedContainerNameChange(null)
-                                    pendingSparseOperation = SparseOperation.Migrate(container)
+                                    pendingSparseOperation = container to SparseOp.MIGRATE
                                 },
                                 onResize = {
                                     onExpandedContainerNameChange(null)
-                                    pendingSparseOperation = SparseOperation.Resize(container)
+                                    pendingSparseOperation = container to SparseOp.RESIZE
                                 },
                                 onExport = {
                                     onExpandedContainerNameChange(null)
@@ -446,30 +446,25 @@ fun ContainersScreen(
         }
 
         // Sparse operation size dialog
-        pendingSparseOperation?.let { op ->
-            val container = when (op) {
-                is SparseOperation.Migrate -> op.container
-                is SparseOperation.Resize -> op.container
-            }
-
+        pendingSparseOperation?.let { (container, op) ->
             SparseSizeDialog(
                 title = context.getString(
-                    if (op is SparseOperation.Migrate) R.string.migrate_dialog_title
+                    if (op == SparseOp.MIGRATE) R.string.migrate_dialog_title
                     else R.string.resize_dialog_title
                 ),
                 message = context.getString(
-                    if (op is SparseOperation.Migrate) R.string.migrate_dialog_message
+                    if (op == SparseOp.MIGRATE) R.string.migrate_dialog_message
                     else R.string.resize_dialog_message,
                     container.name
                 ),
                 initialSize = container.sparseImageSizeGB ?: 8,
                 // Only a resize can be a no-op: a migrate has no image yet, so
                 // picking the default size there is a legitimate choice.
-                currentSize = if (op is SparseOperation.Resize) container.sparseImageSizeGB else null,
+                currentSize = if (op == SparseOp.RESIZE) container.sparseImageSizeGB else null,
                 onConfirm = { size ->
                     pendingSparseOperation = null
                     scope.launch {
-                        opsViewModel.executeSparseOperation(op, size, onRefresh = { containerViewModel.refresh() })
+                        opsViewModel.executeSparseOperation(container, op, size, onRefresh = { containerViewModel.refresh() })
                     }
                 },
                 onDismiss = { pendingSparseOperation = null }

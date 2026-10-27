@@ -5,8 +5,6 @@ import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 
 /**
  * Native Kotlin implementation of the Sparse Image Installer.
@@ -103,8 +101,8 @@ object SparseImageInstaller {
                 }
                 logger.i("[SPARSE] Extraction completed successfully")
 
-                // 6. Apply Post-Extraction Fixes (using script as requested)
-                applyScriptFixes(context, mountPoint, logger)
+                // 6. Apply Post-Extraction Fixes
+                ContainerInstaller.applyPostExtractionFixes(context, mountPoint, logger)
 
             } finally {
                 // 7. Unmount (Always attempt)
@@ -135,44 +133,5 @@ object SparseImageInstaller {
         result.out.forEach { line -> if (line.isNotBlank()) logger.d(line) }
         result.err.forEach { line -> if (line.isNotBlank()) logger.w(line) }
         return if (result.isSuccess) result else null
-    }
-
-    /**
-     * Runs the post_extract_fixes.sh script on the given rootfs path.
-     */
-    private suspend fun applyScriptFixes(context: Context, rootfs: String, logger: ViewModelLogger) {
-        logger.i("[POST-FIX] Running post-extraction fixes script...")
-        val postFixScriptFile = File("${context.cacheDir}/post_extract_fixes.sh")
-        try {
-            context.assets.open("post_extract_fixes.sh").use { inputStream ->
-                FileOutputStream(postFixScriptFile).use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-            Shell.cmd("chmod 755 ${quote(postFixScriptFile.absolutePath)}").exec()
-
-            val result = Shell.cmd("BUSYBOX_PATH=${Constants.BUSYBOX_BINARY_PATH} ${quote(postFixScriptFile.absolutePath)} ${quote(rootfs)} 2>&1").exec()
-
-            result.out.forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.isNotEmpty()) {
-                    when {
-                        trimmed.startsWith("[POST-FIX-WARN]") -> logger.w(trimmed)
-                        trimmed.startsWith("[POST-FIX]") -> logger.i(trimmed)
-                        else -> logger.d(trimmed)
-                    }
-                }
-            }
-
-            if (!result.isSuccess) {
-                logger.w("Warning: Post-extraction fixes failed, but continuing.")
-            } else {
-                logger.i("[POST-FIX] Fixes applied successfully")
-            }
-        } catch (e: Exception) {
-            logger.w("Warning: Failed to run post-fix script: ${e.message}")
-        } finally {
-            postFixScriptFile.delete()
-        }
     }
 }

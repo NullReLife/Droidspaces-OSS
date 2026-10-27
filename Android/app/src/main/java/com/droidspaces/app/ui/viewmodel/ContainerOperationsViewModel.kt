@@ -13,6 +13,7 @@ import com.droidspaces.app.R
 import com.droidspaces.app.service.TerminalSessionService
 import com.droidspaces.app.util.ContainerCommandBuilder
 import com.droidspaces.app.util.ContainerInfo
+import com.droidspaces.app.util.ContainerInstaller
 import com.droidspaces.app.util.ContainerManager
 import com.droidspaces.app.util.ContainerOSInfoManager
 import com.droidspaces.app.util.ContainerDiskUsageManager
@@ -22,12 +23,10 @@ import com.droidspaces.app.util.FilePickerUtils
 import com.droidspaces.app.util.PreferencesManager
 import com.droidspaces.app.util.SystemInfoManager
 import com.droidspaces.app.util.ViewModelLogger
-import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.OutputStream
 
 /** Progress state for the stop/uninstall flow (drives the ProgressDialog). */
 sealed class UninstallState {
@@ -35,11 +34,8 @@ sealed class UninstallState {
     data class InProgress(val containerName: String, val message: String) : UninstallState()
 }
 
-/** A pending sparse-image operation awaiting a size from the user. */
-sealed class SparseOperation {
-    data class Migrate(val container: ContainerInfo) : SparseOperation()
-    data class Resize(val container: ContainerInfo) : SparseOperation()
-}
+/** A sparse-image operation awaiting a size from the user. */
+enum class SparseOp { MIGRATE, RESIZE }
 
 /**
  * Owns the container lifecycle/maintenance operations (start/stop/restart,
@@ -64,10 +60,6 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Container whose log viewer dialog is open (set from UI and from operations). */
     var showLogViewerFor by mutableStateOf<String?>(null)
-
-    /** Last container whose operation failed (kept for parity with prior behavior). */
-    var lastErrorContainer by mutableStateOf<String?>(null)
-        private set
 
     /** Stop/uninstall progress. */
     var uninstallState by mutableStateOf<UninstallState>(UninstallState.Idle)
@@ -99,6 +91,27 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
     private fun string(resId: Int, vararg args: Any): String =
         if (args.isEmpty()) appContext.getString(resId) else appContext.getString(resId, *args)
 
+    /**
+     * Stops [container] if it runs, behind the progress dialog, which stays up on
+     * success for the caller's next step. False, with the dialog gone and the failure
+     * logged, when the stop failed.
+     */
+    private suspend fun stopIfRunning(container: ContainerInfo, logger: ViewModelLogger): Boolean {
+        if (!ContainerManager.checkContainerStatus(container.name).first) return true
+        uninstallState = UninstallState.InProgress(container.name, string(R.string.stopping_container))
+        val stopped = ContainerOperationExecutor.executeCommand(ContainerCommandBuilder.buildStopCommand(container), "stop", logger)
+        if (!stopped) {
+            uninstallState = UninstallState.Idle
+            logger.e(string(R.string.failed_to_stop_container, container.name))
+            return false
+        }
+        // `stop` returns when init has exited, but the monitor unmounts the rootfs after
+        // that. The uninstall removes that rootfs and the sparse migrate moves it, so
+        // give the teardown a second; the export only reads and loses nothing by waiting.
+        delay(1000)
+        return true
+    }
+
     // ── Export ────────────────────────────────────────────────────────────────
     suspend fun executeExport(
         container: ContainerInfo,
@@ -116,29 +129,18 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
         var scriptFile: File? = null
         var tempArchive: File? = null
         try {
-            val isRunning = ContainerManager.checkContainerStatus(container.name).first
-            if (isRunning) {
-                uninstallState = UninstallState.InProgress(container.name, string(R.string.stopping_container))
-                val stopCommand = ContainerCommandBuilder.buildStopCommand(container)
-                val stopResult = ContainerOperationExecutor.executeCommand(stopCommand, "stop", logger)
-                uninstallState = UninstallState.Idle
-                if (!stopResult) {
-                    logger.e(string(R.string.failed_to_stop_container, container.name))
-                    onError(string(R.string.failed_to_stop_container, container.name))
-                    return
-                }
+            if (!stopIfRunning(container, logger)) {
+                onError(string(R.string.failed_to_stop_container, container.name))
+                return
             }
+            uninstallState = UninstallState.Idle
 
             logs.clear()
             showLogViewerFor = container.name
             logger.i(string(R.string.starting_export))
 
-            val deployed = File("${appContext.cacheDir}/export_container.sh")
+            val deployed = ContainerInstaller.deployAsset(appContext, "export_container.sh")
             scriptFile = deployed
-            appContext.assets.open("export_container.sh").use { input ->
-                deployed.outputStream().use { out: OutputStream -> input.copyTo(out) }
-            }
-            Shell.cmd("chmod 755 ${ContainerCommandBuilder.quote(deployed.absolutePath)}").exec()
 
             // Write straight into the picked document when its provider exposes a file.
             // Only a pipe-backed one (cloud storage) still goes through cacheDir.
@@ -195,18 +197,10 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
         val logger = ViewModelLogger { _, message -> collectedLogs.add(message) }
 
         try {
-            val isRunning = ContainerManager.checkContainerStatus(container.name).first
-            if (isRunning) {
-                uninstallState = UninstallState.InProgress(container.name, string(R.string.stopping_container))
-                val stopCommand = ContainerCommandBuilder.buildStopCommand(container)
-                val stopResult = ContainerOperationExecutor.executeCommand(stopCommand, "stop", logger)
-                if (!stopResult) {
-                    uninstallState = UninstallState.Idle
-                    if (collectedLogs.isNotEmpty()) uninstallLogsDialog = collectedLogs
-                    else onError(string(R.string.failed_to_stop_container, container.name))
-                    onRefresh()
-                    return
-                }
+            if (!stopIfRunning(container, logger)) {
+                uninstallLogsDialog = collectedLogs
+                onRefresh()
+                return
             }
 
             uninstallState = UninstallState.InProgress(container.name, string(R.string.uninstalling_container))
@@ -276,21 +270,18 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
             )
 
             if (!success) {
-                lastErrorContainer = container.name
                 logger.e("")
                 logger.e(string(R.string.operation_failed))
                 onFailureSnackbar(string(R.string.failure_in_operation, operation, container.name))
                 onRefresh()
                 SystemInfoManager.refreshSELinuxStatus()
             } else {
-                lastErrorContainer = null
                 onRefresh()
                 SystemInfoManager.refreshSELinuxStatus()
             }
         } catch (e: Exception) {
             logger.e("Error: ${e.message}")
             logger.e(e.stackTraceToString())
-            lastErrorContainer = container.name
             onFailureSnackbar(string(R.string.failure_in_operation, operation, container.name))
             onRefresh()
         } finally {
@@ -302,15 +293,11 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Sparse migrate / resize ─────────────────────────────────────────────────
     suspend fun executeSparseOperation(
-        operation: SparseOperation,
+        container: ContainerInfo,
+        op: SparseOp,
         sizeGb: Int,
         onRefresh: () -> Unit,
     ) {
-        val container = when (operation) {
-            is SparseOperation.Migrate -> operation.container
-            is SparseOperation.Resize -> operation.container
-        }
-
         runningOperationContainer = container.name
         val logs = logsFor(container.name)
         logs.clear()
@@ -320,28 +307,14 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
 
         var scriptFile: File? = null
         try {
-            val isRunning = ContainerManager.checkContainerStatus(container.name).first
-            if (isRunning) {
-                uninstallState = UninstallState.InProgress(container.name, string(R.string.stopping_container))
-                val stopCommand = ContainerCommandBuilder.buildStopCommand(container)
-                val stopResult = ContainerOperationExecutor.executeCommand(stopCommand, "stop", logger)
-                uninstallState = UninstallState.Idle
-                if (!stopResult) {
-                    logger.e(string(R.string.failed_to_stop_container, container.name))
-                    return
-                }
-                delay(1000)
-            }
+            if (!stopIfRunning(container, logger)) return
+            uninstallState = UninstallState.Idle
 
             logs.clear()
             showLogViewerFor = container.name
 
-            val deployedFile = File("${appContext.cacheDir}/sparsemgr.sh")
+            val deployedFile = ContainerInstaller.deployAsset(appContext, "sparsemgr.sh")
             scriptFile = deployedFile
-            appContext.assets.open("sparsemgr.sh").use { input ->
-                deployedFile.outputStream().use { output: OutputStream -> input.copyTo(output) }
-            }
-            Shell.cmd("chmod 755 ${ContainerCommandBuilder.quote(deployedFile.absolutePath)}").exec()
 
             // container.config is the only record of where the rootfs actually is; a
             // container installed to a custom location cannot be derived from its name.
@@ -353,8 +326,8 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
             val rootfsParent = rootfsPath.substringBeforeLast('/')
             val qScript = ContainerCommandBuilder.quote(deployedFile.absolutePath)
 
-            val cmd = when (operation) {
-                is SparseOperation.Migrate -> {
+            val cmd = when (op) {
+                SparseOp.MIGRATE -> {
                     // sparsemgr derives <dir>/rootfs and <dir>/rootfs.img from -d, so it
                     // wants the rootfs's own parent, not the container directory. Refuse
                     // anything not laid out that way rather than pointing it at a path
@@ -366,7 +339,7 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
                     logger.i(string(R.string.starting_migration))
                     "$qScript -d ${ContainerCommandBuilder.quote(rootfsParent)} migrate $sizeGb"
                 }
-                is SparseOperation.Resize -> {
+                SparseOp.RESIZE -> {
                     if (rootfsPath.substringAfterLast('/') != "rootfs.img") {
                         logger.e("Rootfs at $rootfsPath is not a sparse image; cannot resize.")
                         return
@@ -386,7 +359,7 @@ class ContainerOperationsViewModel(app: Application) : AndroidViewModel(app) {
 
             if (success) {
                 logger.i("Updating container configuration...")
-                val updatedConfig = if (operation is SparseOperation.Migrate) {
+                val updatedConfig = if (op == SparseOp.MIGRATE) {
                     container.copy(
                         useSparseImage = true,
                         sparseImageSizeGB = sizeGb,

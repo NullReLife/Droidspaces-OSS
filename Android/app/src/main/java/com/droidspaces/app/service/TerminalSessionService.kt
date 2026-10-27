@@ -7,7 +7,9 @@ import android.net.Uri
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.runtime.mutableStateMapOf
@@ -25,7 +27,6 @@ data class SessionInfo(val containerName: String, val user: String, val fontSize
 class TerminalSessionService : Service() {
 
     private val sessions = hashMapOf<String, TerminalSession>()
-    val sessionList = mutableStateMapOf<String, SessionInfo>()
 
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -44,13 +45,11 @@ class TerminalSessionService : Service() {
                 containerUser = user,
             ).also {
                 sessions[sessionId] = it
-                val info = SessionInfo(
+                globalSessionList[sessionId] = SessionInfo(
                     containerName,
                     user,
                     PreferencesManager.getInstance(this@TerminalSessionService).terminalFontSizePx
                 )
-                sessionList[sessionId] = info
-                globalSessionList[sessionId] = info
                 if (sessions.size == 1) {
                     promoteToForeground()
                 } else {
@@ -71,50 +70,9 @@ class TerminalSessionService : Service() {
             sessions.values.forEach { it.updateTerminalSessionClient(NoOpTerminalSessionClient) }
         }
 
-        fun terminateSession(id: String) {
-            runCatching {
-                // Send Ctrl+D (EOF) first so bash exits cleanly and su unwinds.
-                // SIGKILL fires 300 ms later as a safety net for anything that
-                // didn't respond in time.
-                sessions[id]?.write("\u0004")
+        fun terminateSession(id: String) = terminate(listOf(id))
 
-                // Update UI state IMMEDIATELY to prevent "Restore" button glitches.
-                sessionList.remove(id)
-                globalSessionList.remove(id)
-                updateNotification()
-
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    runCatching {
-                        sessions[id]?.apply { if (emulator != null) finishIfRunning() }
-                        sessions.remove(id)
-                        if (sessions.isEmpty()) {
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                            notificationManager.cancel(NOTIFICATION_ID)
-                            stopSelf()
-                        } else {
-                            updateNotification()
-                        }
-                    }.onFailure { it.printStackTrace() }
-                }, 300)
-            }.onFailure { it.printStackTrace() }
-        }
-
-        fun terminateAllSessions() {
-            // EOF to all shells first - cleans up every su -> bash chain gracefully.
-            sessions.values.forEach { it.write("\u0004") }
-
-            // Clear UI state IMMEDIATELY.
-            sessionList.clear()
-            globalSessionList.clear()
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            notificationManager.cancel(NOTIFICATION_ID)
-
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                sessions.values.forEach { it.finishIfRunning() }
-                sessions.clear()
-                stopSelf()
-            }, 300)
-        }
+        fun terminateAllSessions() = terminate(sessions.keys.toList())
 
         fun setWakeLock(acquire: Boolean) {
             if (acquire) {
@@ -195,27 +153,25 @@ class TerminalSessionService : Service() {
         return START_STICKY
     }
 
-    // Kill all sessions belonging to a specific container (used before stop/restart).
-    private fun terminateSessionsForContainer(containerName: String) {
-        val targets = sessions.filter { (id, _) -> sessionList[id]?.containerName == containerName }
-        targets.forEach { (_, s) -> s.write("\u0004") }
-        targets.keys.forEach { id ->
-            sessionList.remove(id)
-            globalSessionList.remove(id)
-        }
+    /** Every tab of a container that stops or restarts. */
+    private fun terminateSessionsForContainer(containerName: String) =
+        terminate(globalSessionList.filterValues { it.containerName == containerName }.keys.toList())
+
+    /**
+     * EOF to each shell first so bash exits and su unwinds on its own; SIGKILL follows
+     * 300 ms later for whatever did not. The registry updates at once, so a Restore
+     * button never shows for a tab on its way out, but the sessions stay in the map
+     * until the kill leg: the service must not stop itself before that, or onDestroy
+     * could no longer reach them.
+     */
+    private fun terminate(ids: Collection<String>) {
+        val targets = ids.mapNotNull { id -> sessions[id]?.also { globalSessionList.remove(id) } }
+        targets.forEach { runCatching { it.write("\u0004") } }
         updateNotification()
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            targets.forEach { (id, s) ->
-                runCatching { if (s.emulator != null) s.finishIfRunning() }
-                sessions.remove(id)
-            }
-            if (sessions.isEmpty()) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                notificationManager.cancel(NOTIFICATION_ID)
-                stopSelf()
-            } else {
-                updateNotification()
-            }
+        Handler(Looper.getMainLooper()).postDelayed({
+            targets.forEach { runCatching { if (it.emulator != null) it.finishIfRunning() } }
+            ids.forEach { sessions.remove(it) }
+            updateNotification()
         }, 300)
     }
 
