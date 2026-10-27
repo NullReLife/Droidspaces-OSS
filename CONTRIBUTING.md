@@ -385,7 +385,7 @@ it should be set.
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |
-| `ServiceManagerBase.isSafeServiceName(name)` | `util/ServiceManagerBase.kt` | Any service or unit name that came from inside a container, before it reaches a shell. Fails closed |
+| `ContainerInitManager.isSafeServiceName(name)` | `util/ContainerInitManager.kt` | Any service or unit name that came from inside a container, before it reaches a shell. Fails closed |
 | `ValidationUtils.validateContainerName` / `isSafeContainerName` / `normalizeContainerName` | `util/ValidationUtils.kt` | Container names. Normalize first, then validate. Both fail closed |
 | `ValidationUtils.validateHostname` / `sanitizeHostname` | same | Hostnames |
 | `ValidationUtils.validateConfigValues(config)` | same | Before writing a config. Rejects control characters in single-line values |
@@ -429,7 +429,7 @@ boundary.
 
 All four init managers share the same shape. The container name is always quoted through
 `ContainerCommandBuilder`, and the service name is always allow-listed through
-`ServiceManagerBase`.
+`ContainerInitManager.isSafeServiceName`.
 
 | Symbol | Path | Use it when |
 | --- | --- | --- |

@@ -190,7 +190,7 @@ These are choke points. Bypassing one is a bug, not a shortcut.
 
 - `ContainerCommandBuilder.quote()` in `Android/app/src/main/java/com/droidspaces/app/util/ContainerCommandBuilder.kt`
   wraps every dynamic value that reaches a root shell.
-- `ServiceManagerBase.isSafeServiceName()` allow-lists service names that came from inside a
+- `ContainerInitManager.isSafeServiceName()` allow-lists service names that came from inside a
   container. It fails closed. So does `ValidationUtils`.
 - `ds_peer_authorized()` in `src/utils.c` is the only authorization gate in the tree, and
   `ds_peer_in_pidns()` backs it. Both must fail closed. A "cannot determine, so allow"

@@ -57,20 +57,13 @@ import com.droidspaces.app.ui.util.*
 import com.droidspaces.app.util.AnimationUtils
 import com.droidspaces.app.ui.viewmodel.InitScreenState
 import com.droidspaces.app.ui.viewmodel.InitServiceViewModel
+import com.droidspaces.app.util.CommandResult
+import com.droidspaces.app.util.ServiceStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-// ── UI-level model ───────────────────────────────────────────────────────────
-// Manager-agnostic view of an init-system service, so a single screen can drive
-// systemd, OpenRC and procd. Each screen maps its manager's ServiceInfo -> this.
-
-/** Superset of the per-init-system statuses (color + label are derived from it). */
-enum class InitServiceUiStatus {
-    ENABLED_RUNNING, ENABLED_STOPPED, DISABLED_STOPPED, ABNORMAL, STATIC, MASKED, UNKNOWN
-}
-
-/** Manager-agnostic command result. */
-data class InitCommandResult(val isSuccess: Boolean, val output: List<String>, val error: List<String>)
+// One screen drives all four init systems: each maps its manager's ServiceInfo to a row
+// whose actions are already bound to that manager.
 
 /**
  * An overflow-menu action. [Command] fires a suspend action (restart / mask /
@@ -82,7 +75,7 @@ sealed class InitServiceMenuAction(val labelRes: Int, val icon: ImageVector) {
     class Command(
         labelRes: Int,
         icon: ImageVector,
-        val run: suspend () -> InitCommandResult,
+        val run: suspend () -> CommandResult,
     ) : InitServiceMenuAction(labelRes, icon)
 
     class Navigate(
@@ -100,11 +93,11 @@ data class InitServiceRow(
     val isEnabled: Boolean,
     val isMasked: Boolean,
     val isStatic: Boolean,
-    val status: InitServiceUiStatus,
-    val startStop: suspend () -> InitCommandResult,
-    val enableDisable: suspend () -> InitCommandResult,
+    val status: ServiceStatus,
+    val startStop: suspend () -> CommandResult,
+    val enableDisable: suspend () -> CommandResult,
     /** Non-null only when the service is masked (systemd). */
-    val unmask: (suspend () -> InitCommandResult)?,
+    val unmask: (suspend () -> CommandResult)?,
     val menu: List<InitServiceMenuAction>,
 )
 
@@ -156,7 +149,7 @@ fun InitServiceScreen(
 
     fun fetchServices() = viewModel.fetchServices(containerName, isAvailable, fetchRows)
 
-    fun executeAction(serviceName: String, actionName: String, action: suspend () -> InitCommandResult) {
+    fun executeAction(serviceName: String, actionName: String, action: suspend () -> CommandResult) {
         actionJob?.cancel()
         viewModel.cancelFetch()
         actionState = InitActionState.InProgress(serviceName, actionName)
@@ -367,30 +360,30 @@ private fun InitServiceFilterChipsRow(
  * move with dynamic colour and the palette picker, so roles would collide.
  */
 @Composable
-fun statusColorFor(status: InitServiceUiStatus): Color = when (status) {
-    InitServiceUiStatus.ENABLED_RUNNING -> Color(0xFF4CAF50)
-    InitServiceUiStatus.ENABLED_STOPPED -> Color(0xFFFFCA28)
-    InitServiceUiStatus.DISABLED_STOPPED -> Color(0xFFEF5350)
-    InitServiceUiStatus.ABNORMAL -> Color(0xFFFF7043)
-    InitServiceUiStatus.STATIC -> Color(0xFF607D8B)
-    InitServiceUiStatus.MASKED -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-    InitServiceUiStatus.UNKNOWN -> Color(0xFF90A4AE)
+fun statusColorFor(status: ServiceStatus): Color = when (status) {
+    ServiceStatus.ENABLED_RUNNING -> Color(0xFF4CAF50)
+    ServiceStatus.ENABLED_STOPPED -> Color(0xFFFFCA28)
+    ServiceStatus.DISABLED_STOPPED -> Color(0xFFEF5350)
+    ServiceStatus.ABNORMAL -> Color(0xFFFF7043)
+    ServiceStatus.STATIC -> Color(0xFF607D8B)
+    ServiceStatus.MASKED -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    ServiceStatus.UNKNOWN -> Color(0xFF90A4AE)
 }
 
-private fun statusLabelRes(status: InitServiceUiStatus): Int = when (status) {
-    InitServiceUiStatus.ENABLED_RUNNING -> R.string.running
-    InitServiceUiStatus.ENABLED_STOPPED -> R.string.enabled_legend
-    InitServiceUiStatus.DISABLED_STOPPED -> R.string.disabled_legend
-    InitServiceUiStatus.ABNORMAL -> R.string.abnormal_legend
-    InitServiceUiStatus.STATIC -> R.string.static_legend
-    InitServiceUiStatus.MASKED -> R.string.masked_legend
-    InitServiceUiStatus.UNKNOWN -> R.string.unknown_legend
+private fun statusLabelRes(status: ServiceStatus): Int = when (status) {
+    ServiceStatus.ENABLED_RUNNING -> R.string.running
+    ServiceStatus.ENABLED_STOPPED -> R.string.enabled_legend
+    ServiceStatus.DISABLED_STOPPED -> R.string.disabled_legend
+    ServiceStatus.ABNORMAL -> R.string.abnormal_legend
+    ServiceStatus.STATIC -> R.string.static_legend
+    ServiceStatus.MASKED -> R.string.masked_legend
+    ServiceStatus.UNKNOWN -> R.string.unknown_legend
 }
 
 @Composable
 private fun InitServiceCard(
     row: InitServiceRow,
-    onAction: (String, suspend () -> InitCommandResult) -> Unit
+    onAction: (String, suspend () -> CommandResult) -> Unit
 ) {
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
