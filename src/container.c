@@ -931,7 +931,6 @@ static int start_rootfs_locked(struct ds_config *cfg, int *lock_fd,
     }
 
     show_info(cfg, 1);
-    ds_socketd_record_core_event("start", cfg->container_name, cfg->uuid);
     ds_log("Container '%s' is running in background.", cfg->container_name);
     if (is_android()) {
       ds_log("Use 'su -c \"%s --name='%s' enter\"' to connect.", cfg->prog_name,
@@ -1219,7 +1218,6 @@ static int stop_rootfs_locked(struct ds_config *caller_cfg, int skip_unmount,
   /* 5. Complete resource cleanup. */
   cleanup_container_resources(cfg, pid, skip_unmount, unkillable);
   ds_container_prune_supervision(cfg->container_name);
-  ds_socketd_record_core_event("die", cfg->container_name, cfg->uuid);
 
   if (!cfg->foreground)
     ds_log("Container '%s' stopped.", cfg->container_name);
@@ -2200,15 +2198,15 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
 /* The body of a restart. One lock covers the stop and the start, so nothing
  * else can act on the container in the gap where the old instance is gone and
  * the new one is not up yet. */
-static int restart_rootfs_locked(struct ds_config *cfg, int *lock_fd,
-                                 int timeout_seconds, int argc, char **argv) {
+static int restart_rootfs_locked(struct ds_config *cfg, int *lock_fd, int argc,
+                                 char **argv) {
   pid_t pid = 0;
   if (!is_container_running(cfg, &pid) || pid <= 0) {
     ds_error("Container '%s' is not running or invalid.", cfg->container_name);
     return -1;
   }
   ds_log("Restarting container %s...", cfg->container_name);
-  if (stop_rootfs_locked(cfg, 1, timeout_seconds) < 0) {
+  if (stop_rootfs_locked(cfg, 1, DS_STOP_TIMEOUT) < 0) {
     return -1;
   }
   /* The stop above tore down using the booted snapshot (loaded while the
@@ -2227,7 +2225,7 @@ static int restart_rootfs_locked(struct ds_config *cfg, int *lock_fd,
      * the two loads instead of being replaced. */
     ds_config_reset_defaults(cfg);
     ds_config_load_by_name(cfg->container_name, cfg);
-    if (argv && ds_apply_cli_overrides(argc, argv, cfg, 0) != 0)
+    if (ds_apply_cli_overrides(argc, argv, cfg, 0) != 0)
       return -1;
   }
   putchar('\n');
@@ -2235,17 +2233,12 @@ static int restart_rootfs_locked(struct ds_config *cfg, int *lock_fd,
   return start_rootfs_locked(cfg, lock_fd, 1);
 }
 
-int restart_rootfs_with_timeout(struct ds_config *cfg, int timeout_seconds,
-                                int argc, char **argv) {
+int restart_rootfs(struct ds_config *cfg, int argc, char **argv) {
   int lock_fd = lifecycle_lock_or_complain(cfg, "restart");
   if (lock_fd < 0)
     return -1;
 
-  int ret = restart_rootfs_locked(cfg, &lock_fd, timeout_seconds, argc, argv);
+  int ret = restart_rootfs_locked(cfg, &lock_fd, argc, argv);
   ds_container_unlock(lock_fd);
   return ret;
-}
-
-int restart_rootfs(struct ds_config *cfg, int argc, char **argv) {
-  return restart_rootfs_with_timeout(cfg, DS_STOP_TIMEOUT, argc, argv);
 }

@@ -17,11 +17,6 @@ NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || ech
 # V=1 shows full commands, V=0 (default) shows kernel-style short logs
 V ?= 0
 
-# Optional private control bridge used by API-capable WebUI daemons.
-# Off by default so the stock static binary stays unchanged; set to 1 for
-# WebUI-ready builds.
-ENABLE_SOCKETD_BACKEND ?= 0
-
 ifeq ($(V),1)
   Q      =
   msg_cc =
@@ -79,23 +74,16 @@ ifeq ($(NO_STRIP),)
 endif
 LIBS    = -lutil
 
-ifeq ($(ENABLE_SOCKETD_BACKEND),1)
-  CFLAGS += -DDS_ENABLE_SOCKETD_BACKEND=1
-  SRCS += $(SRC_DIR)/socketd_bridge.c
-endif
-
 ARCH := $(shell $(CC) -dumpmachine 2>/dev/null | cut -d'-' -f1 | \
         sed 's/i.86/x86/; s/armv7l/armhf/; s/^arm.*/armhf/; s/unknown/x86_64/' || echo "x86_64")
 
-# Objects and the binary live per arch so the cross builds do not collide. The
-# socketd flag changes every object's -D flags, so it gets its own tree and name
-VARIANT = $(if $(filter 1,$(ENABLE_SOCKETD_BACKEND)),-socketd)
-OBJ_DIR = $(OUT_DIR)/.obj/$(ARCH)$(VARIANT)
+# Objects and the binary live per arch so the cross builds do not collide
+OBJ_DIR = $(OUT_DIR)/.obj/$(ARCH)
 OBJS    = $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 -include $(OBJS:.o=.d)
 
 # The link target is a real file, so an unchanged arch is a no-op
-BINARY = $(OUT_DIR)/$(BINARY_NAME)-$(ARCH)$(VARIANT)
+BINARY = $(OUT_DIR)/$(BINARY_NAME)-$(ARCH)
 
 find-cc = $(shell \
 	if [ -n "$(MUSL_CROSS)" ] && [ -f "$(MUSL_CROSS)/$(1)-gcc" ]; then \
@@ -132,8 +120,6 @@ help:
 	@echo "  V=1            - Show full compiler commands"
 	@echo "  MUSL_CROSS=dir - Directory holding <triplet>-gcc"
 	@echo "  NO_STRIP=1     - Keep symbols"
-	@echo "  ENABLE_SOCKETD_BACKEND=1"
-	@echo "                 - Compile the private droidspaces-socketd backend bridge"
 	@echo ""
 	@echo "Other:"
 	@echo "  make bump NEW=x.y.z - Set the version (droidspace.h)"
@@ -181,7 +167,7 @@ triplet_riscv64 = riscv64-linux-musl
 # The sub-make re-derives ARCH, OBJ_DIR and BINARY from the cross compiler
 x86_64 aarch64 x86 armhf riscv64:
 	@CROSS_CC="$(call find-cc,$(triplet_$@))"; \
-	if [ -n "$$CROSS_CC" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(OUT_DIR)/$(BINARY_NAME)-$@$(VARIANT) CC=$$CROSS_CC && cp -f $(OUT_DIR)/$(BINARY_NAME)-$@$(VARIANT) $(OUT_DIR)/$(BINARY_NAME); \
+	if [ -n "$$CROSS_CC" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(OUT_DIR)/$(BINARY_NAME)-$@ CC=$$CROSS_CC && cp -f $(OUT_DIR)/$(BINARY_NAME)-$@ $(OUT_DIR)/$(BINARY_NAME); \
 	else echo "Error: $(triplet_$@)-gcc not found. Run scripts/install-musl.sh $@ or set MUSL_CROSS"; exit 1; fi
 
 debug-hardened:

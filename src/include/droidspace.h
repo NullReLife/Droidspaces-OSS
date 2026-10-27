@@ -204,12 +204,13 @@ int check_ns(int flag, const char *name);
 
 /* Networking modes */
 
+/* NAT is the zero value so a zeroed config already holds the default */
 enum ds_net_mode {
-  DS_NET_HOST = 0, /* share host network namespace               */
-  DS_NET_NAT,      /* isolated netns + bridge + MASQUERADE      */
-  DS_NET_NONE,     /* isolated netns with loopback only          */
-  DS_NET_GATEWAY,  /* isolated netns attached to gateway LAN     */
-  DS_NET_MACVLAN,  /* isolated netns, macvlan on a host NIC      */
+  DS_NET_NAT = 0, /* isolated netns + bridge + MASQUERADE      */
+  DS_NET_HOST,    /* share host network namespace               */
+  DS_NET_NONE,    /* isolated netns with loopback only          */
+  DS_NET_GATEWAY, /* isolated netns attached to gateway LAN     */
+  DS_NET_MACVLAN, /* isolated netns, macvlan on a host NIC      */
 };
 
 /* Opaque RTNETLINK context - defined in ds_netlink.c */
@@ -574,8 +575,6 @@ void cleanup_container_resources(struct ds_config *cfg, pid_t pid,
                                  int skip_unmount, int force_cleanup);
 void ds_open_container_log(struct ds_config *cfg);
 void ds_close_container_log(void);
-void ds_socketd_record_core_event(const char *action,
-                                  const char *container_name, const char *uuid);
 int copy_file(const char *src, const char *dst);
 void sort_bind_mounts(struct ds_config *cfg);
 void sanitize_container_name(const char *name, char *out, size_t size);
@@ -648,8 +647,7 @@ int ds_split_flags(const char *str, char ***out_argv, int *out_argc);
 void ds_free_split_flags(char **argv, int argc);
 char *ds_config_auto_path(const char *rootfs_path);
 void ds_config_reset_defaults(struct ds_config *cfg);
-void apply_reset_config(struct ds_config *cfg, int cli_net_mode_set,
-                        enum ds_net_mode cli_net_mode);
+void apply_reset_config(struct ds_config *cfg);
 void parse_privileged(const char *value, struct ds_config *cfg);
 
 /* android.c */
@@ -1006,10 +1004,8 @@ int enter_rootfs(struct ds_config *cfg, const char *user);
 int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user);
 int show_info(struct ds_config *cfg, int trust_cfg_pid);
 /* argc/argv: the process's original arguments, so restart can re-apply CLI
- * overrides after its post-stop config reload. NULL argv skips that step. */
+ * overrides after its post-stop config reload. */
 int restart_rootfs(struct ds_config *cfg, int argc, char **argv);
-int restart_rootfs_with_timeout(struct ds_config *cfg, int timeout_seconds,
-                                int argc, char **argv);
 /* The CLI override pass, lives in main.c. Idempotent over the same argv. */
 int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
                            int strict);

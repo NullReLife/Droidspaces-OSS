@@ -126,8 +126,7 @@ nothing afterwards. Objects live under `output/.obj/<arch>`. A compiler or `CFLA
 not tracked, so `make clean` after those.
 
 Useful options: `V=1` for full compiler command lines, `NO_STRIP=1` to keep symbols,
-`MUSL_CROSS=dir` to point at a directory of `<triplet>-gcc`, `ENABLE_SOCKETD_BACKEND=1` for
-the private API bridge.
+`MUSL_CROSS=dir` to point at a directory of `<triplet>-gcc`.
 
 The build runs with `-Wall -Wextra -Wpedantic -Werror` plus format, shadow, and truncation
 warnings. A warning is a build failure, not a review comment.
@@ -242,7 +241,7 @@ change in the wrong place is a second bug.
 | `refactor:` | backend restructuring with no behavior change |
 | `feat:` | new backend features |
 | `docs:` | documentation |
-| `net:` `mount:` `seccomp:` `daemon:` `socketd:` | scoped backend subsystem changes |
+| `net:` `mount:` `seccomp:` `daemon:` | scoped backend subsystem changes |
 | `fix(security):` | anything security related, either half |
 
 ## Reuse Inventory
@@ -644,7 +643,7 @@ shell-out on the fast path. The netfilter helpers take an address family (`AF_IN
 
 | Symbol | Contract |
 | --- | --- |
-| `ds_peer_authorized(fd, group_name)` | The only authorization gate in the tree. Allows root or a member of the group, but only when the peer shares our PID namespace. Every failure path denies. Callers are `src/daemon.c` and `src/socketd_bridge.c` |
+| `ds_peer_authorized(fd, group_name)` | The only authorization gate in the tree. Allows root or a member of the group, but only when the peer shares our PID namespace. Every failure path denies. The caller is `src/daemon.c` |
 | `ds_peer_in_pidns(peer_pid)` | Must fail closed. A pid of zero is not translatable into our namespace, and a failed readlink means we cannot prove membership. Both deny. Failing open here let a caller recycle a dead pid and escape to host root |
 | `ds_bind_mount_socket(src, dst, uid, label)` | The symlink-race-safe write pattern for anything landing in a container-controlled directory |
 | `set_selinux_context`, `get_selinux_context`, `ds_selinux_dyntransition`, `ds_selinux_enter_domain`, `ds_drop_privileges`, `ds_resolve_termux_uid` | SELinux and privilege handling |

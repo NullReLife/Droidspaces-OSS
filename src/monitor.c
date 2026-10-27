@@ -757,8 +757,6 @@ reboot_loop:;
     if (cfg->foreground)
       ds_log_silent = 1;
 
-    ds_socketd_record_core_event("restart", cfg->container_name, cfg->uuid);
-
     goto reboot_loop;
   }
 

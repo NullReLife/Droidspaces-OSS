@@ -115,7 +115,7 @@ define it in the same command that uses it.
 - Prefixes, matching the existing history:
   - `app:` for the Android app, with `app: fix:` and `app: refactor:` for those cases
   - `fix:`, `refactor:`, `feat:`, `docs:` or a subsystem name (`net:`, `mount:`, `seccomp:`,
-    `daemon:`, `socketd:`) for the backend
+    `daemon:`) for the backend
   - `fix(security):` for anything security related, either half
 
 ## Style

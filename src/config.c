@@ -1097,7 +1097,6 @@ void ds_config_reset_defaults(struct ds_config *cfg) {
 
   cfg->net_ready_pipe[0] = cfg->net_ready_pipe[1] = -1;
   cfg->net_done_pipe[0] = cfg->net_done_pipe[1] = -1;
-  cfg->net_mode = DS_NET_NAT; /* zero is host, see main() */
 
   safe_strncpy(cfg->container_name, save_name, sizeof(cfg->container_name));
   safe_strncpy(cfg->rootfs_path, save_rootfs, sizeof(cfg->rootfs_path));
@@ -1112,12 +1111,7 @@ void ds_config_reset_defaults(struct ds_config *cfg) {
   cfg->unknown_tail = save_tail;
 }
 
-void apply_reset_config(struct ds_config *cfg, int cli_net_mode_set,
-                        enum ds_net_mode cli_net_mode) {
+void apply_reset_config(struct ds_config *cfg) {
   ds_config_reset_defaults(cfg);
-
-  if (cli_net_mode_set)
-    cfg->net_mode = cli_net_mode;
-
   ds_config_save_by_name(cfg->container_name, cfg);
 }

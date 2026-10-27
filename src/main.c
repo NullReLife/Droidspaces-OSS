@@ -411,7 +411,6 @@ static struct option long_options[] = {
 int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
                            int strict) {
   int opt;
-  enum ds_net_mode cli_net_mode = DS_NET_HOST;
 
   /* Strict mode for 'run' prevents stealing arguments from the sub-command. */
   const char *optstring =
@@ -424,7 +423,7 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
   optind = 0;
   while ((opt = getopt_long(argc, argv, optstring, long_options, NULL)) != -1) {
     if (opt == 256) {
-      apply_reset_config(cfg, 0, DS_NET_HOST);
+      apply_reset_config(cfg);
       break;
     }
   }
@@ -608,8 +607,7 @@ int ds_apply_cli_overrides(int argc, char **argv, struct ds_config *cfg,
                  optarg);
         return -1;
       }
-      cli_net_mode = (enum ds_net_mode)mode;
-      cfg->net_mode = cli_net_mode;
+      cfg->net_mode = (enum ds_net_mode)mode;
       break;
     }
     case 264:
@@ -904,11 +902,6 @@ int main(int argc, char **argv) {
   /* Initialise pipe fds to -1 so accidental close(-1) is harmless */
   cfg.net_ready_pipe[0] = cfg.net_ready_pipe[1] = -1;
   cfg.net_done_pipe[0] = cfg.net_done_pipe[1] = -1;
-
-  /* DS_NET_HOST is the enum's zero value because the socketd wire format
-   * pins 0=host, so the zeroed struct must be corrected: NAT is the default,
-   * a saved config or --net overrides it below. */
-  cfg.net_mode = DS_NET_NAT;
 
   safe_strncpy(cfg.prog_name, argv[0], sizeof(cfg.prog_name));
 

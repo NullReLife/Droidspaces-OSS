@@ -114,7 +114,7 @@ make clean
 `output/.obj/<架构>` 下。编译器或 `CFLAGS` 的变化不会被跟踪，改了这些请先 `make clean`。
 
 常用选项：`V=1` 显示完整编译命令行，`NO_STRIP=1` 保留符号，`MUSL_CROSS=dir` 指定存放
-`<triplet>-gcc` 的目录，`ENABLE_SOCKETD_BACKEND=1` 编译私有 API 桥接。
+`<triplet>-gcc` 的目录。
 
 构建启用了 `-Wall -Wextra -Wpedantic -Werror`，以及格式化、变量遮蔽和截断相关的警告。一个
 警告就是一次构建失败，而不是一条评审意见。
@@ -220,7 +220,7 @@ install_policy_rules(cfg);
 | `refactor:` | 不改变行为的后端重构 |
 | `feat:` | 新的后端功能 |
 | `docs:` | 文档 |
-| `net:` `mount:` `seccomp:` `daemon:` `socketd:` | 限定子系统的后端改动 |
+| `net:` `mount:` `seccomp:` `daemon:` | 限定子系统的后端改动 |
 | `fix(security):` | 任何安全相关改动，两端都适用 |
 
 ## 复用清单
@@ -612,7 +612,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 
 | 符号 | 契约 |
 | --- | --- |
-| `ds_peer_authorized(fd, group_name)` | 全仓库唯一的授权入口。允许 root 或指定组的成员，但前提是对端与我们处于同一 PID 命名空间。每一条失败路径都拒绝。调用方是 `src/daemon.c` 和 `src/socketd_bridge.c` |
+| `ds_peer_authorized(fd, group_name)` | 全仓库唯一的授权入口。允许 root 或指定组的成员，但前提是对端与我们处于同一 PID 命名空间。每一条失败路径都拒绝。调用方是 `src/daemon.c` |
 | `ds_peer_in_pidns(peer_pid)` | 必须失败即拒绝。pid 为 0 表示对端无法映射进我们的命名空间，readlink 失败表示我们无法证明其归属，两种情况都拒绝。这里一旦失败即放行，调用方就能复用已死的 pid 逃逸到主机 root |
 | `ds_bind_mount_socket(src, dst, uid, label)` | 向容器可控目录写入时防软链接竞态的标准做法 |
 | `set_selinux_context`、`get_selinux_context`、`ds_selinux_dyntransition`、`ds_selinux_enter_domain`、`ds_drop_privileges`、`ds_resolve_termux_uid` | SELinux 与权限处理 |
