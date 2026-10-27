@@ -72,7 +72,8 @@ CFLAGS += -Wduplicated-cond -Wduplicated-branches -Wimplicit-fallthrough=3
 CFLAGS += -fstack-protector-strong
 # A header edit rebuilds every object that includes it
 CFLAGS += -MMD -MP
-LDFLAGS = -static -no-pie -flto=auto -pthread
+# LTO raises some warnings only at link time, and they are failures there too
+LDFLAGS = -static -no-pie -flto=auto -pthread -Werror
 ifeq ($(NO_STRIP),)
   LDFLAGS += -s
 endif
