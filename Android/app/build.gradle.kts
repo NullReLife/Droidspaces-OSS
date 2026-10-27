@@ -1,40 +1,9 @@
-import java.util.Properties
-import java.io.FileInputStream
 import java.util.Locale
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-}
-
-// Load keystore properties from local.properties or gradle.properties
-val keystorePropertiesFile = rootProject.file("local.properties")
-val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
-    FileInputStream(keystorePropertiesFile).use {
-        keystoreProperties.load(it)
-    }
-}
-
-// Helper to extract version from C header
-fun getDSVersion(): String {
-    val headerFile = file("../../src/include/droidspace.h")
-    if (!headerFile.exists()) return "1.0.0"
-    
-    val pattern = Regex("#define\\s+DS_VERSION\\s+\"([^\"]+)\"")
-    var foundVersion = "1.0.0"
-    
-    headerFile.useLines { lines ->
-        for (line in lines) {
-            val match = pattern.find(line)
-            if (match != null) {
-                foundVersion = match.groupValues[1]
-                break
-            }
-        }
-    }
-    return foundVersion
 }
 
 // Every commit gets its own build number, so CI APKs between version bumps
@@ -45,7 +14,9 @@ val gitCommitCount = runCatching {
         .standardOutput.asText.get().trim().toInt()
 }.getOrDefault(0)
 
-val dsVersionName = getDSVersion()
+// One version for the app and the backend it ships: DS_VERSION from the C header
+val dsVersionName = Regex("#define\\s+DS_VERSION\\s+\"([^\"]+)\"")
+    .find(file("../../src/include/droidspace.h").readText())?.groupValues?.get(1) ?: "1.0.0"
 // ponytail: 10000 commits per release before the suffix spills into the next slot; still monotonic, just ugly
 val dsVersionCodeVal = dsVersionName.split(".").let { parts ->
     try {
@@ -68,26 +39,18 @@ android {
         targetSdk = 34
         versionCode = dsVersionCodeVal
         versionName = dsVersionName
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
     }
 
     signingConfigs {
-        // Use droidspaces.keystore for both debug and release
-        // Passwords are loaded from local.properties, gradle.properties, or environment variables
+        // droidspaces.keystore signs debug and release alike. The passwords come
+        // from -P, gradle.properties or ~/.gradle/gradle.properties.
         val keystoreFile = file("../../droidspaces.keystore")
-        val keystorePassword = keystoreProperties["KEYSTORE_PASSWORD"] as String? 
-            ?: project.findProperty("KEYSTORE_PASSWORD") as String? 
-            ?: ""
-        val keyAliasName = keystoreProperties["KEY_ALIAS"] as String?
-            ?: project.findProperty("KEY_ALIAS") as String?
-            ?: "droidspaces"
-        val actualKeyPassword = keystoreProperties["KEY_PASSWORD"] as String?
-            ?: project.findProperty("KEY_PASSWORD") as String?
-            ?: keystorePassword
+        val keystorePassword = providers.gradleProperty("KEYSTORE_PASSWORD").orNull ?: ""
+        if (keystorePassword.isEmpty() &&
+            rootProject.file("local.properties").let { it.exists() && it.readText().contains("KEYSTORE_PASSWORD") }
+        ) logger.warn("KEYSTORE_PASSWORD in local.properties is no longer read: move it, KEY_ALIAS and KEY_PASSWORD to ~/.gradle/gradle.properties or pass them with -P, or the release APK comes out unsigned")
+        val keyAliasName = providers.gradleProperty("KEY_ALIAS").orNull ?: "droidspaces"
+        val actualKeyPassword = providers.gradleProperty("KEY_PASSWORD").orNull ?: keystorePassword
 
         if (keystoreFile.exists() && keystorePassword.isNotEmpty()) {
             getByName("debug") {
@@ -159,15 +122,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Enable R8 full mode for maximum optimization
-            isDebuggable = false
-            isJniDebuggable = false
             signingConfig = signingConfigs.getByName("release")
         }
         debug {
-            // Disable minification in debug for faster builds
-            isMinifyEnabled = false
-            isDebuggable = true
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -179,14 +136,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        // Aggressive Kotlin compiler optimizations for maximum performance
         freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-Xinline-classes", // Enable inline classes for better performance
             "-Xno-param-assertions", // Remove parameter assertions in release builds
             "-Xno-call-assertions", // Remove call assertions in release builds
             "-Xno-receiver-assertions", // Remove receiver assertions in release builds
-            "-Xjvm-default=all", // Use JVM default methods for better interop
             "-Xbackend-threads=0" // Use all available threads for compilation
         )
     }
@@ -276,32 +229,14 @@ tasks.register("generateSupportedLocalesList") {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Sync boot-module/module.prop version with DS_VERSION from droidspace.h.
-// ---------------------------------------------------------------------------
-// The template lives outside assets so the per-commit versionCode never
-// shows up as a diff.
-val modulePropTemplate = file("src/main/boot-module/module.prop")
-
-tasks.register("generateModuleProp") {
-    val moduleProp = generatedDir.file("assets/boot-module/module.prop").asFile
-    inputs.file(modulePropTemplate)
-    inputs.property("dsVersionName", dsVersionName)
-    inputs.property("dsVersionCodeVal", dsVersionCodeVal)
-    outputs.file(moduleProp)
-
-    doLast {
-        moduleProp.parentFile.mkdirs()
-        val lines = modulePropTemplate.readLines().map { line ->
-            when {
-                line.startsWith("version=")     -> "version=v$dsVersionName"
-                line.startsWith("versionCode=") -> "versionCode=$dsVersionCodeVal"
-                else                             -> line
-            }
-        }
-        moduleProp.writeText(lines.joinToString("\n") + "\n")
-        println("generateModuleProp: version=v$dsVersionName versionCode=$dsVersionCodeVal")
-    }
+// boot-module/module.prop carries the backend's version. The template lives
+// outside assets so the per-commit versionCode never shows up as a diff.
+tasks.register<Copy>("generateModuleProp") {
+    from("src/main/boot-module/module.prop")
+    into(generatedDir.dir("assets/boot-module"))
+    expand(mapOf("version" to dsVersionName, "versionCode" to dsVersionCodeVal))
+    inputs.property("version", dsVersionName)
+    inputs.property("versionCode", dsVersionCodeVal)
 }
 
 // The backend the APK ships. make is incremental, so an unchanged src/ costs one no-op per arch
@@ -334,7 +269,6 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.06.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
     // material3 1.4.0 stable stripped every Expressive API (wavy progress, LoadingIndicator,
     // ButtonGroup). 1.5.0-alpha18 is the alpha that promoted the wavy indicator to stable
     // and the last one built against Compose 1.11; alpha20 onward needs Compose 1.12.
@@ -366,7 +300,6 @@ dependencies {
 
     // Root execution - libsu
     implementation("com.github.topjohnwu.libsu:core:5.2.1")
-    implementation("com.github.topjohnwu.libsu:service:5.2.1")
     implementation("com.github.topjohnwu.libsu:io:5.2.1")
 
     // Coroutines - latest version for better performance
@@ -381,5 +314,4 @@ dependencies {
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
