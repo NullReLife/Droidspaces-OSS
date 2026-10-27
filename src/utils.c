@@ -904,6 +904,18 @@ void rotate_log(const char *path, size_t max_size) {
   }
 }
 
+/* <workspace>/Logs/<name>/<file>, with the directory in place and the file
+ * rotated at 2 MB. */
+void container_log_path(const char *name, const char *file, char *buf,
+                        size_t size) {
+  char safe[256], dir[PATH_MAX];
+  sanitize_container_name(name, safe, sizeof(safe));
+  snprintf(dir, sizeof(dir), "%.3800s/%.256s", get_logs_dir(), safe);
+  mkdir_p(dir, 0755);
+  snprintf(buf, size, "%.4080s/%.32s", dir, file);
+  rotate_log(buf, 2 * 1024 * 1024);
+}
+
 static void write_to_log_file(const char *name, const char *component,
                               const char *raw_msg, int pre_opened_fd) {
   if (!name || !name[0])
@@ -937,17 +949,8 @@ static void write_to_log_file(const char *name, const char *component,
   }
 
   /* Fallback: open by path (pre-pivot, monitor process, etc.) */
-  char log_dir[PATH_MAX];
-  char safe_log_name[256];
-  sanitize_container_name(name, safe_log_name, sizeof(safe_log_name));
-  snprintf(log_dir, sizeof(log_dir), "%.2048s/" DS_LOGS_SUBDIR "/%.256s",
-           get_workspace_dir(), safe_log_name);
-  mkdir_p(log_dir, 0755);
-
   char log_path[PATH_MAX];
-  snprintf(log_path, sizeof(log_path), "%.4090s/log", log_dir);
-
-  rotate_log(log_path, 2 * 1024 * 1024);
+  container_log_path(name, "log", log_path, sizeof(log_path));
 
   FILE *f = fopen(log_path, "ae"); /* append + close-on-exec */
   if (!f)
@@ -977,23 +980,10 @@ void ds_log_internal(const char *prefix, const char *color, int is_err,
   if (ds_log_silent && !is_err)
     return;
 
-  /* Filter out these prefixes from terminal output */
-  if (!is_err) {
-    if (strncmp(raw_msg, "[DEBUG]", 7) == 0 ||
-        strncmp(raw_msg, "[CGROUP]", 8) == 0 ||
-        strncmp(raw_msg, "[VIRT]", 6) == 0 ||
-        strncmp(raw_msg, "[IPT]", 5) == 0 ||
-        strncmp(raw_msg, "[NET]", 5) == 0 ||
-        strncmp(raw_msg, "[SEC]", 5) == 0 ||
-        strncmp(raw_msg, "[GPU]", 5) == 0 || strncmp(raw_msg, "[FW]", 4) == 0 ||
-        strncmp(raw_msg, "[DHCP]", 6) == 0 ||
-        strncmp(raw_msg, "[VirGL]", 7) == 0 ||
-        strncmp(raw_msg, "[PulseAudio]", 12) == 0 ||
-        strncmp(raw_msg, "[X11]", 5) == 0 ||
-        strncmp(raw_msg, "[Anland]", 8) == 0) {
-      return;
-    }
-  }
+  /* Tagged lines, "[NET] ..." and the like, are subsystem chatter for the
+   * log file; the terminal gets the untagged ones. */
+  if (!is_err && raw_msg[0] == '[')
+    return;
 
   FILE *out = is_err ? stderr : stdout;
   fprintf(out,
@@ -1038,18 +1028,8 @@ void ds_open_container_log(struct ds_config *cfg) {
   if (!cfg || !cfg->container_name[0])
     return;
 
-  char log_dir[PATH_MAX];
-  char safe_log_name[256];
-  sanitize_container_name(cfg->container_name, safe_log_name,
-                          sizeof(safe_log_name));
-  snprintf(log_dir, sizeof(log_dir), "%.2048s/" DS_LOGS_SUBDIR "/%.256s",
-           get_workspace_dir(), safe_log_name);
-  mkdir_p(log_dir, 0755);
-
   char log_path[PATH_MAX];
-  snprintf(log_path, sizeof(log_path), "%.4090s/log", log_dir);
-
-  rotate_log(log_path, 2 * 1024 * 1024);
+  container_log_path(cfg->container_name, "log", log_path, sizeof(log_path));
 
   int fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
   if (fd >= 0)
@@ -1069,186 +1049,100 @@ void print_ds_banner(void) {
   fflush(stdout);
 }
 
-int is_systemd_rootfs(const char *path) {
-  if (!path)
-    return 0;
-
-  char buf[PATH_MAX];
+/* The symlink target of <rootfs>/sbin/init, or the start of the file when it
+ * is a real one (a wrapper script, or the init binary itself). 1 for a
+ * symlink, 0 for a file, -1 when there is neither. */
+static int read_sbin_init(const char *rootfs, char *buf, size_t size) {
+  char path[PATH_MAX];
+  if (snprintf(path, sizeof(path), "%s/sbin/init", rootfs) >= (int)sizeof(path))
+    return -1;
+  ssize_t len = readlink(path, buf, size - 1);
+  if (len >= 0) {
+    buf[len] = '\0';
+    return 1;
+  }
   struct stat st;
-  size_t path_len = strlen(path);
-
-  /* Standard systemd binary locations (not present on NixOS -- nix store). */
-  const char *check_paths[] = {"/lib/systemd/systemd",
-                               "/usr/lib/systemd/systemd", "/bin/systemd",
-                               "/usr/bin/systemd"};
-
-  for (size_t i = 0; i < sizeof(check_paths) / sizeof(check_paths[0]); i++) {
-    size_t check_len = strlen(check_paths[i]);
-    if (path_len + check_len >= sizeof(buf))
-      continue;
-
-    memcpy(buf, path, path_len);
-    memcpy(buf + path_len, check_paths[i], check_len + 1);
-    if (stat(buf, &st) == 0 && S_ISREG(st.st_mode)) {
-      return 1;
-    }
-  }
-
-  /* Fallback: /sbin/init symlink target or script contents.
-   * Works for both:
-   *   (a) a symlink -> .../systemd (classic distros, NixOS-systemd)
-   *   (b) a plain shell-script wrapper that exec's systemd (e.g. some
-   *       NixOS tarballs where /sbin/init is a real file, not a symlink)
-   * NOTE: do NOT treat /nix/store alone as evidence of systemd -- Nix
-   * can package any init system (finit, openrc, runit, ...).  We only
-   * return 1 when we can see the literal string "systemd". */
-  if (path_len + 12 <= sizeof(buf)) { /* 10 chars + '/' prefix + '\0' = 12 */
-    memcpy(buf, path, path_len);
-    memcpy(buf + path_len, "/sbin/init", 11);
-    char link_target[PATH_MAX];
-    ssize_t len = readlink(buf, link_target, sizeof(link_target) - 1);
-    if (len != -1) {
-      /* Case (a): symlink - check the target path for "systemd" */
-      link_target[len] = '\0';
-      if (strstr(link_target, "systemd"))
-        return 1;
-    } else {
-      /* Case (b): regular file - grep script body for "systemd" */
-      char script_buf[4096];
-      if (read_file(buf, script_buf, sizeof(script_buf)) > 0) {
-        if (strstr(script_buf, "systemd"))
-          return 1;
-      }
-    }
-  }
-
+  if (stat(path, &st) != 0 || !S_ISREG(st.st_mode) ||
+      read_file(path, buf, size) < 0)
+    return -1;
   return 0;
 }
 
-/* Probe the rootfs at `path` to identify its init system.
- * Uses the same stat+readlink pattern as is_systemd_rootfs. */
+/* A systemd binary where distros put it, or /sbin/init pointing at or
+ * wrapping one (NixOS keeps the binary in the store). /nix/store alone proves
+ * nothing: finit, openrc and runit live there too. */
+int is_systemd_rootfs(const char *path) {
+  static const char *const bins[] = {"/lib/systemd/systemd",
+                                     "/usr/lib/systemd/systemd", "/bin/systemd",
+                                     "/usr/bin/systemd"};
+  char buf[4096];
+  struct stat st;
+  if (!path)
+    return 0;
+  for (size_t i = 0; i < sizeof(bins) / sizeof(bins[0]); i++) {
+    if (snprintf(buf, sizeof(buf), "%s%s", path, bins[i]) >= (int)sizeof(buf))
+      continue;
+    if (stat(buf, &st) == 0 && S_ISREG(st.st_mode))
+      return 1;
+  }
+  return read_sbin_init(path, buf, sizeof(buf)) >= 0 &&
+         strstr(buf, "systemd") != NULL;
+}
+
 ds_init_type_t detect_container_init(const char *path) {
+  static const struct {
+    const char *bin;
+    ds_init_type_t type;
+  } inits[] = {
+      {"/sbin/procd", DS_INIT_PROCD},
+      {"/usr/sbin/procd", DS_INIT_PROCD},
+      {"/sbin/openrc-init", DS_INIT_OPENRC},
+      {"/usr/bin/openrc-init", DS_INIT_OPENRC},
+      {"/sbin/openrc", DS_INIT_OPENRC},
+      {"/sbin/runit", DS_INIT_RUNIT},
+      {"/usr/bin/runit", DS_INIT_RUNIT},
+      {"/bin/s6-svscan", DS_INIT_S6},
+      {"/usr/bin/s6-svscan", DS_INIT_S6},
+  };
   if (!path || path[0] == '\0')
     return DS_INIT_UNKNOWN;
-
-  char buf[PATH_MAX];
-  struct stat st;
-  size_t plen = strlen(path);
-
-  /* Helper: build "path + suffix" into buf, return 1 on success */
-#define PROBE_PATH(suffix)                                                     \
-  (plen + sizeof(suffix) - 1 < sizeof(buf) &&                                  \
-   (memcpy(buf, path, plen), memcpy(buf + plen, suffix, sizeof(suffix)), 1))
-
-  /* systemd -- reuse existing logic via is_systemd_rootfs */
   if (is_systemd_rootfs(path))
     return DS_INIT_SYSTEMD;
 
-  /* procd (OpenWrt) */
-  if ((PROBE_PATH("/sbin/procd") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)) ||
-      (PROBE_PATH("/usr/sbin/procd") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)))
-    return DS_INIT_PROCD;
-
-  /* openrc */
-  if ((PROBE_PATH("/sbin/openrc-init") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)) ||
-      (PROBE_PATH("/usr/bin/openrc-init") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)) ||
-      (PROBE_PATH("/sbin/openrc") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)))
-    return DS_INIT_OPENRC;
-
-  /* runit */
-  if ((PROBE_PATH("/sbin/runit") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)) ||
-      (PROBE_PATH("/usr/bin/runit") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)))
-    return DS_INIT_RUNIT;
-
-  /* s6 */
-  if ((PROBE_PATH("/bin/s6-svscan") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)) ||
-      (PROBE_PATH("/usr/bin/s6-svscan") && stat(buf, &st) == 0 &&
-       S_ISREG(st.st_mode)))
-    return DS_INIT_S6;
-
-  /* sysvinit: /sbin/init is a regular binary, or symlink points to sysvinit.
-   * If /sbin/init is a real file (not a symlink), grep its content before
-   * declaring sysvinit -- Nix wrapper scripts must not be misclassified.
-   * NOTE: /nix/store presence does NOT imply systemd; finit, openrc, etc.
-   * can live there too.  Only match on the literal init-system name. */
-  if (PROBE_PATH("/sbin/init")) {
-    char target[PATH_MAX];
-    ssize_t len = readlink(buf, target, sizeof(target) - 1);
-    if (len == -1) {
-      /* not a symlink -> stat and, if regular, inspect script body */
-      if (stat(buf, &st) == 0 && S_ISREG(st.st_mode)) {
-        char script_buf[4096];
-        if (read_file(buf, script_buf, sizeof(script_buf)) > 0) {
-          if (strstr(script_buf, "systemd"))
-            return DS_INIT_SYSTEMD;
-          if (strstr(script_buf, "busybox"))
-            return DS_INIT_BUSYBOX;
-          /* Any other Nix wrapper (finit, openrc, ...) falls through to
-           * DS_INIT_UNKNOWN so the caller can handle it gracefully. */
-          if (strstr(script_buf, "/nix/store"))
-            return DS_INIT_UNKNOWN;
-        }
-        return DS_INIT_SYSVINIT;
-      }
-    } else {
-      target[len] = '\0';
-      if (strstr(target, "busybox"))
-        return DS_INIT_BUSYBOX;
-      if (strstr(target, "sysvinit") || strstr(target, "init.sysv"))
-        return DS_INIT_SYSVINIT;
-    }
+  char buf[4096];
+  struct stat st;
+  for (size_t i = 0; i < sizeof(inits) / sizeof(inits[0]); i++) {
+    if (snprintf(buf, sizeof(buf), "%s%s", path, inits[i].bin) >=
+        (int)sizeof(buf))
+      continue;
+    if (stat(buf, &st) == 0 && S_ISREG(st.st_mode))
+      return inits[i].type;
   }
 
-#undef PROBE_PATH
-
-  return DS_INIT_UNKNOWN;
+  /* The rest are told apart by /sbin/init itself. */
+  int kind = read_sbin_init(path, buf, sizeof(buf));
+  if (kind < 0)
+    return DS_INIT_UNKNOWN;
+  if (strstr(buf, "busybox"))
+    return DS_INIT_BUSYBOX;
+  if (kind == 1)
+    return strstr(buf, "sysvinit") || strstr(buf, "init.sysv")
+               ? DS_INIT_SYSVINIT
+               : DS_INIT_UNKNOWN;
+  /* A real file: a Nix wrapper for some other init stays unknown so the
+   * caller can cope, anything else is sysvinit's own binary. */
+  return strstr(buf, "/nix/store") ? DS_INIT_UNKNOWN : DS_INIT_SYSVINIT;
 }
 
 int get_user_shell(const char *user, char *shell_buf, size_t size) {
-  if (!user || user[0] == '\0' || !shell_buf || size == 0)
+  /* Runs inside the container's mount namespace, so musl's getpwnam reads the
+   * guest's /etc/passwd, and asks a guest nscd only for a user that file does
+   * not have. */
+  struct passwd *pw = user && user[0] ? getpwnam(user) : NULL;
+  if (!pw || !pw->pw_shell || !pw->pw_shell[0] || !shell_buf || !size)
     return -1;
-
-  FILE *f = fopen("/etc/passwd", "re");
-  if (!f)
-    return -1;
-
-  char line[1024];
-  int found = 0;
-  while (fgets(line, sizeof(line), f)) {
-    /* Format: user:pw:uid:gid:gecos:home:shell */
-    char line_copy[1024];
-    strncpy(line_copy, line, sizeof(line_copy) - 1);
-    line_copy[sizeof(line_copy) - 1] = '\0';
-
-    char *saveptr;
-    char *name = strtok_r(line_copy, ":", &saveptr);
-    if (!name || strcmp(name, user) != 0)
-      continue;
-
-    /* Skip 5 fields to reach the shell (field 7) */
-    for (int i = 0; i < 5; i++) {
-      if (!strtok_r(NULL, ":", &saveptr))
-        break;
-    }
-    char *shell = strtok_r(NULL, ":\n", &saveptr);
-
-    if (shell) {
-      safe_strncpy(shell_buf, shell, size);
-      found = 1;
-      break;
-    }
-  }
-
-  fclose(f);
-  return found ? 0 : -1;
+  safe_strncpy(shell_buf, pw->pw_shell, size);
+  return 0;
 }
 
 int get_selinux_context(const char *path, char *buf, size_t size) {
@@ -1343,18 +1237,26 @@ long ds_clk_tck(void) {
   return hz > 0 ? hz : 100;
 }
 
-/* Field 22 of /proc/<pid>/stat, in clock ticks since boot, or 0. Counted
- * from the last ')' because comm may hold spaces: the Termux:X11 server's is
- * "termux-x11 com.", which threw a plain whitespace split off by one. */
-unsigned long long proc_starttime(pid_t pid) {
-  char path[64], buf[1024];
+/* Field n of /proc/<pid>/stat, numbered as proc(5) does, read into buf, or
+ * NULL. Counted from the last ')' because comm may hold spaces: the
+ * Termux:X11 server's is "termux-x11 com.", which threw a plain whitespace
+ * split off by one. */
+const char *proc_stat_field(pid_t pid, int n, char *buf, size_t size) {
+  char path[64];
   snprintf(path, sizeof(path), "/proc/%d/stat", (int)pid);
-  if (read_file(path, buf, sizeof(buf)) < 0)
-    return 0;
+  if (read_file(path, buf, size) < 0)
+    return NULL;
   const char *p = strrchr(buf, ')');
-  for (int field = 2; p && field < 22; field++)
+  for (int field = 2; p && field < n; field++)
     p = strchr(p + 1, ' ');
-  return p ? strtoull(p + 1, NULL, 10) : 0;
+  return p ? p + 1 : NULL;
+}
+
+/* Field 22: when the process started, in clock ticks since boot, or 0. */
+unsigned long long proc_starttime(pid_t pid) {
+  char buf[1024];
+  const char *f = proc_stat_field(pid, 22, buf, sizeof(buf));
+  return f ? strtoull(f, NULL, 10) : 0;
 }
 
 /* Seconds since the container's init started, or -1. Its start is in ticks

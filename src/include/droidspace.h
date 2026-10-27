@@ -468,6 +468,7 @@ long ds_clk_tck(void);
 long ds_get_container_uptime(pid_t pid);
 /* Field 22 of /proc/<pid>/stat in clock ticks since boot, 0 if unreadable. */
 unsigned long long proc_starttime(pid_t pid);
+const char *proc_stat_field(pid_t pid, int n, char *buf, size_t size);
 void ds_format_uptime(long uptime_sec, char *buf, size_t size);
 
 /* status.c */
@@ -549,6 +550,8 @@ void cleanup_container_resources(struct ds_config *cfg, pid_t pid,
                                  int skip_unmount, int force_cleanup);
 void ds_open_container_log(struct ds_config *cfg);
 void ds_close_container_log(void);
+void container_log_path(const char *name, const char *file, char *buf,
+                        size_t size);
 void sort_bind_mounts(struct ds_config *cfg);
 void sanitize_container_name(const char *name, char *out, size_t size);
 int validate_container_name(const char *name);

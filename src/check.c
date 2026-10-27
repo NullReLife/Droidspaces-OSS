@@ -17,27 +17,12 @@ static int is_root = 0;
 static int json_mode = 0;
 static int json_first = 1;
 
-/* Output buffering (for one-shot terminal output) */
-
-#define CHECK_BUF_SIZE 16384
-static char check_buf[CHECK_BUF_SIZE];
-static size_t check_buf_pos = 0;
-
-static void check_append(const char *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  int n = vsnprintf(check_buf + check_buf_pos, CHECK_BUF_SIZE - check_buf_pos,
-                    fmt, args);
-  va_end(args);
-
-  if (n > 0) {
-    if (check_buf_pos + n < CHECK_BUF_SIZE) {
-      check_buf_pos += n;
-    } else {
-      check_buf_pos = CHECK_BUF_SIZE - 1; /* Truncate if full */
-    }
-  }
-}
+/* The text report; check --json prints its own lines instead. */
+#define check_append(...)                                                      \
+  do {                                                                         \
+    if (!json_mode)                                                            \
+      printf(__VA_ARGS__);                                                     \
+  } while (0)
 
 /* Requirement checks */
 
@@ -95,57 +80,6 @@ static int check_loop(void) { return access("/dev/loop-control", F_OK) == 0; }
 static int check_seccomp(void) {
   /* Probe for SECCOMP_MODE_FILTER support */
   return (prctl(PR_GET_SECCOMP, 0, 0, 0, 0) >= 0 || errno == EINVAL);
-}
-
-/* Live kernel probes for NAT networking capability
- *
- * Mirrors the logic in ds_nl_probe_nat_capability() but split into two
- * independent functions so check.c can report bridge and veth separately.
- *
- * Both probes attempt a real RTM_NEWLINK roundtrip and immediately clean up.
- * This is accurate even when modules are built-in (=y) rather than loadable
- * (=m), which is the common case on Android.
- *
- * Both require root to open a NETLINK_ROUTE socket - guarded early.
- * If a stale probe interface from a previous crashed session is present,
- * its existence already proves kernel support - treated as green. */
-static int check_bridge_support(void) {
-  if (!is_root)
-    return 0;
-  ds_nl_ctx_t *ctx = ds_nl_open();
-  if (!ctx)
-    return 0;
-  /* Stale probe interface from a previous crashed session → already proves
-   * support */
-  if (ds_nl_link_exists(ctx, "ds-cap-br0")) {
-    ds_nl_close(ctx);
-    return 1;
-  }
-  int ret = ds_nl_create_bridge(ctx, "ds-cap-br0");
-  if (ret == 0)
-    ds_nl_del_link(ctx, "ds-cap-br0");
-  ds_nl_close(ctx);
-  return (ret == 0);
-}
-
-static int check_veth_support(void) {
-  if (!is_root)
-    return 0;
-  ds_nl_ctx_t *ctx = ds_nl_open();
-  if (!ctx)
-    return 0;
-  /* Stale host-side probe veth from a previous crashed session → already proves
-   * support */
-  if (ds_nl_link_exists(ctx, "ds-cap-h0")) {
-    ds_nl_close(ctx);
-    return 1;
-  }
-  int ret = ds_nl_create_veth(ctx, "ds-cap-h0", "ds-cap-p0");
-  if (ret == 0)
-    ds_nl_del_link(ctx,
-                   "ds-cap-h0"); /* deleting host side also kills the peer */
-  ds_nl_close(ctx);
-  return (ret == 0);
 }
 
 static int check_kernel_version_supported(void) {
@@ -256,11 +190,6 @@ void print_ds_check(const char *key, const char *name, const char *desc,
 }
 
 int check_requirements_detailed(int json_output) {
-  check_buf_pos = 0;
-  check_buf[0] = '\0';
-
-  /* In JSON mode the headers and summary still land in check_buf and are
-   * simply never written; cheaper than guarding every check_append. */
   json_mode = json_output;
   json_first = 1;
   if (json_mode)
@@ -403,13 +332,17 @@ int check_requirements_detailed(int json_output) {
   print_ds_check("net_ns", "Network namespace",
                  "Network namespace isolation for --net=nat/none",
                  check_ns(CLONE_NEWNET, "net"), "OPT");
+  /* The probe a start runs. It caches its verdict per boot under Net/, so
+   * this reports what a start would see. */
+  char reason[256];
+  int nat = is_root ? ds_nl_probe_nat_capability(reason, sizeof(reason)) : -1;
   print_ds_check("bridge", "Bridge device support",
                  "Required for --net=nat (bridge mode); bridgeless fallback "
                  "used if absent",
-                 check_bridge_support(), "OPT");
+                 nat == 0, "OPT");
   print_ds_check("veth", "Veth pair support",
                  "Required for --net=nat; no fallback exists if absent",
-                 check_veth_support(), "OPT");
+                 nat >= 0, "OPT");
   print_ds_check("macvlan", "Macvlan support",
                  "CONFIG_MACVLAN; required for --net=macvlan",
                  is_root && ds_nl_probe_macvlan(), "OPT");
@@ -487,8 +420,6 @@ int check_requirements_detailed(int json_output) {
     return 0;
   }
 
-  /* One-shot output to terminal */
-  fwrite(check_buf, 1, check_buf_pos, stdout);
   fflush(stdout);
 
   return 0;

@@ -66,15 +66,9 @@ static void close_and_forget(int *fd) {
 }
 
 static int console_log_open(const struct ds_config *cfg) {
-  char safe_name[256];
-  char log_dir[PATH_MAX];
   char log_path[PATH_MAX];
-  sanitize_container_name(cfg->container_name, safe_name, sizeof(safe_name));
-  snprintf(log_dir, sizeof(log_dir), "%.2048s/" DS_LOGS_SUBDIR "/%.256s",
-           get_workspace_dir(), safe_name);
-  mkdir_p(log_dir, 0755);
-  snprintf(log_path, sizeof(log_path), "%.4080s/console", log_dir);
-  rotate_log(log_path, 2 * 1024 * 1024);
+  container_log_path(cfg->container_name, "console", log_path,
+                     sizeof(log_path));
   return open(log_path, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
 }
 

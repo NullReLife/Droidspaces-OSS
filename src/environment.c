@@ -228,15 +228,10 @@ void parse_env_file_to_config(const char *path, struct ds_config *cfg) {
 
     /* Strip surrounding quotes (single or double) */
     if (val_len >= 2 && ((val[0] == '"' && val[val_len - 1] == '"') ||
-                         (val[0] == '\'' && val[val_len - 1] == '\''))) {
-      value = malloc(val_len - 1);
-      if (value) {
-        memcpy(value, val + 1, val_len - 2);
-        value[val_len - 2] = '\0';
-      }
-    } else {
+                         (val[0] == '\'' && val[val_len - 1] == '\'')))
+      value = strndup(val + 1, val_len - 2);
+    else
       value = strdup(val);
-    }
 
     if (!value) {
       free(key);

@@ -178,6 +178,10 @@ int ds_parse_bind_spec(char *spec, struct ds_config *cfg, char *err,
   const char *src = trim_whitespace(spec);
   dest = trim_whitespace(dest);
 
+  if (!src[0]) {
+    snprintf(err, err_size, "Bind mount has no source: %s:%s", src, dest);
+    return -1;
+  }
   if (!validate_bind_destination(dest)) {
     snprintf(err, err_size,
              "Unsafe bind destination '%s': it must be an absolute path inside "
@@ -797,7 +801,8 @@ int ds_config_save(const char *config_path, struct ds_config *cfg) {
    * stale copy of them in cfg must not land on top. Only a change in the keys
    * this build manages earns a rewrite. */
   int same = 0;
-  struct ds_config disk = {0};
+  struct ds_config disk;
+  ds_config_init(&disk);
   if (access(config_path, F_OK) == 0 &&
       ds_config_load(config_path, &disk) == 0) {
     sort_bind_mounts(&disk);

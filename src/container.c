@@ -1064,19 +1064,7 @@ static int stop_rootfs_locked(struct ds_config *caller_cfg, int skip_unmount,
     if (build_proc_root_path(pid, "", probe_root, sizeof(probe_root)) == 0)
       init_type = detect_container_init(probe_root);
 
-    switch (init_type) {
-    case DS_INIT_PROCD:
-    case DS_INIT_S6:
-    case DS_INIT_BUSYBOX:
-      kill(pid, SIGUSR2);
-      break;
-    case DS_INIT_RUNIT:
-      kill(pid, SIGCONT);
-      break;
-    case DS_INIT_SYSTEMD:
-      kill(pid, DS_SIG_STOP); /* SIGRTMIN+3 */
-      break;
-    case DS_INIT_SYSVINIT: {
+    if (init_type == DS_INIT_SYSVINIT) {
       /* sysvinit ignores all signals for shutdown -- it only listens on the
        * initctl FIFO. Write a telinit-compatible init_request struct directly
        * into the container's /run/initctl via /proc/<pid>/root. */
@@ -1121,14 +1109,19 @@ static int stop_rootfs_locked(struct ds_config *caller_cfg, int skip_unmount,
                 "falling back to SIGPWR");
         kill(pid, SIGPWR);
       }
-      break;
-    }
-    case DS_INIT_OPENRC:
-      kill(pid, SIGPWR);
-      break;
-    default: /* unknown */
-      kill(pid, SIGTERM);
-      break;
+    } else {
+      /* Each family's own shutdown request; SIGTERM when we cannot tell. */
+      int sig = SIGTERM;
+      if (init_type == DS_INIT_PROCD || init_type == DS_INIT_S6 ||
+          init_type == DS_INIT_BUSYBOX)
+        sig = SIGUSR2;
+      else if (init_type == DS_INIT_RUNIT)
+        sig = SIGCONT;
+      else if (init_type == DS_INIT_SYSTEMD)
+        sig = DS_SIG_STOP; /* SIGRTMIN+3 */
+      else if (init_type == DS_INIT_OPENRC)
+        sig = SIGPWR;
+      kill(pid, sig);
     }
 
     ds_log("Waiting for graceful shutdown (this may take up to %d seconds)...",

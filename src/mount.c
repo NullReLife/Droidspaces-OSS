@@ -556,13 +556,8 @@ int setup_devpts(int hw_access) {
   snprintf(optbuf, sizeof(optbuf), "gid=%d,newinstance,ptmxmode=0666,mode=0620",
            DS_DEFAULT_TTY_GID);
 
-  char optbuf2[128];
-  snprintf(optbuf2, sizeof(optbuf2), "gid=%d,newinstance,mode=0620",
-           DS_DEFAULT_TTY_GID);
-
-  const char *opts[] = {optbuf,        "newinstance,ptmxmode=0666,mode=0620",
-                        optbuf2,       "newinstance,ptmxmode=0666",
-                        "newinstance", NULL};
+  /* The gid-less retry is LXC's, for a kernel that refuses the option. */
+  const char *opts[] = {optbuf, "newinstance,ptmxmode=0666,mode=0620", NULL};
 
   for (int i = 0; opts[i]; i++) {
     if (domount("devpts", pts_path, "devpts", MS_NOSUID | MS_NOEXEC, opts[i]) ==

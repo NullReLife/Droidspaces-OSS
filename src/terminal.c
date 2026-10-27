@@ -135,25 +135,19 @@ int ds_setup_tios(int fd, struct termios *old) {
 
   new_tios = *old;
 
-  /* Raw mode - mirroring LXC/SSH settings for best compatibility */
+  /* Raw mode as LXC and SSH set it: cfmakeraw, which also forces 8N1 and
+   * drops break handling (both moot on a pty), plus the flow-control and
+   * job-control bits it leaves alone. OPOST goes with it: with ONLCR active
+   * on the host PTY the line discipline would turn \n into \r\n and corrupt
+   * TUI escape sequences from tmux, vim, etc. The container shell sets its
+   * own ONLCR on the inner slave, so the translation happens exactly once. */
+  cfmakeraw(&new_tios);
   new_tios.c_iflag |= IGNPAR;
-  new_tios.c_iflag &=
-      (tcflag_t) ~(ISTRIP | INLCR | IGNCR | ICRNL | IXON | IXANY | IXOFF);
+  new_tios.c_iflag &= (tcflag_t) ~(IXANY | IXOFF);
 #ifdef IUCLC
   new_tios.c_iflag &= (tcflag_t)~IUCLC;
 #endif
-  new_tios.c_lflag &=
-      (tcflag_t) ~(TOSTOP | ISIG | ICANON | ECHO | ECHOE | ECHOK | ECHONL);
-#ifdef IEXTEN
-  new_tios.c_lflag &= (tcflag_t)~IEXTEN;
-#endif
-  /* Disable output processing: OPOST with ONLCR active on the host PTY causes
-   * the line discipline to transform \n -> \r\n, corrupting TUI escape
-   * sequences from tmux, vim, etc. The container shell sets its own ONLCR on
-   * the inner slave, so \r\n translation happens exactly once, there. */
-  new_tios.c_oflag &= (tcflag_t) ~(OPOST | ONLCR);
-  new_tios.c_cc[VMIN] = 1;
-  new_tios.c_cc[VTIME] = 0;
+  new_tios.c_lflag &= (tcflag_t) ~(TOSTOP | ECHOE | ECHOK);
 
   if (tcsetattr(fd, TCSAFLUSH, &new_tios) < 0)
     return -1;

@@ -156,30 +156,33 @@ static void prune_stale_pidfile(const char *name, const char *pidfile) {
   ds_container_unlock(lock_fd);
 }
 
+/* The next running container in a Pids/ directory scan, pruning the stale
+ * pidfiles it passes. 1 with cfg and pid filled in, 0 at the end. */
+static int next_running(DIR *d, struct ds_config *cfg, pid_t *pid) {
+  struct dirent *ent;
+  while ((ent = readdir(d)) != NULL) {
+    if (!is_pid_file(ent->d_name))
+      continue;
+    ds_config_init(cfg);
+    resolve_scanned_container(ent->d_name, cfg);
+    if (is_container_running(cfg, pid))
+      return 1;
+    if (*pid == 0 && access(cfg->pidfile, F_OK) == 0)
+      prune_stale_pidfile(cfg->container_name, cfg->pidfile);
+  }
+  return 0;
+}
+
 int count_running_containers(char *first_name, size_t size) {
   DIR *d = opendir(get_pids_dir());
   if (!d)
     return 0;
-
-  struct dirent *ent;
+  struct ds_config c;
+  pid_t pid;
   int count = 0;
-
-  while ((ent = readdir(d)) != NULL) {
-    if (is_pid_file(ent->d_name)) {
-      struct ds_config tmp_cfg = {0};
-      resolve_scanned_container(ent->d_name, &tmp_cfg);
-
-      pid_t pid;
-      if (is_container_running(&tmp_cfg, &pid)) {
-        if (count == 0 && first_name && size > 0) {
-          safe_strncpy(first_name, tmp_cfg.container_name, size);
-        }
-        count++;
-      } else if (pid == 0 && access(tmp_cfg.pidfile, F_OK) == 0) {
-        prune_stale_pidfile(tmp_cfg.container_name, tmp_cfg.pidfile);
-      }
-    }
-  }
+  while (next_running(d, &c, &pid))
+    if (count++ == 0 && first_name && size > 0)
+      safe_strncpy(first_name, c.container_name, size);
   closedir(d);
   return count;
 }
@@ -289,20 +292,9 @@ int show_containers(struct ds_config *cfg) {
     return -1;
   }
 
-  struct dirent *ent;
-  while (d && (ent = readdir(d)) != NULL) {
-    if (!is_pid_file(ent->d_name))
-      continue;
-    struct ds_config tmp_cfg = {0};
-    resolve_scanned_container(ent->d_name, &tmp_cfg);
-
-    pid_t pid;
-    if (!is_container_running(&tmp_cfg, &pid)) {
-      if (pid == 0 && access(tmp_cfg.pidfile, F_OK) == 0)
-        prune_stale_pidfile(tmp_cfg.container_name, tmp_cfg.pidfile);
-      continue;
-    }
-
+  struct ds_config tmp_cfg;
+  pid_t pid;
+  while (d && next_running(d, &tmp_cfg, &pid)) {
     if (count >= cap) {
       struct ds_status *tmp =
           cap > 8192 ? NULL

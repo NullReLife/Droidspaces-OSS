@@ -605,8 +605,7 @@ unsigned long ds_get_pid_ns_inode(pid_t pid) {
 /* Write content to a tmpfs file, then bind-mount it over the real proc entry.
  * Called from inside the container (after pivot_root, before exec). */
 static void bind_vfile(const char *vpath, const char *target,
-                       const char *content,
-                       size_t len __attribute__((unused))) {
+                       const char *content) {
   if (write_file(vpath, content) < 0)
     return;
   /* Ensure the target exists as a regular file for bind_mount.  O_NOFOLLOW so a
@@ -707,6 +706,30 @@ void ds_virtualize_join(pid_t init_pid) {
   }
 }
 
+enum { V_MEM = 1, V_CPU = 2, V_SWAPCAP = 4, V_LIVE = 8 };
+
+/* The proc views, each wanted only under the limit it reflects. V_LIVE ones
+ * are rewritten by the monitor every 500 ms; cpuinfo and swaps do not change
+ * after boot. */
+static const struct {
+  const char *name;
+  char *(*gen)(struct ds_config *, size_t *);
+  int flags;
+} vproc_files[] = {
+    {"meminfo", gen_meminfo, V_MEM | V_LIVE},
+    {"cpuinfo", gen_cpuinfo, V_CPU},
+    {"stat", gen_stat, V_CPU | V_LIVE},
+    {"uptime", gen_uptime, V_LIVE},
+    {"loadavg", gen_loadavg, V_LIVE},
+    {"swaps", gen_swaps, V_MEM | V_SWAPCAP},
+};
+
+static int vproc_wanted(const struct ds_config *cfg, int flags) {
+  return !((flags & V_MEM) && cfg->memory_limit <= 0) &&
+         !((flags & V_CPU) && cfg->cpu_quota <= 0) &&
+         !((flags & V_SWAPCAP) && cfg->swap_uncapped);
+}
+
 int ds_virtualize_init(struct ds_config *cfg) {
   int has_mem = (cfg->memory_limit > 0);
   int has_cpu = (cfg->cpu_quota > 0);
@@ -726,32 +749,18 @@ int ds_virtualize_init(struct ds_config *cfg) {
     return -1;
   }
 
-  /* Struct-of-arrays for proc files: name, generator, condition */
-  struct {
-    const char *name;
-    char *(*gen)(struct ds_config *, size_t *);
-    int enabled;
-  } proc_files[] = {
-      {"meminfo", gen_meminfo, has_mem},
-      {"cpuinfo", gen_cpuinfo, has_cpu},
-      {"stat", gen_stat, has_cpu},
-      {"uptime", gen_uptime, 1},
-      {"loadavg", gen_loadavg, 1},
-      {"swaps", gen_swaps, has_mem && !cfg->swap_uncapped},
-  };
-
-  for (size_t i = 0; i < ARRAY_SIZE(proc_files); i++) {
-    if (!proc_files[i].enabled)
+  for (size_t i = 0; i < ARRAY_SIZE(vproc_files); i++) {
+    if (!vproc_wanted(cfg, vproc_files[i].flags))
       continue;
     size_t len = 0;
-    char *buf = proc_files[i].gen(cfg, &len);
+    char *buf = vproc_files[i].gen(cfg, &len);
     if (!buf)
       continue;
 
     char vpath[PATH_MAX], target[PATH_MAX];
-    snprintf(vpath, sizeof(vpath), VPROC_PATH "/%s", proc_files[i].name);
-    snprintf(target, sizeof(target), "/proc/%s", proc_files[i].name);
-    bind_vfile(vpath, target, buf, len);
+    snprintf(vpath, sizeof(vpath), VPROC_PATH "/%s", vproc_files[i].name);
+    snprintf(target, sizeof(target), "/proc/%s", vproc_files[i].name);
+    bind_vfile(vpath, target, buf);
     free(buf);
   }
 
@@ -831,35 +840,22 @@ void ds_virtualize_update(struct ds_config *cfg) {
     return;
   }
 
-  int has_mem = (cfg->memory_limit > 0);
-  int has_cpu = (cfg->cpu_quota > 0);
-
-  /* Dynamic files only (cpuinfo is static after boot, skip it) */
-  struct {
-    const char *name;
-    char *(*gen)(struct ds_config *, size_t *);
-    int enabled;
-  } dyn[] = {
-      {"meminfo", gen_meminfo, has_mem},
-      {"stat", gen_stat, has_cpu},
-      {"uptime", gen_uptime, 1},
-      {"loadavg", gen_loadavg, 1},
-  };
-
-  for (size_t i = 0; i < ARRAY_SIZE(dyn); i++) {
-    if (!dyn[i].enabled)
+  for (size_t i = 0; i < ARRAY_SIZE(vproc_files); i++) {
+    if (!(vproc_files[i].flags & V_LIVE) ||
+        !vproc_wanted(cfg, vproc_files[i].flags))
       continue;
     size_t len = 0;
-    char *buf = dyn[i].gen(cfg, &len);
+    char *buf = vproc_files[i].gen(cfg, &len);
     if (!buf) {
       write_monitor_debug_log(cfg->container_name,
-                              "[VIRT] gen_%s returned NULL", dyn[i].name);
+                              "[VIRT] gen_%s returned NULL",
+                              vproc_files[i].name);
       continue;
     }
 
     char path[PATH_MAX];
     snprintf(path, sizeof(path), "/proc/%d/root/" VPROC_PATH "/%s",
-             (int)cfg->container_pid, dyn[i].name);
+             (int)cfg->container_pid, vproc_files[i].name);
 
     /* The directory is there but this file is not: the guest is taking its
      * /run apart on the way down, or this one file never got set up. Nothing

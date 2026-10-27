@@ -112,21 +112,14 @@ static void netns_addrs(pid_t pid, char *v4, size_t v4_size, char *v6,
     close(ns_fd);
 }
 
-/* utime + stime, fields 14 and 15 of /proc/<pid>/stat. */
-static long long proc_cpu_ticks(const char *pid_name) {
-  char path[PATH_MAX];
-  snprintf(path, sizeof(path), "/proc/%s/stat", pid_name);
-  FILE *f = fopen(path, "r");
+/* utime plus stime, fields 14 and 15, in clock ticks. */
+static long long proc_cpu_ticks(pid_t pid) {
+  char buf[1024], *end;
+  const char *f = proc_stat_field(pid, 14, buf, sizeof(buf));
   if (!f)
     return 0;
-  long long utime = 0, stime = 0;
-  for (int i = 1; i <= 13; i++)
-    if (fscanf(f, "%*s") == EOF)
-      break;
-  if (fscanf(f, "%lld %lld", &utime, &stime) != 2)
-    utime = stime = 0;
-  fclose(f);
-  return utime + stime;
+  long long utime = strtoll(f, &end, 10);
+  return utime + strtoll(end, NULL, 10);
 }
 
 static long proc_rss_kb(const char *pid_name) {
@@ -199,7 +192,7 @@ static void walk_proc(struct ds_status *st, char (*ns)[64], int n,
       i++;
     if (i == n)
       continue;
-    cpu[i] += proc_cpu_ticks(de->d_name);
+    cpu[i] += proc_cpu_ticks((pid_t)atoi(de->d_name));
     if (want_rss)
       st[i].ram_used_kb += proc_rss_kb(de->d_name);
   }

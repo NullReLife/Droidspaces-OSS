@@ -9,19 +9,6 @@
 
 /* Console Monitor Loop */
 
-/* Read the current container init PID from the pidfile.
- * After an in-container reboot, the intermediate process updates the pidfile
- * with the new init PID, so this always returns the LIVE container PID. */
-static pid_t read_current_container_pid(const char *pidfile) {
-  if (!pidfile || !pidfile[0])
-    return -1;
-
-  pid_t pid = -1;
-  if (read_and_validate_pid(pidfile, &pid) == 0)
-    return pid;
-  return -1;
-}
-
 /* The console pair arrives on console_sock from container init, once per boot
  * cycle: init sends it before it execs and wait_for_boot() returns at that
  * exec, so the first pair is already queued when we get here. An in-container
@@ -129,8 +116,6 @@ int console_monitor_loop(int console_sock, pid_t monitor_pid,
             running = 0;
             break;
           }
-        } else if (n == 0) {
-          /* EOF on stdin */
         }
       } else if (fd == master_fd) {
         /* Container output -> User stdout */
@@ -194,8 +179,11 @@ int console_monitor_loop(int console_sock, pid_t monitor_pid,
             ioctl(master_fd, TIOCSWINSZ, &ws);
         } else if (fdsi.ssi_signo == SIGINT || fdsi.ssi_signo == SIGTERM) {
           /* Forward to container init (read live PID) */
-          pid_t live_pid = read_current_container_pid(cfg->pidfile);
-          if (live_pid > 0)
+          /* The pidfile follows an in-container reboot, so it names the
+           * live init. */
+          pid_t live_pid = -1;
+          if (read_and_validate_pid(cfg->pidfile, &live_pid) == 0 &&
+              live_pid > 0)
             kill(live_pid, (int)fdsi.ssi_signo);
         }
       }

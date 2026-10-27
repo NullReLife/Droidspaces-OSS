@@ -84,161 +84,159 @@ int ds_seccomp_apply_minimal(int privileged_mask, int sandboxing_allowed) {
       (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
 #endif
 
-  if (!(privileged_mask & DS_PRIV_NOSEC)) {
-    /* 4. Kernel module loading */
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_init_module, 0, 1);
-    filter[curr++] =
-        (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_finit_module, 0, 1);
-    filter[curr++] =
-        (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_delete_module, 0, 1);
-    filter[curr++] =
-        (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
+  /* 4. Kernel module loading */
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_init_module, 0, 1);
+  filter[curr++] =
+      (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_finit_module, 0, 1);
+  filter[curr++] =
+      (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_delete_module, 0, 1);
+  filter[curr++] =
+      (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
 
-    /* 5. kexec */
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_kexec_load, 0, 1);
-    filter[curr++] =
-        (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
+  /* 5. kexec */
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_kexec_load, 0, 1);
+  filter[curr++] =
+      (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
 #ifdef __NR_kexec_file_load
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_kexec_file_load, 0, 1);
-    filter[curr++] =
-        (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_kexec_file_load, 0, 1);
+  filter[curr++] =
+      (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS);
 #endif
 
-    if (!sandboxing_allowed) {
+  if (!sandboxing_allowed) {
 #ifdef __NR_clone3
-      /* 6. Block clone3 */
-      filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                    __NR_clone3, 0, 1);
-      filter[curr++] = (struct sock_filter)BPF_STMT(
-          BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (ENOSYS & SECCOMP_RET_DATA));
+    /* 6. Block clone3 */
+    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                  __NR_clone3, 0, 1);
+    filter[curr++] = (struct sock_filter)BPF_STMT(
+        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (ENOSYS & SECCOMP_RET_DATA));
 #endif
 
-      /* 7. unshare(CLONE_NEWUSER) */
-      filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                    __NR_unshare, 0, 4);
-      filter[curr++] = (struct sock_filter)BPF_STMT(
-          BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
-      filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K,
-                                                    0x10000000, 0, 1);
-      filter[curr++] = (struct sock_filter)BPF_STMT(
-          BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
-      filter[curr++] = (struct sock_filter)BPF_STMT(
-          BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+    /* 7. unshare(CLONE_NEWUSER) */
+    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                  __NR_unshare, 0, 4);
+    filter[curr++] = (struct sock_filter)BPF_STMT(
+        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
+    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K,
+                                                  0x10000000, 0, 1);
+    filter[curr++] = (struct sock_filter)BPF_STMT(
+        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+    filter[curr++] = (struct sock_filter)BPF_STMT(
+        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
 
-      /* 8. clone(CLONE_NEWUSER) */
-      filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                    __NR_clone, 0, 3);
-      filter[curr++] = (struct sock_filter)BPF_STMT(
-          BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
-      filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K,
-                                                    0x10000000, 0, 1);
-      filter[curr++] = (struct sock_filter)BPF_STMT(
-          BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
-    }
-    /*
-     * 9. CVE-2026-31431 ("Copy Fail") - mitigation layer 2.
-     *
-     * Block socket(AF_ALG, ...) - the mandatory first step of the exploit.
-     * AF_ALG == 38.  The filter must reload the syscall number after the
-     * argument-inspecting unshare/clone blocks above (those leave the acc
-     * pointing at args[0]).  Pattern mirrors the unshare handler above.
-     *
-     * Instruction budget: JEQ/socket(5) + JEQ/arg(4) = 6 insns.
-     * filter[] was sized to 72 to accommodate this.
-     */
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+    /* 8. clone(CLONE_NEWUSER) */
     filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_socket, 0, 4);
+                                                  __NR_clone, 0, 3);
     filter[curr++] = (struct sock_filter)BPF_STMT(
         BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
-    filter[curr++] =
-        (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AF_ALG, 0, 1);
+    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K,
+                                                  0x10000000, 0, 1);
     filter[curr++] = (struct sock_filter)BPF_STMT(
         BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
-    /* Reload nr for any rules that follow this block. */
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
-    /* 9b. KernelSU magic-reboot fd-install suppression.
-     *
-     * KSU hooks reboot() via kprobe and, when invoked with the magic pair
-     * (0xDEADBEEF, 0xCAFEBABE), installs an anonymous [ksu_driver] fd -
-     * the only handle for KSU ioctls, including GRANT_ROOT, which installs
-     * full-root creds and disables seccomp (the container-escape primitive).
-     * Deny reboot() only when BOTH args match the KSU magic; every other
-     * reboot() (already gated by CAP_SYS_BOOT in-kernel) is unaffected, and
-     * wrong-magic reboot() already returns -EINVAL anyway.
-     *
-     * Pairs with ds_ksu_neutralize_root_escape(), which must run BEFORE this
-     * filter is applied (it obtains its fd through this same magic reboot). */
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_reboot, 0, 6);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  DS_KSU_INSTALL_MAGIC1, 0, 3);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[1]));
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  DS_KSU_INSTALL_MAGIC2, 0, 1);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
-    /* Reload nr for any rules that follow this block. */
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
-    /*
-     * 10. Block host clock modification syscalls.
-     *
-     * CAP_SYS_TIME dropped from the bounding set is insufficient: the kernel
-     * checks the capability against the *initial* user namespace, and
-     * Droidspaces containers run as real root without a user namespace, so
-     * the check passes even after the bounding-set drop.  Seccomp is the
-     * only reliable barrier.
-     *
-     * Blocked: settimeofday, adjtimex, clock_settime, clock_adjtime,
-     *          clock_settime64 (32-bit ARM compat, ifdef-guarded).
-     * TZ changes (/etc/localtime, TZ env) are pure userspace and unaffected.
-     */
+  }
+  /*
+   * 9. CVE-2026-31431 ("Copy Fail") - mitigation layer 2.
+   *
+   * Block socket(AF_ALG, ...) - the mandatory first step of the exploit.
+   * AF_ALG == 38.  The filter must reload the syscall number after the
+   * argument-inspecting unshare/clone blocks above (those leave the acc
+   * pointing at args[0]).  Pattern mirrors the unshare handler above.
+   *
+   * Instruction budget: JEQ/socket(5) + JEQ/arg(4) = 6 insns.
+   * filter[] was sized to 74 to accommodate this.
+   */
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_socket, 0, 4);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
+  filter[curr++] =
+      (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AF_ALG, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  /* Reload nr for any rules that follow this block. */
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+  /* 9b. KernelSU magic-reboot fd-install suppression.
+   *
+   * KSU hooks reboot() via kprobe and, when invoked with the magic pair
+   * (0xDEADBEEF, 0xCAFEBABE), installs an anonymous [ksu_driver] fd -
+   * the only handle for KSU ioctls, including GRANT_ROOT, which installs
+   * full-root creds and disables seccomp (the container-escape primitive).
+   * Deny reboot() only when BOTH args match the KSU magic; every other
+   * reboot() (already gated by CAP_SYS_BOOT in-kernel) is unaffected, and
+   * wrong-magic reboot() already returns -EINVAL anyway.
+   *
+   * Pairs with ds_ksu_neutralize_root_escape(), which must run BEFORE this
+   * filter is applied (it obtains its fd through this same magic reboot). */
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_reboot, 0, 6);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[0]));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                DS_KSU_INSTALL_MAGIC1, 0, 3);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, args[1]));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                DS_KSU_INSTALL_MAGIC2, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  /* Reload nr for any rules that follow this block. */
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr));
+  /*
+   * 10. Block host clock modification syscalls.
+   *
+   * CAP_SYS_TIME dropped from the bounding set is insufficient: the kernel
+   * checks the capability against the *initial* user namespace, and
+   * Droidspaces containers run as real root without a user namespace, so
+   * the check passes even after the bounding-set drop.  Seccomp is the
+   * only reliable barrier.
+   *
+   * Blocked: settimeofday, adjtimex, clock_settime, clock_adjtime,
+   *          clock_settime64 (32-bit ARM compat, ifdef-guarded).
+   * TZ changes (/etc/localtime, TZ env) are pure userspace and unaffected.
+   */
 #ifdef __NR_settimeofday
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_settimeofday, 0, 1);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_settimeofday, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
 #endif
 #ifdef __NR_adjtimex
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_adjtimex, 0, 1);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_adjtimex, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
 #endif
 #ifdef __NR_clock_settime
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_clock_settime, 0, 1);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_clock_settime, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
 #endif
 #ifdef __NR_clock_adjtime
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_clock_adjtime, 0, 1);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_clock_adjtime, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
 #endif
 #ifdef __NR_clock_settime64
-    filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
-                                                  __NR_clock_settime64, 0, 1);
-    filter[curr++] = (struct sock_filter)BPF_STMT(
-        BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
+  filter[curr++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+                                                __NR_clock_settime64, 0, 1);
+  filter[curr++] = (struct sock_filter)BPF_STMT(
+      BPF_RET | BPF_K, SECCOMP_RET_ERRNO | (EPERM & SECCOMP_RET_DATA));
 #endif
-  }
 
   /* Allow everything else */
   filter[curr++] =
@@ -292,9 +290,8 @@ int android_seccomp_setup(int privileged_mask) {
   if (major >= 5)
     return 0;
 
-  /* Define base filter (arch check + load nr) */
-  struct sock_filter filter_base[] = {
-      /* Same wrong-arch fix as ds_seccomp_apply_minimal: KILL on mismatch. */
+  /* Wrong arch kills, keyctl answers ENOSYS, everything else passes. */
+  static struct sock_filter filter[] = {
       BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
 #if defined(__aarch64__)
       BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AUDIT_ARCH_AARCH64, 1, 0),
@@ -307,47 +304,21 @@ int android_seccomp_setup(int privileged_mask) {
 #elif defined(__riscv) && __riscv_xlen == 64
       BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AUDIT_ARCH_RISCV64, 1, 0),
 #endif
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS), /* wrong arch */
+      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
       BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
-  };
-
-  struct sock_filter filter_keyring[] = {
       BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, __NR_keyctl, 0, 1),
       BPF_STMT(BPF_RET | BPF_K,
-               SECCOMP_RET_ERRNO | (ENOSYS & SECCOMP_RET_DATA))};
-
-  struct sock_filter filter_allow[] = {
-      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW)};
-
-  int filter_len = sizeof(filter_base) / sizeof(struct sock_filter) +
-                   sizeof(filter_keyring) / sizeof(struct sock_filter) +
-                   sizeof(filter_allow) / sizeof(struct sock_filter);
-
-  struct sock_filter *final_filter =
-      malloc(filter_len * sizeof(struct sock_filter));
-  if (!final_filter)
-    return -1;
-
-  int curr = 0;
-  memcpy(final_filter + curr, filter_base, sizeof(filter_base));
-  curr += sizeof(filter_base) / sizeof(struct sock_filter);
-
-  memcpy(final_filter + curr, filter_keyring, sizeof(filter_keyring));
-  curr += sizeof(filter_keyring) / sizeof(struct sock_filter);
-
-  memcpy(final_filter + curr, filter_allow, sizeof(filter_allow));
-
+               SECCOMP_RET_ERRNO | (ENOSYS & SECCOMP_RET_DATA)),
+      BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ALLOW),
+  };
   struct sock_fprog prog = {
-      .len = (unsigned short)filter_len,
-      .filter = final_filter,
+      .len = sizeof(filter) / sizeof(filter[0]),
+      .filter = filter,
   };
 
   if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog) < 0) {
     ds_warn("Failed to apply Seccomp filter: %s", strerror(errno));
-    free(final_filter);
     return -1;
   }
-
-  free(final_filter);
   return 0;
 }

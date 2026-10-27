@@ -290,23 +290,16 @@ int internal_boot(struct ds_config *cfg) {
     }
   }
 
-  /* 7. Pre-create standard directories in one loop to reduce syscalls */
-  const char *dirs_to_create[] = {".old_root", "proc", "sys", "run", "tmp"};
-  int dir_creation_failed = 0;
-  for (size_t i = 0; i < sizeof(dirs_to_create) / sizeof(dirs_to_create[0]);
-       i++) {
-    if (mkdir(dirs_to_create[i], 0755) < 0 && errno != EEXIST) {
-      ds_error("Failed to create '%s': %s", dirs_to_create[i], strerror(errno));
-      /* .old_root is critical for pivot_root, track if it fails */
-      if (strcmp(dirs_to_create[i], ".old_root") == 0) {
-        dir_creation_failed = 1;
-      }
-    }
-  }
-  if (dir_creation_failed) {
-    ds_error("Failed to create critical directory .old_root");
+  /* 7. pivot_root parks the old root in .old_root, so that one must exist;
+   * the rest are mountpoints a rootfs normally ships anyway. */
+  if (mkdir(".old_root", 0755) < 0 && errno != EEXIST) {
+    ds_error("Failed to create .old_root: %s", strerror(errno));
     goto boot_fail;
   }
+  const char *dirs[] = {"proc", "sys", "run", "tmp"};
+  for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++)
+    if (mkdir(dirs[i], 0755) < 0 && errno != EEXIST)
+      ds_error("Failed to create '%s': %s", dirs[i], strerror(errno));
 
   /* 8. Setup /dev (device nodes, devtmpfs) */
   if (setup_dev(".", cfg->hw_access, cfg->gpu_mode, cfg->allow_vts) < 0) {
