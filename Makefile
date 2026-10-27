@@ -146,11 +146,9 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(Q)mkdir -p $(dir $@)
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 
-# output/droidspaces is the arch built last, for `make tarball` and device tests
 $(BINARY): $(OBJS)
 	$(msg_ld)
 	$(Q)$(CC) $(OBJS) -o $@ $(LDFLAGS) $(LIBS)
-	$(Q)cp -f $@ $(OUT_DIR)/$(BINARY_NAME)
 	@echo "[+] Built: $@"
 
 NATIVE_TRIPLET := $(shell $(CC) -dumpmachine 2>/dev/null)
@@ -161,8 +159,10 @@ else
   NATIVE_CC := $(call find-cc,$(NATIVE_ARCH)-linux-musl)
 endif
 
+# output/droidspaces is always the arch asked for last, built or not, for
+# `make tarball` and the device-test instructions
 native:
-	@if [ -n "$(NATIVE_CC)" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(BINARY) CC="$(NATIVE_CC)"; \
+	@if [ -n "$(NATIVE_CC)" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(BINARY) CC="$(NATIVE_CC)" && cp -f $(BINARY) $(OUT_DIR)/$(BINARY_NAME); \
 	else echo "Error: $(NATIVE_ARCH)-linux-musl-gcc not found. Run scripts/install-musl.sh or set MUSL_CROSS"; exit 1; fi
 
 triplet_x86_64  = x86_64-linux-musl
@@ -174,7 +174,7 @@ triplet_riscv64 = riscv64-linux-musl
 # The sub-make re-derives ARCH, OBJ_DIR and BINARY from the cross compiler
 x86_64 aarch64 x86 armhf riscv64:
 	@CROSS_CC="$(call find-cc,$(triplet_$@))"; \
-	if [ -n "$$CROSS_CC" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(OUT_DIR)/$(BINARY_NAME)-$@$(VARIANT) CC=$$CROSS_CC; \
+	if [ -n "$$CROSS_CC" ]; then $(MAKE) --no-print-directory -j$(NPROC) $(OUT_DIR)/$(BINARY_NAME)-$@$(VARIANT) CC=$$CROSS_CC && cp -f $(OUT_DIR)/$(BINARY_NAME)-$@$(VARIANT) $(OUT_DIR)/$(BINARY_NAME); \
 	else echo "Error: $(triplet_$@)-gcc not found. Run scripts/install-musl.sh $@ or set MUSL_CROSS"; exit 1; fi
 
 debug-hardened:
