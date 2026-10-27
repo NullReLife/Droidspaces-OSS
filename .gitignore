@@ -24,3 +24,5 @@ compile_commands.json
 
 # Android stuff
 .gradle
+# Python
+__pycache__/

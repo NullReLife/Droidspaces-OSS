@@ -108,7 +108,7 @@ find-cc = $(shell \
 		echo "/opt/cross/bin/$(1)-gcc"; \
 	fi)
 
-.PHONY: all help clean native x86_64 aarch64 armhf x86 riscv64 all-build tarball all-tarball debug-hardened format bump
+.PHONY: all help clean native x86_64 aarch64 armhf x86 riscv64 all-build tarball all-tarball debug-hardened format bump test
 
 all: help
 
@@ -140,6 +140,13 @@ help:
 	@echo "  make clean     - Remove build artifacts"
 	@echo "  make debug-hardened - Build with ASan/UBSan/LSan to find bugs"
 	@echo "  make format    - Run clang-format on all .c/.h/.cpp files"
+	@echo "  make test      - Drive the installed binary through the running daemon (tests/, no sudo)"
+
+# Black-box tests against the installed binary. They need a running daemon and a
+# user in the droidspaces group, so install the build first:
+#   sudo cp output/droidspaces /usr/bin/droidspaces && sudo systemctl restart droidspaces
+test:
+	python3 -m unittest discover -s tests -v
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	$(msg_cc)
