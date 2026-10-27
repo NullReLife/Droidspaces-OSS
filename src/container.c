@@ -990,10 +990,7 @@ static int load_booted_config(const struct ds_config *cfg, pid_t pid,
                            sizeof(run_path)) != 0)
     return -1;
 
-  memset(out, 0, sizeof(*out));
-  out->net_ready_pipe[0] = out->net_ready_pipe[1] = -1;
-  out->net_done_pipe[0] = out->net_done_pipe[1] = -1;
-  out->net_mode = DS_NET_NAT; /* zero is host, see main() */
+  ds_config_init(out);
   safe_strncpy(out->container_name, cfg->container_name,
                sizeof(out->container_name));
   safe_strncpy(out->prog_name, cfg->prog_name, sizeof(out->prog_name));

@@ -117,12 +117,14 @@ static const struct {
     {DS_PRIV_FULL, "full"},
 };
 
-/* 0, or -1 with the mask left empty when a tag is not one of ours: a typo in
- * the flag that removes security barriers must not start the container with
- * whatever its other tags grant. */
+/* 0 with the mask filled, or -1 with it empty when a tag is not one of ours:
+ * a typo in the flag that removes security barriers must leave them all up.
+ * The CLI refuses the start on that; a config file boots confined and keeps
+ * the value it had, so the warning repeats until it is fixed. */
 int parse_privileged(const char *value, struct ds_config *cfg) {
   const size_t n = sizeof(priv_bits) / sizeof(priv_bits[0]);
   cfg->privileged_mask = 0;
+  cfg->privileged_bad[0] = '\0';
   if (!value)
     return 0;
 
@@ -142,6 +144,7 @@ int parse_privileged(const char *value, struct ds_config *cfg) {
           "full)",
           t);
       cfg->privileged_mask = 0;
+      safe_strncpy(cfg->privileged_bad, value, sizeof(cfg->privileged_bad));
       return -1;
     }
     cfg->privileged_mask |= priv_bits[i].bit;
@@ -190,8 +193,11 @@ int ds_parse_bind_spec(char *spec, struct ds_config *cfg, char *err,
   const char *src = trim_whitespace(spec);
   dest = trim_whitespace(dest);
 
-  if (!src[0]) {
-    snprintf(err, err_size, "Bind mount has no source: %s:%s", src, dest);
+  /* A source must already be absolute: the CLI's arrive that way from
+   * ds_resolve_argv_paths, and a config file is read by a root daemon whose
+   * home and cwd are not the user's, so nothing is resolved here. */
+  if (src[0] != '/') {
+    snprintf(err, err_size, "Bind source must be an absolute path: %s", src);
     return -1;
   }
   if (!validate_bind_destination(dest)) {
@@ -515,12 +521,8 @@ int ds_config_load(const char *config_path, struct ds_config *cfg) {
       else
         ds_warn("config: ignoring invalid pids_limit '%s'", val);
     } else if (strcmp(key, "privileged") == 0) {
-      if (parse_privileged(val, cfg) < 0) {
-        /* Kept as an unknown line so the next save does not erase the
-         * evidence; privileged stays off until it is fixed. */
+      if (parse_privileged(val, cfg) < 0)
         ds_warn("config: privileged mode off until the tag is fixed");
-        add_unknown_line(cfg, line);
-      }
     } else if (strcmp(key, "custom_init") == 0) {
       if (val[0] != '/')
         ds_warn("config: ignoring non-absolute custom_init path '%s'", val);
@@ -700,7 +702,9 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
   if (cfg->pids_limit > 0)
     fprintf(f, "pids_limit=%lld\n", cfg->pids_limit);
 
-  if (cfg->privileged_mask > 0) {
+  if (cfg->privileged_bad[0]) {
+    fprintf(f, "privileged=%s\n", cfg->privileged_bad);
+  } else if (cfg->privileged_mask > 0) {
     char tags[64];
     ds_privileged_names(cfg->privileged_mask, tags, sizeof(tags), ",");
     fprintf(f, "privileged=%s\n", tags);

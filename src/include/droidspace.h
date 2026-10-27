@@ -376,8 +376,11 @@ struct ds_config {
   int reboot_cycle;    /* 1 if we are in a reboot loop */
   int force_cgroupv1;  /* --force-cgroupv1: use v1 even if v2 is available */
   int privileged_mask; /* --privileged bitmask */
-  int json_output;     /* --json: JSON output (show, info, check) */
-  char prog_name[64];  /* argv[0] for logging */
+  /* A privileged= value with an unknown tag: the mask stays empty and this is
+   * written back as it was until a valid --privileged replaces it. */
+  char privileged_bad[256];
+  int json_output;    /* --json: JSON output (show, info, check) */
+  char prog_name[64]; /* argv[0] for logging */
 
   /* Runtime state */
   char volatile_dir[PATH_MAX]; /* temporary overlay dir */

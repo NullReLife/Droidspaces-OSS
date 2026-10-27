@@ -518,9 +518,7 @@ int ds_net_check_ip_collision(const char *ip_str, const char *exclude_name) {
              containers_dir, ent->d_name);
 
     struct ds_config other;
-    memset(&other, 0, sizeof(other));
-    other.net_ready_pipe[0] = other.net_ready_pipe[1] = -1;
-    other.net_done_pipe[0] = other.net_done_pipe[1] = -1;
+    ds_config_init(&other);
 
     if (ds_config_load(config_path, &other) == 0) {
       if (other.static_nat_ip[0] && strcmp(other.static_nat_ip, ip_str) == 0)
@@ -1277,9 +1275,7 @@ static void gateway_segment_unlock(int fd) {
 /* Resolve the gateway container's init pid, or 0 if it is not running. */
 static pid_t gateway_pid_of(const char *name) {
   struct ds_config c;
-  memset(&c, 0, sizeof(c));
-  c.net_ready_pipe[0] = c.net_ready_pipe[1] = -1;
-  c.net_done_pipe[0] = c.net_done_pipe[1] = -1;
+  ds_config_init(&c);
   safe_strncpy(c.container_name, name, sizeof(c.container_name));
   (void)ds_config_load_by_name(name, &c);
   pid_t p = 0;

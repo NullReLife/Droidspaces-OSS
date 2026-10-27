@@ -5,7 +5,7 @@
 
 import unittest
 
-from dstest import CAPS_DROPPED_NO_HW, DsTest, cap_mask, require_daemon
+from dstest import CAPS_DROPPED_NO_HW, DsTest, cap_mask, ds, require_daemon
 
 
 def setUpModule():
@@ -118,6 +118,19 @@ class Privileged(DsTest):
         c = self.container("badtag", start=False)
         self.assertNotEqual(c.start("--privileged=bogus", expect=None).returncode, 0)
         self.assertIsNone(c.pid())
+
+    def test_unknown_tag_in_a_config_file_leaves_the_container_confined(self):
+        # Same rule for a hand-edited container.config: nothing is granted, the container still
+        # boots, and the file keeps the value as written so the warning repeats until it is fixed.
+        c = self.container("badtag-conf", start=False)
+        self.addCleanup(c.cleanup)
+        conf = c.work / "x.conf"
+        conf.write_text(f"name={c.name}\nrootfs_path={c.rootfs}\nprivileged=nocaps,bogus\n")
+        p = ds("-C", str(conf), "start", check=True)
+        self.assertIn("Unknown privileged tag 'bogus'", p.stdout + p.stderr)
+        d = caps(c)
+        self.assertEqual((d["CapBnd"], d["Seccomp"]), (cap_mask(CAPS_DROPPED_NO_HW), "2"))
+        self.assertEqual(c.saved_config()["privileged"], "nocaps,bogus")
 
     def test_unknown_tag_grants_nothing(self):
         c = self.container("badtag2", "--privileged=bogus", expect=None)

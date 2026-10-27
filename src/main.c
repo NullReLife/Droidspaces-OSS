@@ -882,6 +882,10 @@ int main(int argc, char **argv) {
                  sizeof(ds_log_container_name));
   }
 
+  /* The NAT probe check runs stamps its verdict under Net/, so the workspace
+   * comes first. A non-root check cannot create it and mkdir_p stays quiet. */
+  ensure_workspace();
+
   /* Basic info commands */
   if (strcmp(cmd, "check") == 0) {
     ret = check_requirements_detailed(cfg.json_output);
@@ -908,8 +912,6 @@ int main(int argc, char **argv) {
     ret = 0;
     goto cleanup;
   }
-
-  ensure_workspace();
 
   if (strcmp(cmd, "show") == 0) {
     ret = show_containers(&cfg);
