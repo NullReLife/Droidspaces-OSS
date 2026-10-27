@@ -109,82 +109,37 @@ char *ds_resolve_path_arg(const char *path) {
   if (!path || !*path)
     return strdup("");
 
-  const char *p = path;
-  char *to_free = NULL;
-
-  /* Handle ~/ expansion */
-  if (p[0] == '~' && (p[1] == '/' || p[1] == '\0')) {
-    const char *home = getenv("HOME");
-    if (home) {
-      size_t hlen = strlen(home);
-      size_t plen = strlen(p + 1);
-      to_free = malloc(hlen + plen + 1);
-      if (to_free) {
-        memcpy(to_free, home, hlen);
-        memcpy(to_free + hlen, p + 1, plen + 1);
-        p = to_free;
-      }
-    }
+  /* A ~ still reaches us inside a comma list or an =value the shell did not
+   * expand. */
+  char home[PATH_MAX];
+  if (path[0] == '~' && (path[1] == '/' || !path[1]) && getenv("HOME")) {
+    snprintf(home, sizeof(home), "%s%s", getenv("HOME"), path + 1);
+    path = home;
   }
 
-  if (p[0] == '/') {
-    char *res = strdup(p);
-    if (res) {
-      size_t len = strlen(res);
-      while (len > 1 && res[len - 1] == '/') {
-        res[len - 1] = '\0';
-        len--;
-      }
-    }
-    free(to_free);
+  if (path[0] == '/') {
+    char *res = strdup(path);
+    for (size_t len = res ? strlen(res) : 0; len > 1 && res[len - 1] == '/';)
+      res[--len] = '\0';
     return res;
   }
 
   /* Fast path: realpath handles .., symlinks, and validates existence. */
   char resolved[PATH_MAX];
-  if (realpath(p, resolved)) {
-    free(to_free);
+  if (realpath(path, resolved))
     return strdup(resolved);
-  }
 
-  /* Path does not exist yet - build an absolute path from the current CWD.
-   * Strip leading ./ noise before joining so the result stays clean. */
-  const char *suffix = p;
+  /* Not there yet (a rootfs image about to be created, say): join it to the
+   * cwd, minus any leading ./ noise. */
+  const char *suffix = path;
   while (suffix[0] == '.' && suffix[1] == '/')
     suffix += 2;
-  if (!*suffix) {
-    /* Input was pure "./" - resolve to CWD itself. */
-    char cwd[PATH_MAX];
-    char *res = strdup(getcwd(cwd, sizeof(cwd)) ? cwd : ".");
-    free(to_free);
-    return res;
-  }
-
-  char cwd[PATH_MAX];
-  if (!getcwd(cwd, sizeof(cwd))) {
-    char *res = strdup(p);
-    free(to_free);
-    return res;
-  }
-
-  size_t clen = strlen(cwd), plen = strlen(suffix);
-  if (clen + 1 + plen >= PATH_MAX) {
-    char *res = strdup(p);
-    free(to_free);
-    return res;
-  }
-
-  char *out = malloc(clen + 1 + plen + 1);
-  if (!out) {
-    char *res = strdup(p);
-    free(to_free);
-    return res;
-  }
-  memcpy(out, cwd, clen);
-  out[clen] = '/';
-  memcpy(out + clen + 1, suffix, plen + 1); /* copies the NUL terminator */
-  free(to_free);
-  return out;
+  char cwd[PATH_MAX], *out = NULL;
+  if (!getcwd(cwd, sizeof(cwd)))
+    return strdup(path);
+  if (!*suffix)
+    return strdup(cwd);
+  return asprintf(&out, "%s/%s", cwd, suffix) < 0 ? strdup(path) : out;
 }
 
 /*
@@ -194,72 +149,31 @@ char *ds_resolve_path_arg(const char *path) {
  * container namespace and is always absolute by convention.
  */
 static char *resolve_bind_src(const char *val) {
-  if (!val)
-    return strdup("");
-
-  size_t len = strlen(val);
-  size_t tokens = 1;
-  for (size_t i = 0; i < len; i++) {
-    if (val[i] == ',')
-      tokens++;
-  }
-
-  if (tokens > (SIZE_MAX - len - 1) / PATH_MAX)
-    return strdup(val);
-
-  /* Worst case: every token expands to PATH_MAX.
-   * Use the heap - not the stack - to avoid blowing the stack in the daemon
-   * handler process (which may have a smaller stack than main). */
-  size_t bufsz = len + PATH_MAX * tokens + 1;
-  char *copy = malloc(bufsz);
-  char *out = malloc(bufsz);
-  if (!copy || !out) {
+  char *copy = strdup(val), *out = NULL;
+  size_t size = 0;
+  FILE *f = copy ? open_memstream(&out, &size) : NULL;
+  if (!f) {
     free(copy);
+    return strdup(val);
+  }
+  char *sv;
+  int first = 1;
+  for (char *tok = strtok_r(copy, ",", &sv); tok;
+       tok = strtok_r(NULL, ",", &sv), first = 0) {
+    char *col = strchr(tok, ':');
+    if (col)
+      *col = '\0';
+    char *src = ds_resolve_path_arg(tok);
+    fprintf(f, "%s%s%s%s", first ? "" : ",", src ? src : tok, col ? ":" : "",
+            col ? col + 1 : "");
+    free(src);
+  }
+  free(copy);
+  if (fclose(f) != 0) {
     free(out);
     return strdup(val);
   }
-  memcpy(copy, val, len + 1);
-  out[0] = '\0';
-
-  char *sv, *tok = strtok_r(copy, ",", &sv);
-  int first = 1;
-  size_t off = 0;
-
-  while (tok) {
-    char *col = strchr(tok, ':');
-    const char *dest = col ? col + 1 : "";
-    if (col)
-      *col = '\0';
-
-    char *abs_src = ds_resolve_path_arg(tok);
-    const char *src = abs_src ? abs_src : tok;
-
-    if (off >= bufsz) {
-      free(abs_src);
-      free(copy);
-      free(out);
-      return strdup(val);
-    }
-
-    size_t avail = bufsz - off;
-    int n = snprintf(out + off, avail, "%s%s%s%s", first ? "" : ",", src,
-                     col ? ":" : "", dest);
-    if (n < 0 || (size_t)n >= avail) {
-      free(abs_src);
-      free(copy);
-      free(out);
-      return strdup(val);
-    }
-    off += (size_t)n;
-    free(abs_src);
-    first = 0;
-    tok = strtok_r(NULL, ",", &sv);
-  }
-
-  free(copy);
-  char *result = strdup(out);
-  free(out);
-  return result;
+  return out;
 }
 
 /*
@@ -440,8 +354,10 @@ int write_file_atomic(const char *path, const char *content) {
   if (ok && fchmod(fd, 0644) < 0)
     ok = 0;
 
-  /* fsync before rename - ensures data hits disk on Android before reboot. */
-  if (ok && fsync(fd) < 0)
+  /* Without the fsync the rename can reach disk before the data, and a hard
+   * reboot leaves an empty file. EINVAL means the filesystem has no fsync,
+   * the write itself still landed. */
+  if (ok && fsync(fd) < 0 && errno != EINVAL)
     ok = 0;
   close(fd);
 
@@ -1684,14 +1600,6 @@ int parse_and_validate_names(const char *optarg, char *out_buf,
 }
 
 /* Init an iter_cfg suitable for per-container dispatch. */
-static void init_iter_cfg(struct ds_config *c, const char *prog_name) {
-  memset(c, 0, sizeof(*c));
-  c->net_ready_pipe[0] = c->net_ready_pipe[1] = -1;
-  c->net_done_pipe[0] = c->net_done_pipe[1] = -1;
-  if (prog_name)
-    safe_strncpy(c->prog_name, prog_name, sizeof(c->prog_name));
-}
-
 int ds_multi_stop(const char *raw_names) {
   char tmp[4096];
   snprintf(tmp, sizeof(tmp), "%s", raw_names);
@@ -1699,7 +1607,7 @@ int ds_multi_stop(const char *raw_names) {
   char *sp, *tok = strtok_r(tmp, ",", &sp);
   while (tok) {
     struct ds_config c;
-    init_iter_cfg(&c, NULL);
+    ds_config_init(&c);
     safe_strncpy(c.container_name, tok, sizeof(c.container_name));
     /* ds_log() keys the log file by this global, not by the config it is
      * handed, so point it at the container being stopped. */
@@ -1714,6 +1622,20 @@ int ds_multi_stop(const char *raw_names) {
 
 /* Shell metacharacters that must never appear in a flag token */
 static const char ds_shell_metachars[] = "$`;&|><(){}\\";
+
+/* Append c to a growing token, doubling its buffer as needed. */
+static int push(char **tok, size_t *len, size_t *cap, char c) {
+  if (*len + 1 >= *cap) {
+    size_t ncap = *cap ? *cap * 2 : 64;
+    char *tmp = realloc(*tok, ncap);
+    if (!tmp)
+      return -1;
+    *tok = tmp;
+    *cap = ncap;
+  }
+  (*tok)[(*len)++] = c;
+  return 0;
+}
 
 /*
  * Split a flags string into an argv array suitable for appending to execv.
@@ -1738,86 +1660,35 @@ int ds_split_flags(const char *str, char ***out_argv, int *out_argc) {
   const char *p = str;
 
   while (*p) {
-    /* Skip whitespace between tokens */
-    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
+    while (isspace((unsigned char)*p))
       p++;
     if (!*p)
       break;
 
-    /* Accumulate one token (handles single/double quoting) */
+    /* One token; a quoted run copies literally up to its closing quote. */
     char *tok = NULL;
     size_t tok_len = 0, tok_cap = 0;
-
-    while (*p && !(*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')) {
-      char c;
-      if (*p == '\'') {
-        /* Single-quoted: copy literally until closing ' */
-        p++;
-        while (*p && *p != '\'') {
-          c = *p++;
-          if (tok_len + 1 >= tok_cap) {
-            tok_cap = tok_cap ? tok_cap * 2 : 64;
-            char *tmp = realloc(tok, tok_cap);
-            if (!tmp) {
-              free(tok);
-              goto oom;
-            }
-            tok = tmp;
-          }
-          tok[tok_len++] = c;
-        }
-        if (*p == '\'')
-          p++;
-      } else if (*p == '"') {
-        /* Double-quoted: copy literally until closing " */
-        p++;
-        while (*p && *p != '"') {
-          c = *p++;
-          if (tok_len + 1 >= tok_cap) {
-            tok_cap = tok_cap ? tok_cap * 2 : 64;
-            char *tmp = realloc(tok, tok_cap);
-            if (!tmp) {
-              free(tok);
-              goto oom;
-            }
-            tok = tmp;
-          }
-          tok[tok_len++] = c;
-        }
-        if (*p == '"')
-          p++;
-      } else {
-        c = *p++;
-        if (tok_len + 1 >= tok_cap) {
-          tok_cap = tok_cap ? tok_cap * 2 : 64;
-          char *tmp = realloc(tok, tok_cap);
-          if (!tmp) {
+    while (*p && !isspace((unsigned char)*p)) {
+      char q = (*p == '\'' || *p == '"') ? *p++ : 0;
+      if (q) {
+        while (*p && *p != q)
+          if (push(&tok, &tok_len, &tok_cap, *p++) < 0) {
             free(tok);
             goto oom;
           }
-          tok = tmp;
-        }
-        tok[tok_len++] = c;
+        if (*p == q)
+          p++;
+      } else if (push(&tok, &tok_len, &tok_cap, *p++) < 0) {
+        free(tok);
+        goto oom;
       }
     }
-
     if (!tok_len) {
       free(tok);
       continue;
     }
+    tok[tok_len] = '\0'; /* push always leaves room for it */
 
-    /* NUL-terminate */
-    if (tok_len + 1 > tok_cap) {
-      char *tmp = realloc(tok, tok_len + 1);
-      if (!tmp) {
-        free(tok);
-        goto oom;
-      }
-      tok = tmp;
-    }
-    tok[tok_len] = '\0';
-
-    /* Reject shell metacharacters */
     if (strpbrk(tok, ds_shell_metachars)) {
       ds_error("flags: rejected token with shell metachar: %s", tok);
       free(tok);
@@ -1825,7 +1696,6 @@ int ds_split_flags(const char *str, char ***out_argv, int *out_argc) {
       return -1;
     }
 
-    /* Grow argv array */
     if (count >= cap) {
       int new_cap = cap ? cap * 2 : 8;
       char **tmp = realloc(argv, (size_t)(new_cap + 1) * sizeof(char *));

@@ -1745,6 +1745,10 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
                        &lim_pids, &swap_capped);
   int swap_allowed = !swap_capped;
 
+  /* The acronym stays upper case in the output, the config file has nat. */
+  const char *net =
+      cfg->net_mode == DS_NET_NAT ? "NAT" : ds_net_mode_name(cfg->net_mode);
+
   /* Success - print Host and detailed Container info */
   if (cfg->json_output) {
     struct ds_status st = {0};
@@ -1763,24 +1767,6 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     ds_json_status(&st, &first);
     ds_json_int("ram_total_kb", ram_total, &first);
 
-    const char *net;
-    switch (cfg->net_mode) {
-    case DS_NET_NAT:
-      net = "NAT";
-      break;
-    case DS_NET_NONE:
-      net = "none";
-      break;
-    case DS_NET_GATEWAY:
-      net = "gateway";
-      break;
-    case DS_NET_MACVLAN:
-      net = "macvlan";
-      break;
-    default:
-      net = "host";
-      break;
-    }
     ds_json_str("networking_mode", net, &first);
 
     char buf[1024];
@@ -1864,21 +1850,8 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     }
     ds_json_str("port_forwards", cfg->port_forward_count ? buf : "", &first);
 
-    if (cfg->privileged_mask == DS_PRIV_FULL) {
-      ds_json_str("privileged_mode", "full", &first);
-    } else if (cfg->privileged_mask > 0) {
-      pos = 0;
-      const struct {
-        int bit;
-        const char *name;
-      } bits[] = {{DS_PRIV_NOMASK, "nomask"},
-                  {DS_PRIV_NOCAPS, "nocaps"},
-                  {DS_PRIV_NOSEC, "noseccomp"},
-                  {DS_PRIV_SHARED, "shared"}};
-      for (size_t i = 0; i < sizeof(bits) / sizeof(bits[0]); i++)
-        if (cfg->privileged_mask & bits[i].bit)
-          pos += (size_t)snprintf(buf + pos, sizeof(buf) - pos, "%s%s",
-                                  pos ? "," : "", bits[i].name);
+    if (cfg->privileged_mask > 0) {
+      ds_privileged_names(cfg->privileged_mask, buf, sizeof(buf), ",");
       ds_json_str("privileged_mode", buf, &first);
     }
 
@@ -1921,24 +1894,6 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
     int feat_count = 0;
 
     /* 1. Networking Mode */
-    const char *net;
-    switch (cfg->net_mode) {
-    case DS_NET_NAT:
-      net = "NAT";
-      break;
-    case DS_NET_NONE:
-      net = "none";
-      break;
-    case DS_NET_GATEWAY:
-      net = "gateway";
-      break;
-    case DS_NET_MACVLAN:
-      net = "macvlan";
-      break;
-    default:
-      net = "host";
-      break;
-    }
     printf("  Networking: %s\n", net);
     feat_count++;
 
@@ -2078,29 +2033,9 @@ int show_info(struct ds_config *cfg, int trust_cfg_pid) {
 
     /* 15. Privileged Mode */
     if (cfg->privileged_mask > 0) {
-      printf("  " C_RED "Privileged mode:" C_RESET " ");
-      if (cfg->privileged_mask == DS_PRIV_FULL) {
-        printf("full");
-      } else {
-        int first = 1;
-        if (cfg->privileged_mask & DS_PRIV_NOMASK) {
-          printf("%snomask", first ? "" : ", ");
-          first = 0;
-        }
-        if (cfg->privileged_mask & DS_PRIV_NOCAPS) {
-          printf("%snocaps", first ? "" : ", ");
-          first = 0;
-        }
-        if (cfg->privileged_mask & DS_PRIV_NOSEC) {
-          printf("%snoseccomp", first ? "" : ", ");
-          first = 0;
-        }
-        if (cfg->privileged_mask & DS_PRIV_SHARED) {
-          printf("%sshared", first ? "" : ", ");
-          first = 0;
-        }
-      }
-      printf("\n");
+      char tags[64];
+      ds_privileged_names(cfg->privileged_mask, tags, sizeof(tags), ", ");
+      printf("  " C_RED "Privileged mode:" C_RESET " %s\n", tags);
       feat_count++;
     }
 

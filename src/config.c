@@ -29,6 +29,16 @@ int ds_parse_net_mode(const char *s) {
   return -1;
 }
 
+/* The config-file spelling of a mode, the inverse of ds_parse_net_mode. */
+const char *ds_net_mode_name(enum ds_net_mode mode) {
+  static const char *const names[] = {
+      [DS_NET_NAT] = "nat",         [DS_NET_HOST] = "host",
+      [DS_NET_NONE] = "none",       [DS_NET_GATEWAY] = "gateway",
+      [DS_NET_MACVLAN] = "macvlan",
+  };
+  return mode >= DS_NET_NAT && mode <= DS_NET_MACVLAN ? names[mode] : "host";
+}
+
 static const struct {
   const char *name;
   uint32_t mode;
@@ -98,6 +108,15 @@ static long long parse_ll_positive(const char *val) {
   return v;
 }
 
+static const struct {
+  int bit;
+  const char *name;
+} priv_bits[] = {
+    {DS_PRIV_NOMASK, "nomask"},   {DS_PRIV_NOCAPS, "nocaps"},
+    {DS_PRIV_NOSEC, "noseccomp"}, {DS_PRIV_SHARED, "shared"},
+    {DS_PRIV_FULL, "full"},
+};
+
 void parse_privileged(const char *value, struct ds_config *cfg) {
   if (!value)
     return;
@@ -109,67 +128,69 @@ void parse_privileged(const char *value, struct ds_config *cfg) {
   safe_strncpy(copy, value, sizeof(copy));
 
   char *saveptr;
-  char *token = strtok_r(copy, ",", &saveptr);
-
-  while (token) {
-    char *t = trim_whitespace(token);
-    if (strcasecmp(t, "nomask") == 0)
-      cfg->privileged_mask |= DS_PRIV_NOMASK;
-    else if (strcasecmp(t, "nocaps") == 0)
-      cfg->privileged_mask |= DS_PRIV_NOCAPS;
-    else if (strcasecmp(t, "noseccomp") == 0)
-      cfg->privileged_mask |= DS_PRIV_NOSEC;
-    else if (strcasecmp(t, "shared") == 0)
-      cfg->privileged_mask |= DS_PRIV_SHARED;
-    else if (strcasecmp(t, "full") == 0)
-      cfg->privileged_mask |= DS_PRIV_FULL;
-
-    token = strtok_r(NULL, ",", &saveptr);
+  for (char *tok = strtok_r(copy, ",", &saveptr); tok;
+       tok = strtok_r(NULL, ",", &saveptr)) {
+    const char *t = trim_whitespace(tok);
+    for (size_t i = 0; i < sizeof(priv_bits) / sizeof(priv_bits[0]); i++)
+      if (strcasecmp(t, priv_bits[i].name) == 0)
+        cfg->privileged_mask |= priv_bits[i].bit;
   }
 }
 
-static void parse_bind_mounts(const char *value, struct ds_config *cfg) {
-  if (!value)
+/* "full", or the set tags joined by sep, into buf. */
+void ds_privileged_names(int mask, char *buf, size_t size, const char *sep) {
+  size_t pos = 0;
+  buf[0] = '\0';
+  if (mask == DS_PRIV_FULL) {
+    safe_strncpy(buf, "full", size);
     return;
-
-  char copy[4096];
-  safe_strncpy(copy, value, sizeof(copy));
-
-  char *saveptr;
-  char *token = strtok_r(copy, ",", &saveptr);
-
-  while (token) {
-    char *sep = strchr(token, ':');
-    if (sep) {
-      *sep = '\0';
-      const char *src_raw = trim_whitespace(token);
-      char *rest = sep + 1;
-
-      /* Check for optional :ro suffix after dest */
-      int ro = 0;
-      char *flag_sep = strchr(rest, ':');
-      if (flag_sep) {
-        *flag_sep = '\0';
-        ro = (strcmp(trim_whitespace(flag_sep + 1), "ro") == 0) ? 1 : 0;
-      }
-      const char *dest_raw = trim_whitespace(rest);
-
-      char *src_exp = ds_resolve_path_arg(src_raw);
-      char *dest_exp = ds_resolve_path_arg(dest_raw);
-      const char *src = src_exp ? src_exp : src_raw;
-      const char *dest = dest_exp ? dest_exp : dest_raw;
-
-      /* Validate before storing - caller's responsibility, same as CLI path */
-      if (!validate_bind_destination(dest)) {
-        ds_warn("Skipping unsafe bind destination '%s' from config.", dest);
-      } else {
-        ds_config_add_bind(cfg, src, dest, ro);
-      }
-      free(src_exp);
-      free(dest_exp);
-    }
-    token = strtok_r(NULL, ",", &saveptr);
   }
+  for (size_t i = 0; i < sizeof(priv_bits) / sizeof(priv_bits[0]) && pos < size;
+       i++)
+    if (priv_bits[i].bit != DS_PRIV_FULL && (mask & priv_bits[i].bit))
+      pos += (size_t)snprintf(buf + pos, size - pos, "%s%s", pos ? sep : "",
+                              priv_bits[i].name);
+}
+
+static void parse_bind_mounts(const char *value, struct ds_config *cfg) {
+  char copy[4096], err[256];
+  safe_strncpy(copy, value, sizeof(copy));
+  char *saveptr;
+  for (char *tok = strtok_r(copy, ",", &saveptr); tok;
+       tok = strtok_r(NULL, ",", &saveptr))
+    if (ds_parse_bind_spec(tok, cfg, err, sizeof(err)) < 0)
+      ds_warn("config: %s - skipping", err);
+}
+
+int ds_parse_bind_spec(char *spec, struct ds_config *cfg, char *err,
+                       size_t err_size) {
+  char *dest = strchr(spec, ':');
+  if (!dest) {
+    snprintf(err, err_size,
+             "Invalid bind mount format: %s (expected SRC:DEST[:ro])", spec);
+    return -1;
+  }
+  *dest++ = '\0';
+  char *flag = strchr(dest, ':');
+  if (flag)
+    *flag++ = '\0';
+  int ro = flag && strcmp(trim_whitespace(flag), "ro") == 0;
+  const char *src = trim_whitespace(spec);
+  dest = trim_whitespace(dest);
+
+  if (!validate_bind_destination(dest)) {
+    snprintf(err, err_size,
+             "Unsafe bind destination '%s': it must be an absolute path inside "
+             "the container, not / itself, with no '.', '..' or control "
+             "characters",
+             dest);
+    return -1;
+  }
+  if (ds_config_add_bind(cfg, src, dest, ro) < 0) {
+    snprintf(err, err_size, "Cannot add bind mount %s:%s", src, dest);
+    return -1;
+  }
+  return 0;
 }
 
 int ds_config_add_bind(struct ds_config *cfg, const char *src, const char *dest,
@@ -248,6 +269,115 @@ void free_config_binds(struct ds_config *cfg) {
 }
 
 /* Core Implementation */
+
+/* PORT or START-END. end stays 0 for a single port, which is how the rest of
+ * the tree tells the two apart. */
+static int parse_port_range(const char *s, uint16_t *start, uint16_t *end) {
+  const char *dash = strchr(s, '-');
+  int a = atoi(s), b = dash ? atoi(dash + 1) : 0;
+  if (a <= 0 || a > 65535 || (dash && (b < a || b > 65535)))
+    return -1;
+  *start = (uint16_t)a;
+  *end = (uint16_t)b;
+  return 0;
+}
+
+static void fmt_port_range(char *buf, size_t size, uint16_t start,
+                           uint16_t end) {
+  if (end)
+    snprintf(buf, size, "%u-%u", start, end);
+  else
+    snprintf(buf, size, "%u", start);
+}
+
+/* [s1,e1] and [s2,e2] intersect; a single port carries end 0. */
+static int ports_overlap(uint16_t s1, uint16_t e1, uint16_t s2, uint16_t e2) {
+  if (!e1)
+    e1 = s1;
+  if (!e2)
+    e2 = s2;
+  return s1 <= e2 && s2 <= e1;
+}
+
+int ds_parse_port_forward(char *spec, struct ds_config *cfg, char *err,
+                          size_t err_size) {
+  while (*spec == ' ' || *spec == '\t')
+    spec++;
+
+  struct ds_port_forward rule = {0}, *pf = &rule;
+  const char *proto = "tcp";
+  char *slash = strchr(spec, '/');
+  if (slash) {
+    *slash = '\0';
+    proto = slash + 1;
+    if (strcmp(proto, "tcp") != 0 && strcmp(proto, "udp") != 0) {
+      snprintf(err, err_size, "Invalid protocol '%s' (use tcp or udp)", proto);
+      return -1;
+    }
+  }
+  safe_strncpy(pf->proto, proto, sizeof(pf->proto));
+
+  /* HOST[:CONTAINER]; no colon means the same spec on both sides. */
+  char *cont = spec, *colon = strchr(spec, ':');
+  if (colon) {
+    *colon = '\0';
+    cont = colon + 1;
+  }
+  if (parse_port_range(spec, &pf->host_port, &pf->host_port_end) < 0) {
+    snprintf(err, err_size, "Invalid host port '%s'", spec);
+    return -1;
+  }
+  if (parse_port_range(cont, &pf->container_port, &pf->container_port_end) <
+      0) {
+    snprintf(err, err_size, "Invalid container port '%s'", cont);
+    return -1;
+  }
+  int hw = pf->host_port_end ? pf->host_port_end - pf->host_port : 0;
+  int cw =
+      pf->container_port_end ? pf->container_port_end - pf->container_port : 0;
+  if (hw != cw) {
+    snprintf(err, err_size,
+             "Port range width mismatch (host %d ports, container %d)", hw + 1,
+             cw + 1);
+    return -1;
+  }
+
+  for (int i = 0; i < cfg->port_forward_count; i++) {
+    const struct ds_port_forward *ex = &cfg->port_forwards[i];
+    if (strcmp(ex->proto, pf->proto) != 0)
+      continue;
+    if (ex->host_port == pf->host_port &&
+        ex->host_port_end == pf->host_port_end &&
+        ex->container_port == pf->container_port &&
+        ex->container_port_end == pf->container_port_end)
+      return 1; /* the same rule twice, restart's second argv pass does this */
+    int host_hit = ports_overlap(pf->host_port, pf->host_port_end,
+                                 ex->host_port, ex->host_port_end);
+    if (host_hit || ports_overlap(pf->container_port, pf->container_port_end,
+                                  ex->container_port, ex->container_port_end)) {
+      char a[16], b[16];
+      fmt_port_range(a, sizeof(a),
+                     host_hit ? pf->host_port : pf->container_port,
+                     host_hit ? pf->host_port_end : pf->container_port_end);
+      fmt_port_range(b, sizeof(b),
+                     host_hit ? ex->host_port : ex->container_port,
+                     host_hit ? ex->host_port_end : ex->container_port_end);
+      ds_warn("%s port conflict: %s/%s overlaps with existing mapping %s/%s - "
+              "skipping",
+              host_hit ? "Host" : "Container", a, pf->proto, b, ex->proto);
+      return 1;
+    }
+  }
+  /* After the duplicate scan: restart's second argv pass resubmits every
+   * saved rule, and that has to pass on a full table. */
+  if (cfg->port_forward_count >= DS_MAX_PORT_FORWARDS) {
+    snprintf(err, err_size, "Too many port forwards (max %d)",
+             DS_MAX_PORT_FORWARDS);
+    return -1;
+  }
+  cfg->port_forwards[cfg->port_forward_count++] = rule;
+  return 0;
+}
 
 int ds_config_load(const char *config_path, struct ds_config *cfg) {
   FILE *f = fopen(config_path, "re");
@@ -450,176 +580,14 @@ int ds_config_load(const char *config_path, struct ds_config *cfg) {
                 "ignored",
                 DS_MAX_UPSTREAM_IFACES);
     } else if (strcmp(key, "port_forwards") == 0) {
-      /* Comma-separated HOST:CONTAINER[/proto], supporting both single ports
-       * and ranges.  Accepted formats:
-       *   22:22/tcp          single port, explicit proto
-       *   8096:8096          single port, default tcp
-       *   1-500:1-500/tcp    range, both sides must have equal width
-       *   1-500              symmetric range shorthand (host == container)
-       */
-      char copy[1024];
+      /* HOST[:CONTAINER][/proto] list, each side PORT or START-END */
+      char copy[1024], err[128];
       safe_strncpy(copy, val, sizeof(copy));
       char *pf_saveptr;
-      char *pf_tok = strtok_r(copy, ",", &pf_saveptr);
-      while (pf_tok && cfg->port_forward_count < DS_MAX_PORT_FORWARDS) {
-        while (*pf_tok == ' ' || *pf_tok == '\t')
-          pf_tok++;
-
-        struct ds_port_forward *pf =
-            &cfg->port_forwards[cfg->port_forward_count];
-        memset(pf, 0, sizeof(*pf));
-        strncpy(pf->proto, "tcp", sizeof(pf->proto));
-
-        /* Strip optional /proto suffix */
-        char *slash = strchr(pf_tok, '/');
-        if (slash) {
-          *slash = '\0';
-          strncpy(pf->proto, slash + 1, sizeof(pf->proto) - 1);
-          pf->proto[sizeof(pf->proto) - 1] = '\0';
-        }
-
-        /* Split HOST_SIDE:CONTAINER_SIDE.
-         * No colon → symmetric: both sides are the same spec. */
-        char *host_side = pf_tok;
-        char *cont_side = pf_tok; /* symmetric default */
-        char *colon = strchr(pf_tok, ':');
-        if (colon) {
-          *colon = '\0';
-          cont_side = colon + 1;
-        }
-
-        /* Parse a single "PORT" or "START-END" spec into (port, port_end).
-         * Returns 1 on success, 0 on parse/range error. */
-        int valid = 1;
-
-        /* Only tcp/udp are valid protocols; the CLI --port path rejects
-         * anything else, so mirror that here instead of storing a bogus proto
-         * that would later be handed to iptables. */
-        if (strcmp(pf->proto, "tcp") != 0 && strcmp(pf->proto, "udp") != 0) {
-          ds_warn("config: invalid protocol '%s' in port_forwards - skipping",
-                  pf->proto);
-          valid = 0;
-        }
-
-        /* Host side */
-        {
-          char *dash = strchr(host_side, '-');
-          if (dash) {
-            int a = atoi(host_side), b = atoi(dash + 1);
-            if (a <= 0 || a > 65535 || b < a || b > 65535) {
-              ds_warn("config: invalid host port range '%s' - skipping",
-                      host_side);
-              valid = 0;
-            } else {
-              pf->host_port = (uint16_t)a;
-              pf->host_port_end = (uint16_t)b;
-            }
-          } else {
-            int p = atoi(host_side);
-            if (p <= 0 || p > 65535) {
-              ds_warn("config: invalid host port '%s' - skipping", host_side);
-              valid = 0;
-            } else {
-              pf->host_port = (uint16_t)p;
-              pf->host_port_end = 0;
-            }
-          }
-        }
-
-        /* Container side */
-        if (valid) {
-          char *dash = strchr(cont_side, '-');
-          if (dash) {
-            int a = atoi(cont_side), b = atoi(dash + 1);
-            if (a <= 0 || a > 65535 || b < a || b > 65535) {
-              ds_warn("config: invalid container port range '%s' - skipping",
-                      cont_side);
-              valid = 0;
-            } else {
-              pf->container_port = (uint16_t)a;
-              pf->container_port_end = (uint16_t)b;
-            }
-          } else {
-            int p = atoi(cont_side);
-            if (p <= 0 || p > 65535) {
-              ds_warn("config: invalid container port '%s' - skipping",
-                      cont_side);
-              valid = 0;
-            } else {
-              pf->container_port = (uint16_t)p;
-              pf->container_port_end = 0;
-            }
-          }
-        }
-
-        /* Both sides must span the same number of ports */
-        if (valid) {
-          int hw = pf->host_port_end ? (pf->host_port_end - pf->host_port) : 0;
-          int cw = pf->container_port_end
-                       ? (pf->container_port_end - pf->container_port)
-                       : 0;
-          if (hw != cw) {
-            ds_warn("config: port_forwards range width mismatch "
-                    "(host %d ports vs container %d ports) - skipping",
-                    hw + 1, cw + 1);
-            valid = 0;
-          }
-        }
-
-        /* Overlap check - reject if host OR container ranges intersect
-         * with any existing rule of the same protocol. */
-        if (valid) {
-          int skip = 0;
-          for (int i = 0; i < cfg->port_forward_count; i++) {
-            struct ds_port_forward *ex = &cfg->port_forwards[i];
-            if (strcmp(ex->proto, pf->proto) != 0)
-              continue;
-
-            /* Exact duplicate - silently skip */
-            if (pf->host_port == ex->host_port &&
-                pf->host_port_end == ex->host_port_end &&
-                pf->container_port == ex->container_port &&
-                pf->container_port_end == ex->container_port_end) {
-              skip = 1;
-              break;
-            }
-
-            /* Host-side overlap */
-            uint16_t hs1 = pf->host_port, he1 = pf->host_port_end
-                                                    ? pf->host_port_end
-                                                    : pf->host_port;
-            uint16_t hs2 = ex->host_port, he2 = ex->host_port_end
-                                                    ? ex->host_port_end
-                                                    : ex->host_port;
-            int host_overlap = (hs1 <= he2 && hs2 <= he1);
-
-            /* Container-side overlap */
-            uint16_t cs1 = pf->container_port,
-                     ce1 = pf->container_port_end ? pf->container_port_end
-                                                  : pf->container_port;
-            uint16_t cs2 = ex->container_port,
-                     ce2 = ex->container_port_end ? ex->container_port_end
-                                                  : ex->container_port;
-            int cont_overlap = (cs1 <= ce2 && cs2 <= ce1);
-
-            if (host_overlap || cont_overlap) {
-              ds_warn("config: port_forwards overlap detected (%s side) "
-                      "- skipping",
-                      host_overlap ? "host" : "container");
-              skip = 1;
-              break;
-            }
-          }
-          if (!skip)
-            cfg->port_forward_count++;
-        }
-
-        pf_tok = strtok_r(NULL, ",", &pf_saveptr);
-      }
-      if (pf_tok)
-        ds_warn(
-            "config: too many port_forwards (max %d) - extra entries ignored",
-            DS_MAX_PORT_FORWARDS);
+      for (char *tok = strtok_r(copy, ",", &pf_saveptr); tok;
+           tok = strtok_r(NULL, ",", &pf_saveptr))
+        if (ds_parse_port_forward(tok, cfg, err, sizeof(err)) < 0)
+          ds_warn("config: %s in port_forwards - skipping", err);
     } else {
       /* Unknown key - preserve verbatim so Android App metadata
        * (run_at_boot, use_sparse_image, sparse_image_size_gb, etc.)
@@ -677,15 +645,10 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
   if (cfg->hostname[0])
     fprintf(f, "hostname=%s\n", cfg->hostname);
 
-  if (cfg->is_img_mount && cfg->rootfs_img_path[0]) {
-    char *abs_path = ds_resolve_path_arg(cfg->rootfs_img_path);
-    fprintf(f, "rootfs_path=%s\n", abs_path ? abs_path : cfg->rootfs_img_path);
-    free(abs_path);
-  } else if (cfg->rootfs_path[0]) {
-    char *abs_path = ds_resolve_path_arg(cfg->rootfs_path);
-    fprintf(f, "rootfs_path=%s\n", abs_path ? abs_path : cfg->rootfs_path);
-    free(abs_path);
-  }
+  if (cfg->is_img_mount && cfg->rootfs_img_path[0])
+    fprintf(f, "rootfs_path=%s\n", cfg->rootfs_img_path);
+  else if (cfg->rootfs_path[0])
+    fprintf(f, "rootfs_path=%s\n", cfg->rootfs_path);
 
   fprintf(f, "disable_ipv6=%d\n", cfg->disable_ipv6);
   fprintf(f, "enable_x11=%d\n", cfg->x11);
@@ -717,44 +680,14 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
     fprintf(f, "pids_limit=%lld\n", cfg->pids_limit);
 
   if (cfg->privileged_mask > 0) {
-    fprintf(f, "privileged=");
-    int first = 1;
-    if (cfg->privileged_mask == DS_PRIV_FULL) {
-      fprintf(f, "full");
-    } else {
-      if (cfg->privileged_mask & DS_PRIV_NOMASK) {
-        fprintf(f, "%snomask", first ? "" : ",");
-        first = 0;
-      }
-      if (cfg->privileged_mask & DS_PRIV_NOCAPS) {
-        fprintf(f, "%snocaps", first ? "" : ",");
-        first = 0;
-      }
-      if (cfg->privileged_mask & DS_PRIV_NOSEC) {
-        fprintf(f, "%snoseccomp", first ? "" : ",");
-        first = 0;
-      }
-      if (cfg->privileged_mask & DS_PRIV_SHARED) {
-        fprintf(f, "%sshared", first ? "" : ",");
-        first = 0;
-      }
-    }
-    fprintf(f, "\n");
+    char tags[64];
+    ds_privileged_names(cfg->privileged_mask, tags, sizeof(tags), ",");
+    fprintf(f, "privileged=%s\n", tags);
   }
 
   fprintf(f, "foreground=%d\n", cfg->foreground);
 
-  if (cfg->net_mode == DS_NET_NAT) {
-    fprintf(f, "net_mode=nat\n");
-  } else if (cfg->net_mode == DS_NET_NONE) {
-    fprintf(f, "net_mode=none\n");
-  } else if (cfg->net_mode == DS_NET_GATEWAY) {
-    fprintf(f, "net_mode=gateway\n");
-  } else if (cfg->net_mode == DS_NET_MACVLAN) {
-    fprintf(f, "net_mode=macvlan\n");
-  } else {
-    fprintf(f, "net_mode=host\n");
-  }
+  fprintf(f, "net_mode=%s\n", ds_net_mode_name(cfg->net_mode));
 
   if (cfg->net_mode == DS_NET_GATEWAY) {
     if (cfg->gateway_container[0])
@@ -801,36 +734,41 @@ static void ds_config_serialize_known(FILE *f, struct ds_config *cfg) {
   if (cfg->net_mode == DS_NET_NAT && cfg->static_nat_ip[0])
     fprintf(f, "static_nat_ip=%s\n", cfg->static_nat_ip);
 
-  if (cfg->env_file[0]) {
-    char *abs_path = ds_resolve_path_arg(cfg->env_file);
-    fprintf(f, "env_file=%s\n", abs_path ? abs_path : cfg->env_file);
-    free(abs_path);
-  }
+  if (cfg->env_file[0])
+    fprintf(f, "env_file=%s\n", cfg->env_file);
   if (cfg->uuid[0])
     fprintf(f, "uuid=%s\n", cfg->uuid);
 
-  if (cfg->custom_init[0]) {
-    char *abs_path = ds_resolve_path_arg(cfg->custom_init);
-    fprintf(f, "custom_init=%s\n", abs_path ? abs_path : cfg->custom_init);
-    free(abs_path);
-  }
+  if (cfg->custom_init[0])
+    fprintf(f, "custom_init=%s\n", cfg->custom_init);
 
   if (cfg->dns_servers[0])
     fprintf(f, "dns_servers=%s\n", cfg->dns_servers);
 
   if (cfg->bind_count > 0) {
     fprintf(f, "bind_mounts=");
-    for (int i = 0; i < cfg->bind_count; i++) {
-      char *abs_src = ds_resolve_path_arg(cfg->binds[i].src);
-      char *abs_dest = ds_resolve_path_arg(cfg->binds[i].dest);
-      fprintf(f, "%s:%s%s%s", abs_src ? abs_src : cfg->binds[i].src,
-              abs_dest ? abs_dest : cfg->binds[i].dest,
+    for (int i = 0; i < cfg->bind_count; i++)
+      fprintf(f, "%s:%s%s%s", cfg->binds[i].src, cfg->binds[i].dest,
               cfg->binds[i].ro ? ":ro" : "",
               (i < cfg->bind_count - 1) ? "," : "");
-      free(abs_src);
-      free(abs_dest);
-    }
     fprintf(f, "\n");
+  }
+}
+
+/* A new name is not on disk until its directory is: without this a hard
+ * reboot right after the rename can lose container.config and with it the
+ * container (#364). Best effort, the file itself is already in place. */
+static void sync_dir_of(const char *path) {
+  char dir[PATH_MAX];
+  safe_strncpy(dir, path, sizeof(dir));
+  char *slash = strrchr(dir, '/');
+  if (!slash)
+    return;
+  *slash = '\0';
+  int dfd = open(slash == dir ? "/" : dir, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (dfd >= 0) {
+    fsync(dfd);
+    close(dfd);
   }
 }
 
@@ -838,114 +776,49 @@ int ds_config_save(const char *config_path, struct ds_config *cfg) {
   /* Sort bind mounts before saving so they are persisted in a sane order. */
   sort_bind_mounts(cfg);
 
-  /* Compare new config with existing disk configuration to avoid redundant
-   * writes */
-  struct ds_config disk_cfg = {0};
-  struct stat st;
-  int is_equal = 0;
-  if (stat(config_path, &st) == 0) {
-    if (ds_config_load(config_path, &disk_cfg) == 0) {
-      sort_bind_mounts(&disk_cfg);
+  char *buf = NULL;
+  size_t size = 0, known_size = 0;
+  FILE *f = open_memstream(&buf, &size);
+  if (!f)
+    return -1;
+  ds_config_serialize_known(f, cfg);
+  if (fflush(f) == 0)
+    known_size = size;
+  /* Keys this build does not know, the Android app's metadata among them,
+   * ride along verbatim. */
+  for (struct ds_config_line *n = cfg->unknown_head; n; n = n->next)
+    fputs(n->line, f);
+  if (fclose(f) != 0 || !known_size) {
+    free(buf);
+    return -1;
+  }
 
-      char *buf_cfg = NULL;
-      size_t size_cfg = 0;
-      char *buf_disk = NULL;
-      size_t size_disk = 0;
-      FILE *f_cfg = open_memstream(&buf_cfg, &size_cfg);
-      FILE *f_disk = open_memstream(&buf_disk, &size_disk);
-
-      if (f_cfg && f_disk) {
-        ds_config_serialize_known(f_cfg, cfg);
-        ds_config_serialize_known(f_disk, &disk_cfg);
-        fclose(f_cfg);
-        fclose(f_disk);
-        if (size_cfg == size_disk && memcmp(buf_cfg, buf_disk, size_cfg) == 0) {
-          is_equal = 1;
-        }
-      } else {
-        if (f_cfg)
-          fclose(f_cfg);
-        if (f_disk)
-          fclose(f_disk);
-      }
-      free(buf_cfg);
-      free(buf_disk);
-      ds_config_free(&disk_cfg);
-
-      if (is_equal) {
-        if (!cfg->config_file_existed) {
-          cfg->config_file_existed = 1;
-        }
-        return 0;
-      }
+  /* The app edits its own keys in this file while a container runs, and the
+   * stale copy of them in cfg must not land on top. Only a change in the keys
+   * this build manages earns a rewrite. */
+  int same = 0;
+  struct ds_config disk = {0};
+  if (access(config_path, F_OK) == 0 &&
+      ds_config_load(config_path, &disk) == 0) {
+    sort_bind_mounts(&disk);
+    char *dbuf = NULL;
+    size_t dsize = 0;
+    FILE *df = open_memstream(&dbuf, &dsize);
+    if (df) {
+      ds_config_serialize_known(df, &disk);
+      same = fclose(df) == 0 && dsize == known_size &&
+             memcmp(dbuf, buf, known_size) == 0;
     }
+    free(dbuf);
+    ds_config_free(&disk);
   }
-
-  /* Step 2: Write all configurations to a temporary file.  Use mkstemp (random
-   * name + O_EXCL) with an explicit 0644 mode: the daemon runs with umask 0, so
-   * a plain fopen would leave container.config world-writable, and a
-   * predictable "<path>.tmp" could be pre-planted as a symlink. */
-  char temp_path[PATH_MAX];
-  int tn = snprintf(temp_path, sizeof(temp_path), "%s.XXXXXX", config_path);
-  if (tn < 0 || tn >= (int)sizeof(temp_path))
+  int rc = same ? 0 : write_file_atomic(config_path, buf);
+  free(buf);
+  if (rc < 0)
     return -1;
-  int tfd = mkstemp(temp_path);
-  if (tfd < 0)
-    return -1;
-  (void)fcntl(tfd, F_SETFD, FD_CLOEXEC);
-  if (fchmod(tfd, 0644) < 0) { /* best effort; config is world-readable 0644 */
-  }
-  FILE *f_out = fdopen(tfd, "w");
-  if (!f_out) {
-    close(tfd);
-    unlink(temp_path);
-    return -1;
-  }
-
-  ds_config_serialize_known(f_out, cfg);
-
-  /* Step 3: Append preserved keys (Android App Config) from memory */
-  if (cfg->unknown_head) {
-    struct ds_config_line *node = cfg->unknown_head;
-    while (node) {
-      fprintf(f_out, "%s", node->line);
-      node = node->next;
-    }
-  }
-
-  /* Without the fsync the rename can reach disk before the data, and a hard
-   * reboot leaves an empty container.config that hides the container (#364).
-   * EINVAL means the filesystem has no fsync, the write itself still landed. */
-  int ok = fflush(f_out) == 0 && !ferror(f_out) &&
-           (fsync(fileno(f_out)) == 0 || errno == EINVAL);
-  if (fclose(f_out) != 0 || !ok) {
-    unlink(temp_path);
-    return -1;
-  }
-
-  /* Step 4: Atomic rename commit */
-  if (rename(temp_path, config_path) < 0) {
-    unlink(temp_path);
-    return -1;
-  }
-
-  /* The new name lives in the directory, so a first save also needs the
-   * directory synced or the rename itself can be lost. Best effort, the file
-   * is already in place. */
-  char *slash = strrchr(temp_path, '/');
-  if (slash) {
-    *slash = '\0';
-    int dfd = open(slash == temp_path ? "/" : temp_path,
-                   O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (dfd >= 0) {
-      fsync(dfd);
-      close(dfd);
-    }
-  }
-
-  if (!cfg->config_file_existed) {
-    cfg->config_file_existed = 1;
-  }
+  if (!same)
+    sync_dir_of(config_path);
+  cfg->config_file_existed = 1;
   return 0;
 }
 
@@ -1022,6 +895,14 @@ int ds_config_save_by_name(const char *name, struct ds_config *cfg) {
   return ds_config_save(config_path, cfg);
 }
 
+/* An empty config: zeroed, which already means NAT networking, with the
+ * monitor pipes closed so a stray close() on them is harmless. */
+void ds_config_init(struct ds_config *cfg) {
+  memset(cfg, 0, sizeof(*cfg));
+  cfg->net_ready_pipe[0] = cfg->net_ready_pipe[1] = -1;
+  cfg->net_done_pipe[0] = cfg->net_done_pipe[1] = -1;
+}
+
 /* Wipe cfg back to defaults while preserving container identity. Shared by
  * --reset and by restart's post-stop reload, which must start from the same
  * clean slate a fresh start gets: ds_config_load only overlays the keys
@@ -1049,10 +930,7 @@ void ds_config_reset_defaults(struct ds_config *cfg) {
   free(cfg->virgl_extra_flags);
   cfg->tx11_extra_flags = NULL;
   cfg->virgl_extra_flags = NULL;
-  memset(cfg, 0, sizeof(*cfg));
-
-  cfg->net_ready_pipe[0] = cfg->net_ready_pipe[1] = -1;
-  cfg->net_done_pipe[0] = cfg->net_done_pipe[1] = -1;
+  ds_config_init(cfg);
 
   safe_strncpy(cfg->container_name, save_name, sizeof(cfg->container_name));
   safe_strncpy(cfg->rootfs_path, save_rootfs, sizeof(cfg->rootfs_path));
