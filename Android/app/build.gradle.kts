@@ -193,18 +193,22 @@ tasks.register("generateSupportedLocalesList") {
     }
 }
 
-// boot-module/module.prop carries the backend's version. The template lives
-// outside assets so the per-commit versionCode never shows up as a diff.
-tasks.register<Copy>("generateModuleProp") {
-    from("src/main/boot-module/module.prop")
+val repo = rootProject.layout.projectDirectory.dir("..")
+
+// boot-module/module.prop carries the backend's version; the template lives
+// outside assets so the per-commit versionCode never shows up as a diff. The
+// autoboot script is the one init/ ships, so the two boot paths run one file.
+tasks.register<Copy>("generateBootModule") {
+    from("src/main/boot-module/module.prop") {
+        expand(mapOf("version" to dsVersionName, "versionCode" to dsVersionCodeVal))
+    }
+    from(repo.file("init/android-service/vendor/bin/droidspaces_autoboot.sh"))
     into(generatedDir.dir("assets/boot-module"))
-    expand(mapOf("version" to dsVersionName, "versionCode" to dsVersionCodeVal))
     inputs.property("version", dsVersionName)
     inputs.property("versionCode", dsVersionCodeVal)
 }
 
 // The backend the APK ships. make is incremental, so an unchanged src/ costs one no-op per arch
-val repo = rootProject.layout.projectDirectory.dir("..")
 val phoneArches = listOf("aarch64", "armhf", "x86_64", "x86")
 val buildBackend = tasks.register<Exec>("buildBackend") {
     workingDir(repo)
@@ -222,7 +226,7 @@ val backendAssets = tasks.register<Sync>("backendAssets") {
 tasks.configureEach {
     if (name.startsWith("pre") && name.endsWith("Build")) {
         dependsOn("generateSupportedLocalesList")
-        dependsOn("generateModuleProp")
+        dependsOn("generateBootModule")
         dependsOn(backendAssets)
     }
 }
