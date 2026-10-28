@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -292,32 +293,34 @@ fun MainTabScreen(
                     }
 
                     TabItem.Containers -> {
-                        ContainersTabContent(
-                            isBackendAvailable = isBackendAvailable,
-                            isRootAvailable = appStateViewModel.isRootAvailable,
-                            isKernelSupported = isKernelSupported,
-                            onNavigateToInstallation = onNavigateToContainerInstallation,
-                            onNavigateToEditContainer = onNavigateToEditContainer,
-                            onNavigateToContainerDetails = onNavigateToContainerDetails,
-                            containerViewModel = containerViewModel,
-                            onRefresh = { performRefresh(TabItem.Containers) },
-                            expandedContainerName = expandedContainerName,
-                            onExpandedContainerNameChange = { expandedContainerName = it },
-                            bottomBarInset = bottomBarHeight
-                        )
+                        PullToRefreshWrapper(onRefresh = { performRefresh(TabItem.Containers) }) {
+                            ContainersScreen(
+                                isBackendAvailable = isBackendAvailable,
+                                isRootAvailable = appStateViewModel.isRootAvailable,
+                                isKernelSupported = isKernelSupported,
+                                onNavigateToInstallation = onNavigateToContainerInstallation,
+                                onNavigateToEditContainer = onNavigateToEditContainer,
+                                onNavigateToContainerDetails = onNavigateToContainerDetails,
+                                containerViewModel = containerViewModel,
+                                expandedContainerName = expandedContainerName,
+                                onExpandedContainerNameChange = { expandedContainerName = it },
+                                bottomBarInset = bottomBarHeight
+                            )
+                        }
                     }
 
                     TabItem.ControlPanel -> {
-                        ControlPanelTabContent(
-                            isBackendAvailable = isBackendAvailable,
-                            isRootAvailable = appStateViewModel.isRootAvailable,
-                            isKernelSupported = isKernelSupported,
-                            containerViewModel = containerViewModel,
-                            onRefresh = { performRefresh(TabItem.ControlPanel) },
-                            onNavigateToContainerDetails = onNavigateToContainerDetails,
-                            onNavigateToTerminal = onNavigateToTerminal,
-                            bottomBarInset = bottomBarHeight
-                        )
+                        PullToRefreshWrapper(onRefresh = { performRefresh(TabItem.ControlPanel) }) {
+                            ControlPanelScreen(
+                                isBackendAvailable = isBackendAvailable,
+                                isRootAvailable = appStateViewModel.isRootAvailable,
+                                isKernelSupported = isKernelSupported,
+                                containerViewModel = containerViewModel,
+                                onNavigateToContainerDetails = onNavigateToContainerDetails,
+                                onNavigateToTerminal = onNavigateToTerminal,
+                                bottomBarInset = bottomBarHeight
+                            )
+                        }
                     }
                 }
             }
@@ -431,82 +434,10 @@ private fun HomeTabContent(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Container count card
-                    Surface(
-                        onClick = onNavigateToContainers,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(140.dp),
-                        shape = RoundedCornerShape(24.dp), // Slightly more rounded for home cards
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Layers,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = containerCount.toString(),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    text = context.getString(R.string.containers).uppercase(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    letterSpacing = 1.sp
-                                )
-                            }
-                        }
-                    }
+                    CountCard(Icons.Default.Layers, MaterialTheme.colorScheme.primary, containerCount, context.getString(R.string.containers), onNavigateToContainers, Modifier.weight(1f))
 
                     // Running count card
-                    Surface(
-                        onClick = onNavigateToControlPanel,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(140.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.Start,
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = runningCount.toString(),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Text(
-                                    text = context.getString(R.string.running).uppercase(),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    letterSpacing = 1.sp
-                                )
-                            }
-                        }
-                    }
+                    CountCard(Icons.Default.PlayCircle, MaterialTheme.colorScheme.secondary, runningCount, context.getString(R.string.running), onNavigateToControlPanel, Modifier.weight(1f))
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -523,62 +454,32 @@ private fun HomeTabContent(
     }
 }
 
+/** One of the two 140dp count tiles on Home, leading to the tab it counts. */
 @Composable
-private fun ContainersTabContent(
-    isBackendAvailable: Boolean,
-    isRootAvailable: Boolean,
-    isKernelSupported: Boolean,
-    onNavigateToInstallation: (android.net.Uri) -> Unit,
-    onNavigateToEditContainer: (String) -> Unit,
-    onNavigateToContainerDetails: (String) -> Unit,
-    containerViewModel: ContainerViewModel,
-    onRefresh: suspend () -> Unit,
-    expandedContainerName: String?,
-    onExpandedContainerNameChange: (String?) -> Unit,
-    bottomBarInset: Dp = 0.dp
-) {
-    PullToRefreshWrapper(onRefresh = { onRefresh() }) {
-        ContainersScreen(
-            isBackendAvailable = isBackendAvailable,
-            isRootAvailable = isRootAvailable,
-            isKernelSupported = isKernelSupported,
-            onNavigateToInstallation = onNavigateToInstallation,
-            onNavigateToEditContainer = onNavigateToEditContainer,
-            onNavigateToContainerDetails = onNavigateToContainerDetails,
-            containerViewModel = containerViewModel,
-            expandedContainerName = expandedContainerName,
-            onExpandedContainerNameChange = onExpandedContainerNameChange,
-            bottomBarInset = bottomBarInset
-        )
-    }
-}
-
-@Composable
-private fun ControlPanelTabContent(
-    isBackendAvailable: Boolean,
-    isRootAvailable: Boolean,
-    isKernelSupported: Boolean,
-    containerViewModel: ContainerViewModel,
-    onRefresh: suspend () -> Unit,
-    onNavigateToContainerDetails: (String) -> Unit,
-    onNavigateToTerminal: (String) -> Unit,
-    bottomBarInset: Dp = 0.dp
-) {
-    var refreshTrigger by remember { mutableStateOf(0) }
-
-    PullToRefreshWrapper(onRefresh = {
-        onRefresh()
-        refreshTrigger++
-    }) {
-        ControlPanelScreen(
-            isBackendAvailable = isBackendAvailable,
-            isRootAvailable = isRootAvailable,
-            isKernelSupported = isKernelSupported,
-            containerViewModel = containerViewModel,
-            onNavigateToContainerDetails = onNavigateToContainerDetails,
-            onNavigateToTerminal = onNavigateToTerminal,
-            bottomBarInset = bottomBarInset
-        )
+private fun CountCard(icon: ImageVector, tint: Color, count: Int, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(140.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
+            Column {
+                Text(count.toString(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+                Text(
+                    label.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    letterSpacing = 1.sp
+                )
+            }
+        }
     }
 }
 

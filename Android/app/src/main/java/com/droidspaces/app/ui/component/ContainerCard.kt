@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.droidspaces.app.util.ResourceLimits
@@ -67,17 +66,6 @@ fun ContainerCard(
     isExpanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val onStart = actions.onStart
-    val onStop = actions.onStop
-    val onRestart = actions.onRestart
-    val onEdit = actions.onEdit
-    val onEnter = actions.onEnter
-    val onUninstall = actions.onUninstall
-    val onMigrate = actions.onMigrate
-    val onResize = actions.onResize
-    val onExport = actions.onExport
-    val onToggleExpand = actions.onToggleExpand
-    val onShowLogs = actions.onShowLogs
     val context = LocalContext.current
     val cardShape = RoundedCornerShape(20.dp)
 
@@ -87,9 +75,9 @@ fun ContainerCard(
             .clip(cardShape)
             .combinedClickable(
                 onClick = {
-                    if (container.isRunning) onEnter() else onToggleExpand()
+                    if (container.isRunning) actions.onEnter() else actions.onToggleExpand()
                 },
-                onLongClick = onToggleExpand,
+                onLongClick = actions.onToggleExpand,
                 indication = ripple(bounded = true),
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             ),
@@ -137,7 +125,7 @@ fun ContainerCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    IconButton(onClick = onShowLogs) {
+                    IconButton(onClick = actions.onShowLogs) {
                         Icon(Icons.AutoMirrored.Filled.Article, context.getString(R.string.view_logs), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
 
@@ -242,7 +230,7 @@ fun ContainerCard(
                                       else MaterialTheme.colorScheme.outlineVariant
 
                     Surface(
-                        onClick = if (container.isRunning) onStop else onStart,
+                        onClick = if (container.isRunning) actions.onStop else actions.onStart,
                         enabled = isStartEnabled || isStopEnabled,
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -271,7 +259,7 @@ fun ContainerCard(
                         val restartAccent = if (isRestartEnabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant
 
                         Surface(
-                            onClick = onRestart,
+                            onClick = actions.onRestart,
                             enabled = isRestartEnabled,
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(16.dp),
@@ -313,41 +301,41 @@ fun ContainerCard(
                     Spacer(Modifier.height(12.dp))
 
                     ActionItem(
-                        icon = Icons.Default.Edit,
+                        icon = rememberVectorPainter(Icons.Default.Edit),
                         label = context.getString(R.string.edit_container_configuration),
                         tint = MaterialTheme.colorScheme.primary,
-                        onClick = { onEdit() }
+                        onClick = actions.onEdit
                     )
 
                     if (!container.useSparseImage) {
                         ActionItem(
-                            icon = painterResource(id = R.drawable.ic_disk),
+                            icon = painterResource(R.drawable.ic_disk),
                             label = context.getString(R.string.migrate_to_sparse_image),
                             tint = MaterialTheme.colorScheme.secondary,
-                            onClick = { onMigrate() }
+                            onClick = actions.onMigrate
                         )
                     } else {
                         ActionItem(
-                            icon = painterResource(id = R.drawable.ic_disk),
+                            icon = painterResource(R.drawable.ic_disk),
                             label = context.getString(R.string.resize_sparse_image),
                             tint = MaterialTheme.colorScheme.secondary,
-                            onClick = { onResize() }
+                            onClick = actions.onResize
                         )
                     }
 
                     ActionItem(
-                        icon = Icons.Default.FileDownload,
+                        icon = rememberVectorPainter(Icons.Default.FileDownload),
                         label = context.getString(R.string.export_container),
                         tint = MaterialTheme.colorScheme.tertiary,
-                        onClick = { onExport() }
+                        onClick = actions.onExport
                     )
 
                     ActionItem(
-                        icon = Icons.Default.Delete,
+                        icon = rememberVectorPainter(Icons.Default.Delete),
                         label = context.getString(R.string.uninstall_container_menu),
                         tint = MaterialTheme.colorScheme.error,
                         isBold = true,
-                        onClick = { onUninstall() }
+                        onClick = actions.onUninstall
                     )
                 }
             }
@@ -357,33 +345,11 @@ fun ContainerCard(
 
 @Composable
 private fun ActionItem(
-    icon: ImageVector,
-    label: String,
-    tint: Color,
-    isBold: Boolean = false,
-    onClick: () -> Unit
-) = ActionItemLayout(label, tint, isBold, onClick) {
-    Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
-}
-
-@Composable
-private fun ActionItem(
     icon: Painter,
     label: String,
     tint: Color,
     isBold: Boolean = false,
     onClick: () -> Unit
-) = ActionItemLayout(label, tint, isBold, onClick) {
-    Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
-}
-
-@Composable
-private fun ActionItemLayout(
-    label: String,
-    tint: Color,
-    isBold: Boolean,
-    onClick: () -> Unit,
-    iconSlot: @Composable () -> Unit
 ) {
     Surface(
         onClick = onClick,
@@ -396,7 +362,7 @@ private fun ActionItemLayout(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            iconSlot()
+            Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,

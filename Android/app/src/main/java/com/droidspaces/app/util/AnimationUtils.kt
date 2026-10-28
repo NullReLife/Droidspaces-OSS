@@ -12,7 +12,6 @@ object AnimationUtils {
     const val DURATION_FAST = 150
     const val DURATION_MEDIUM = 200
     const val DURATION_SLOW = 300
-    const val DURATION_CARD_FADE = 180
 
     // Standard Easing
     val STANDARD_EASING = FastOutSlowInEasing
@@ -31,11 +30,6 @@ object AnimationUtils {
     fun <T> slowSpec(): TweenSpec<T> = tween(
         durationMillis = DURATION_SLOW,
         easing = STANDARD_EASING
-    )
-
-    fun <T> cardFadeSpec(): TweenSpec<T> = tween(
-        durationMillis = DURATION_CARD_FADE,
-        easing = LinearOutSlowInEasing
     )
 }
 

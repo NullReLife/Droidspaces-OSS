@@ -51,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.droidspaces.app.ui.util.showSuccess
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
+import com.droidspaces.app.ui.component.CardButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -494,31 +495,10 @@ private fun CodeBox(
                     }
                 }
 
-                Button(
-                    onClick = {
-                        val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        val clip = ClipData.newPlainText(
-                            context.getString(R.string.kernel_requirements),
-                            code
-                        )
-                        clipboard.setPrimaryClip(clip)
-                        Toast.makeText(context, R.string.kernel_requirements_copied, Toast.LENGTH_SHORT).show()
-                        // Show snackbar feedback
-                        scope.showSuccess(snackbarHostState, context.getString(R.string.kernel_requirements_copied))
-                    },
-                    modifier = Modifier.widthIn(min = 140.dp),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = context.getString(R.string.copy),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = context.getString(R.string.copy),
-                        fontWeight = FontWeight.SemiBold
-                    )
+                CardButton(context.getString(R.string.copy), Icons.Default.ContentCopy) {
+                    val clipboard = context.getSystemService(ClipboardManager::class.java)
+                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.kernel_requirements), code))
+                    scope.showSuccess(snackbarHostState, context.getString(R.string.kernel_requirements_copied))
                 }
             }
         }

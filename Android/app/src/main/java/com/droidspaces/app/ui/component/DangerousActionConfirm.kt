@@ -66,12 +66,14 @@ fun ConfirmPhraseField(
     onValueChange: (String) -> Unit,
     isError: Boolean,
     modifier: Modifier = Modifier,
-    colors: TextFieldColors = DsTextFieldDefaults.surfaceColors()
+    colors: TextFieldColors = DsTextFieldDefaults.surfaceColors(),
+    instruction: String = LocalContext.current.getString(R.string.privileged_confirm_instruction),
+    phrase: String = LocalContext.current.getString(R.string.i_understand_caps),
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.Characters,
 ) {
-    val context = LocalContext.current
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = context.getString(R.string.privileged_confirm_instruction),
+            text = instruction,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold
         )
@@ -79,12 +81,12 @@ fun ConfirmPhraseField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(context.getString(R.string.i_understand_caps)) },
+            placeholder = { Text(phrase) },
             singleLine = true,
             isError = isError,
             shape = RoundedCornerShape(16.dp),
             colors = colors,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(capitalization = capitalization, autoCorrectEnabled = false, imeAction = ImeAction.Done),
             keyboardActions = FocusUtils.clearFocusKeyboardActions()
         )
     }

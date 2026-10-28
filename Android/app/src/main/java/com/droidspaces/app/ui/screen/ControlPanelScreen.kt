@@ -38,9 +38,8 @@ import com.droidspaces.app.R
 /**
  * Control Panel screen - shows system stats and running containers.
  *
- * Note: This screen does NOT have its own PullToRefreshWrapper.
- * The parent ControlPanelTabContent provides the pull-to-refresh functionality.
- * This prevents double-wrapping issues that can cause UI glitches.
+ * No PullToRefreshWrapper of its own: MainTabScreen's pager wraps it, and a
+ * second wrapper inside the first glitches the gesture.
  */
 @Composable
 fun ControlPanelScreen(
