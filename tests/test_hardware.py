@@ -49,8 +49,9 @@ class HardwareAccess(DsTest):
         render = c.sh("ls /dev/dri/ 2>/dev/null")
         self.assertIn("renderD", render)
         self.assertNotIn("card", render, "--gpu copies render nodes only")
-        self.assertEqual(c.sh("stat -c '%a %G' /dev/dri/renderD* | head -1"), "660 droidspaces-gpu")
-        self.assertEqual(c.sh("id -Gn root | tr ' ' '\\n' | grep -x droidspaces-gpu"), "droidspaces-gpu")
+        # Root opens the nodes as their owner; the group has no members, other users are added by hand
+        self.assertEqual(c.sh("stat -c '%U %G %a' /dev/dri/renderD* | head -1"), "root droidspaces-gpu 660")
+        self.assertEqual(c.sh("grep -c '^droidspaces-gpu:x:786:$' /etc/group"), "1")
         self.assertEqual(c.info()["hw_access"], "GPU")
         self.assertEqual(c.saved_config()["enable_gpu_mode"], "1")
 

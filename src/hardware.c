@@ -19,10 +19,10 @@
 /*
  * Unified GPU group bridge.
  *
- * Every hardware node mirrored into the container is chowned to this group.
- * root is added to it in setup_gpu_groups() so GPU access works regardless
- * of which host GID the node originally carried (GID 44 for video, GID 1006
- * for render, etc.). Users can be added manually with usermod.
+ * Every hardware node mirrored into the container is chowned root:this group,
+ * so GPU access works regardless of which host GID the node originally
+ * carried (GID 44 for video, GID 1006 for render, etc.). Root opens the nodes
+ * as their owner; any other user is added to the group with usermod.
  *
  * GID 786 is well outside the standard Debian/Ubuntu range (0-999 system,
  * 1000+ users) and has never been assigned to a named group in the FHS.
@@ -254,35 +254,10 @@ void mirror_gpu_nodes(const char *dev_path, const char *staging) {
 /*
  * setup_gpu_groups()
  *
- * After pivot_root, create matching groups inside the container's /etc/group
- * and add root to each. Groups are named "gpu_<gid>" to avoid conflicts
- * with existing groups.
- *
- * Idempotent: safe to call on container restart (skips existing groups).
+ * After pivot_root, make sure the container's /etc/group carries the unified
+ * GPU group. A rootfs that already has GID 786, under whatever name, is left
+ * alone, so the call is idempotent across restarts.
  */
-
-/* Helper to check if a username exists in a comma-separated list of users */
-static int has_user(const char *users, const char *username) {
-  if (!users || !username)
-    return 0;
-
-  size_t len = strlen(username);
-  const char *p = users;
-
-  while ((p = strstr(p, username)) != NULL) {
-    /* Check if it's a whole word match */
-    int at_start = (p == users);
-    int prev_comma = (p > users && *(p - 1) == ',');
-    int next_comma = (*(p + len) == ',' || *(p + len) == '\0');
-
-    if ((at_start || prev_comma) && next_comma) {
-      return 1;
-    }
-    p++;
-  }
-  return 0;
-}
-
 int setup_gpu_groups(void) {
   /* Check if /etc/group exists - some minimal rootfs may not have it */
   if (access("/etc/group", F_OK) != 0) {
@@ -321,91 +296,34 @@ int setup_gpu_groups(void) {
   }
 
   char line[2048];
-  int modified_count = 0;
-  int unified_group_found = 0; /* set when DS_GPU_GROUP_NAME is seen */
+  int unified_group_found = 0;
 
   while (fgets(line, sizeof(line), fin)) {
-    /* Format: name:password:GID:user_list */
-    char *users_ptr = NULL;
-
-    char line_copy[2048];
-    safe_strncpy(line_copy, line, sizeof(line_copy));
-
-    char *nl = strrchr(line_copy, '\n');
-    if (nl)
-      *nl = '\0';
-
-    int colons = 0;
-    char *p = line_copy;
-    char *gid_str = NULL;
-
-    while (*p) {
-      if (*p == ':') {
-        colons++;
-        if (colons == 2)
-          gid_str = p + 1;
-        else if (colons == 3) {
-          *p = '\0';
-          users_ptr = p + 1;
-          break;
-        }
-      }
-      p++;
-    }
-
-    if (gid_str && users_ptr) {
-      int gid_val = atoi(gid_str);
-
-      /* If the unified group already exists, ensure root is a member */
-      if (gid_val == DS_GPU_UNIFIED_GID) {
-        unified_group_found = 1;
-
-        if (!has_user(users_ptr, "root")) {
-          char new_members[2048];
-          safe_strncpy(new_members, users_ptr, sizeof(new_members));
-          if (strlen(new_members) > 0)
-            strncat(new_members, ",root",
-                    sizeof(new_members) - strlen(new_members) - 1);
-          else
-            safe_strncpy(new_members, "root", sizeof(new_members));
-
-          fprintf(fout, "%.*s:%s\n", (int)(users_ptr - line_copy - 1),
-                  line_copy, new_members);
-          ds_log("[GPU] Updated " DS_GPU_GROUP_NAME " (GID %d) members: %s",
-                 DS_GPU_UNIFIED_GID, new_members);
-          modified_count++;
-          continue;
-        }
-        /* root already present - fall through to fputs */
-      }
-    }
-
-    /* Print original line if not modified */
+    /* name:password:GID:users; only the GID matters here */
+    const char *gid = strchr(line, ':');
+    gid = gid ? strchr(gid + 1, ':') : NULL;
+    if (gid && atoi(gid + 1) == DS_GPU_UNIFIED_GID)
+      unified_group_found = 1;
     fputs(line, fout);
   }
 
-  /* Create the unified group if it wasn't already in the file */
+  /* No members: the nodes are owned by root, and anyone else is added by hand.
+   */
   if (!unified_group_found) {
-    fprintf(fout, DS_GPU_GROUP_NAME ":x:%d:root\n", DS_GPU_UNIFIED_GID);
+    fprintf(fout, DS_GPU_GROUP_NAME ":x:%d:\n", DS_GPU_UNIFIED_GID);
     ds_log("[GPU] Created unified group " DS_GPU_GROUP_NAME " (GID %d)",
            DS_GPU_UNIFIED_GID);
-    modified_count++;
   }
 
   fclose(fin);
   fclose(fout);
 
-  /* Atomic replacement */
-  if (modified_count > 0) {
-    if (rename(tmp_path, group_path) < 0) {
-      ds_warn("Failed to update /etc/group: %s", strerror(errno));
-      unlink(tmp_path);
-      return -1;
-    }
-    ds_log("[GPU] Finalized GPU group membership (Updated %d entry/entries)",
-           modified_count);
-  } else {
+  if (unified_group_found) {
     unlink(tmp_path);
+  } else if (rename(tmp_path, group_path) < 0) {
+    ds_warn("Failed to update /etc/group: %s", strerror(errno));
+    unlink(tmp_path);
+    return -1;
   }
 
   return 0;

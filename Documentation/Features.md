@@ -74,7 +74,7 @@ The six host virtual terminals, `tty1` to `tty6`, stay hidden even with hardware
 
 ### GPU Access
 
-`--gpu`, key `enable_gpu_mode`. The middle ground. The container keeps its private `/dev` and only the GPU render nodes are mirrored into it, so programs can use the GPU and nothing else on the host is exposed. Mirrored nodes are owned by a `droidspaces-gpu` group that root belongs to; add other users to that group with `usermod`. Hardware Access turns this on as well.
+`--gpu`, key `enable_gpu_mode`. The middle ground. The container keeps its private `/dev` and only the GPU render nodes are mirrored into it, so programs can use the GPU and nothing else on the host is exposed. Mirrored nodes are owned by root and a `droidspaces-gpu` group; add other users to that group with `usermod`. Hardware Access turns this on as well.
 
 Known GPU families: Mesa DRI render nodes on Intel, AMD and most ARM SoCs, Qualcomm Adreno (`kgsl`), ARM Mali, NVIDIA, PowerVR and the DMA heaps these drivers need.
 

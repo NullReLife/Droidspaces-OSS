@@ -17,14 +17,9 @@ static const char *get_binary_name(const char *argv0) {
 }
 
 /* Terminal control sequences */
-#define CLEAR_SCREEN                                                           \
-  "\033[2J\033[H"                /* Clear entire screen and move to home       \
-                                  */
-#define CLEAR_LINE "\033[2K"     /* Clear entire line */
 #define RESET_TERMINAL "\033[0m" /* Reset all attributes */
 #define BOLD "\033[1m"
 #define REVERSE "\033[7m"
-#define CURSOR_HOME "\033[H" /* Move cursor to home position */
 #define HIDE_CURSOR "\033[?25l"
 #define SHOW_CURSOR "\033[?25h"
 
@@ -87,96 +82,34 @@ static void p_printf(const char *fmt, ...) {
   }
 }
 
-/* Clear screen completely - more aggressive clearing */
+/* Reset attributes, wipe the screen and the scrollback, cursor home. */
 static void clear_screen_completely(void) {
-  /* Reset all terminal attributes first */
-  printf("%s", RESET_TERMINAL);
-  fflush(stdout);
-
-  /* Move cursor to home position first */
-  printf("\033[H");
-  fflush(stdout);
-
-  /* Clear entire screen from cursor to end */
-  printf("\033[2J");
-  fflush(stdout);
-
-  /* Try to clear scrollback buffer (not all terminals support this) */
-  printf("\033[3J");
-  fflush(stdout);
-
-  /* Get terminal size and clear each line explicitly to ensure clean state */
-  struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
-    /* Clear each visible line by moving to it and clearing */
-    for (int i = 0; i < ws.ws_row; i++) {
-      printf("\033[%d;1H\033[2K", i + 1); /* Move to line, clear it */
-    }
-    /* Return cursor to home position */
-    printf("\033[H");
-  } else {
-    /* Fallback: just ensure we're at home */
-    printf("\033[H");
-  }
-
+  printf(RESET_TERMINAL "\033[2J\033[3J\033[H");
   fflush(stdout);
 }
 
-/* Print header with page number and title (like GNU nano) */
+/* One reverse-video line, like nano's: the page on the left, the document
+ * title centred, pushed right when the page string would overlap it. */
 static void print_header(int page, int total_pages, const char *title) {
-  /* Get actual terminal width */
   struct winsize ws;
-  int width = 80; /* Default fallback width */
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0) {
-    width = ws.ws_col;
-  }
+  int width = (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+                  ? ws.ws_col
+                  : 80;
 
-  /* Build page string */
   char page_str[256];
-  int page_str_len = snprintf(page_str, sizeof(page_str), "Page %d/%d: %s",
-                              page + 1, total_pages, title);
-  if (page_str_len < 0 || page_str_len >= (int)sizeof(page_str)) {
-    page_str_len = 0;
-    page_str[0] = '\0';
-  }
+  int page_len = snprintf(page_str, sizeof(page_str), "Page %d/%d: %s",
+                          page + 1, total_pages, title);
+  if (page_len < 0 || page_len >= (int)sizeof(page_str))
+    page_len = (int)sizeof(page_str) - 1;
 
-  const char *doc_title = DS_PROJECT_NAME " v" DS_VERSION " Documentation";
-  int doc_title_len = strlen(doc_title);
-
-  /* Calculate where "Droidspaces Documentation" should start to be centered in
-   * the entire line */
-  int center_pos = width / 2;
-  int doc_start_pos = center_pos - (doc_title_len / 2);
-
-  /* Ensure doc title doesn't overlap with page info */
-  if (doc_start_pos < page_str_len) {
-    doc_start_pos = page_str_len + 2; /* Add some spacing if too close */
-  }
-
-  printf("%s", REVERSE);
-
-  /* Print page info on the left */
-  printf("%s", page_str);
-
-  /* Pad from end of page info to where doc title should start */
-  int padding_before_doc = doc_start_pos - page_str_len;
-  if (padding_before_doc > 0) {
-    for (int i = 0; i < padding_before_doc; i++)
-      printf(" ");
-  }
-
-  /* Print centered "Droidspaces Documentation" */
-  printf("%s", doc_title);
-
-  /* Fill remaining space to end of line */
-  int doc_end_pos = doc_start_pos + doc_title_len;
-  int padding_after_doc = width - doc_end_pos;
-  if (padding_after_doc > 0) {
-    for (int i = 0; i < padding_after_doc; i++)
-      printf(" ");
-  }
-
-  printf("%s", RESET_TERMINAL);
+  const char *doc = DS_PROJECT_NAME " v" DS_VERSION " Documentation";
+  int doc_len = (int)strlen(doc);
+  int left = width / 2 - doc_len / 2;
+  if (left < page_len + 2)
+    left = page_len + 2;
+  int right = width - left - doc_len;
+  printf(REVERSE "%-*s%s%*s" RESET_TERMINAL, left, page_str, doc,
+         right > 0 ? right : 0, "");
 }
 
 /* Emit page content through the pager (p_printf), honouring the current scroll
@@ -481,14 +414,9 @@ static int read_arrow_key(void) {
   return 0;
 }
 
-/* Global flag for terminal resize */
-static volatile int g_terminal_resized = 0;
-
-/* Signal handler for terminal resize */
-static void handle_sigwinch(int sig) {
-  (void)sig;
-  g_terminal_resized = 1;
-}
+/* Installed without SA_RESTART so a resize interrupts the blocking read in
+ * read_arrow_key; the loop then redraws at the new size. Nothing to do here. */
+static void handle_sigwinch(int sig) { (void)sig; }
 
 static struct termios *g_old_tios_ptr = NULL;
 static void handle_sigint(int sig) {
