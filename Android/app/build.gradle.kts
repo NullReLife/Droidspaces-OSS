@@ -1,4 +1,3 @@
-import java.util.Locale
 
 plugins {
     id("com.android.application")
@@ -71,11 +70,11 @@ android {
                 enableV3Signing = true
                 enableV4Signing = true
             }
+        }
         // No release key (a fork, a pull request): the release build type signs with
         // the debug config below. AGP creates ~/.android/debug.keystore when that
         // config's file is missing, as on a fresh runner, but only for the config
         // named "debug", not for a copy of it under another name.
-        }
     }
 
     buildTypes {
@@ -91,6 +90,14 @@ android {
         debug {
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    // res/xml/_generated_res_locale_config.xml, one entry per values-<locale>
+    // folder (a folder holding only a dimens override would count too) plus
+    // res/resources.properties' unqualifiedResLocale, wired into the manifest by
+    // AGP. LocaleHelper reads the same file for the language picker.
+    androidResources {
+        generateLocaleConfig = true
     }
 
     compileOptions {
@@ -119,79 +126,10 @@ android {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Auto-generate language list from res/values-* directories.
-//
-// This task runs before every build and writes two files under build/:
-//   1. assets/supported_locales.txt  — read by LocaleHelper at runtime to
-//      build the in-app language picker dynamically.
-//   2. res/xml/locales_config.xml    — keeps the Android 13+ per-app
-//      language system setting in sync automatically.
-//
-// Detection rule: a values-XX directory is a translation if it contains a
-// strings.xml file (case-insensitive). This cleanly excludes non-language
-// qualifiers like values-night, values-v31, values-v33, etc., which never
-// carry strings.xml. No hardcoded exclusion list is needed.
-//
-// Adding a new language via Weblate: just merge the PR — the next build
-// picks it up with zero manual changes required.
-// ---------------------------------------------------------------------------
-// Build-generated assets and resources live here, registered as extra source
-// roots, so nothing the build rewrites ever shows up as a diff.
+// Build-generated assets live here, registered as an extra source root, so
+// nothing the build rewrites ever shows up as a diff.
 val generatedDir = layout.buildDirectory.dir("generated/droidspaces").get()
 android.sourceSets["main"].assets.srcDir(generatedDir.dir("assets"))
-android.sourceSets["main"].res.srcDir(generatedDir.dir("res"))
-
-tasks.register("generateSupportedLocalesList") {
-    val resDir = file("src/main/res")
-    val localesAsset = generatedDir.file("assets/supported_locales.txt").asFile
-    val localesConfig = generatedDir.file("res/xml/locales_config.xml").asFile
-
-    inputs.dir(resDir)
-    outputs.files(localesAsset, localesConfig)
-
-    doLast {
-        localesAsset.parentFile.mkdirs()
-        localesConfig.parentFile.mkdirs()
-
-        // Scan values-XX dirs; include only those with a strings.xml (any case)
-        val localeCodes = resDir.listFiles()
-            .orEmpty()
-            .filter { dir ->
-                dir.isDirectory &&
-                dir.name.startsWith("values-") &&
-                dir.listFiles().orEmpty().any { f ->
-                    f.name.equals("strings.xml", ignoreCase = true)
-                }
-            }
-            .mapNotNull { dir ->
-                val suffix = dir.name.removePrefix("values-")
-                // Convert Android qualifier format (pt-rBR) → BCP 47 (pt-BR)
-                // so java.util.Locale can validate it.
-                val bcp47 = suffix.replace(Regex("-r([A-Z])"), "-$1")
-                val locale = Locale.forLanguageTag(bcp47)
-                // Reject anything that doesn't parse as a real language subtag
-                if (locale.language.isNotEmpty()) suffix else null
-            }
-            .sorted()
-
-        // --- 1. assets/supported_locales.txt ---
-        localesAsset.writeText(localeCodes.joinToString("\n") + "\n")
-        println("generateSupportedLocalesList: wrote ${localeCodes.size} locales → $localeCodes")
-
-        // --- 2. res/xml/locales_config.xml ---
-        val sb = StringBuilder()
-        sb.appendLine("""<?xml version="1.0" encoding="utf-8"?>""")
-        sb.appendLine("""<locale-config xmlns:android="http://schemas.android.com/apk/res/android">""")
-        sb.appendLine("""    <locale android:name="en" />""") // default / fallback
-        localeCodes.forEach { code ->
-            val bcp47 = code.replace("-r", "-")
-            sb.appendLine("""    <locale android:name="$bcp47" />""")
-        }
-        sb.appendLine("""</locale-config>""")
-        localesConfig.writeText(sb.toString())
-    }
-}
 
 val repo = rootProject.layout.projectDirectory.dir("..")
 
@@ -225,7 +163,6 @@ val backendAssets = tasks.register<Sync>("backendAssets") {
 // Run before every build variant
 tasks.configureEach {
     if (name.startsWith("pre") && name.endsWith("Build")) {
-        dependsOn("generateSupportedLocalesList")
         dependsOn("generateBootModule")
         dependsOn(backendAssets)
     }
