@@ -3,7 +3,6 @@ package com.droidspaces.app.ui.screen
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -11,8 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
@@ -27,7 +24,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +48,9 @@ import com.droidspaces.app.ui.util.showSuccess
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import com.droidspaces.app.ui.component.CardButton
+import com.droidspaces.app.util.AnimationUtils
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -363,10 +362,7 @@ private fun ExpandableKernelRequirementsSection(
 
     val rotationAngle by animateFloatAsState(
         targetValue = if (isExpanded) 180f else 0f,
-        animationSpec = tween(
-            durationMillis = 200,
-            easing = FastOutSlowInEasing
-        ),
+        animationSpec = AnimationUtils.mediumSpec(),
         label = "chevron_rotation"
     )
 
@@ -380,10 +376,7 @@ private fun ExpandableKernelRequirementsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize(
-                    animationSpec = tween(
-                        durationMillis = 200,
-                        easing = FastOutSlowInEasing
-                    )
+                    animationSpec = AnimationUtils.mediumSpec()
                 )
         ) {
             // Clickable header
@@ -451,17 +444,13 @@ private fun CodeBox(
                     .fillMaxWidth()
                     .horizontalScroll(horizontalScrollState)
             ) {
-                androidx.compose.material3.ProvideTextStyle(
-                    MaterialTheme.typography.bodySmall.copy(fontFamily = JetBrainsMono)
-                ) {
-                    Text(
-                        text = code,
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = JetBrainsMono),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        softWrap = false, // No word wrap - allows horizontal scrolling
-                        modifier = Modifier.wrapContentWidth() // Allow text to be as wide as needed
-                    )
-                }
+                Text(
+                    text = code,
+                    style = MaterialTheme.typography.bodySmall.copy(fontFamily = JetBrainsMono),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    softWrap = false, // No word wrap - allows horizontal scrolling
+                    modifier = Modifier.wrapContentWidth() // Allow text to be as wide as needed
+                )
             }
 
             // Copy button - matching "Copy login" button style

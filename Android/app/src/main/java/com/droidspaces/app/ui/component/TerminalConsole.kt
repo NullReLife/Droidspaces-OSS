@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Dp
 import com.droidspaces.app.ui.theme.JetBrainsMono
 import com.droidspaces.app.util.AnsiColorParser
 import kotlinx.coroutines.Job
@@ -108,7 +107,6 @@ fun TerminalConsole(
     logs: List<Pair<Int, String>>,
     isProcessing: Boolean = true,
     modifier: Modifier = Modifier,
-    maxHeight: Dp? = null
 ) {
     val orientation = LocalConfiguration.current.orientation
     val verticalScrollState = rememberScrollState()
@@ -203,11 +201,7 @@ fun TerminalConsole(
     val warnColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.9f)
 
     ShimmerAnimation(
-        modifier = if (maxHeight != null) {
-            modifier.heightIn(max = maxHeight)
-        } else {
-            modifier
-        },
+        modifier = modifier,
         enabled = isProcessing
     ) {
         androidx.compose.material3.ProvideTextStyle(

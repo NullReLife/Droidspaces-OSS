@@ -540,7 +540,7 @@ fun GroupField(top: androidx.compose.ui.unit.Dp = 16.dp, content: @Composable ()
 
 /** An error-tinted note inside a group, for settings that can stop a container booting. */
 @Composable
-fun InlineWarning(text: String, modifier: Modifier = Modifier) {
+fun InlineWarning(text: String, modifier: Modifier = Modifier, title: String? = null) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
         shape = RoundedCornerShape(16.dp),
@@ -552,7 +552,15 @@ fun InlineWarning(text: String, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-            Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                // With a title the note is a heads-up (a running container), so the body reads quieter.
+                if (title != null) Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(
+                    text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (title != null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f) else MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

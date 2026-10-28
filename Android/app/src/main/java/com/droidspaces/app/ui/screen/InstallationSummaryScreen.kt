@@ -30,6 +30,10 @@ import com.droidspaces.app.util.ContainerInfo
 import com.droidspaces.app.util.ResourceLimits
 import com.droidspaces.app.util.Constants
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import com.droidspaces.app.ui.component.netModeLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,11 +98,7 @@ fun InstallationSummaryScreen(
                     SummaryItem(stringResource(R.string.tarball_label), tarballName, Icons.Default.Archive)
                     SummaryItem(stringResource(R.string.container_singular), config.name, DsIcons.Logo)
                     SummaryItem(stringResource(R.string.hostname), config.hostname, Icons.Default.Computer)
-                    SummaryItem(
-                        stringResource(R.string.network_mode),
-                        stringResource(when (config.netMode) { "nat" -> R.string.network_mode_nat; "none" -> R.string.network_mode_none; else -> R.string.network_mode_host }),
-                        Icons.Default.Public
-                    )
+                    SummaryItem(stringResource(R.string.network_mode), stringResource(netModeLabel(config.netMode)), Icons.Default.Public)
                     if (config.netMode == "nat" && config.staticNatIp.isNotEmpty()) {
                         SummaryItem(stringResource(R.string.static_ip_address), config.staticNatIp, Icons.Default.NetworkCheck)
                     }
@@ -124,59 +124,60 @@ fun InstallationSummaryScreen(
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
 
-                    if (config.disableIPv6) SummaryItem(stringResource(R.string.disable_ipv6), stringResource(R.string.enabled_legend), Icons.Default.NetworkCheck)
-                    if (config.enableAndroidStorage) SummaryItem(stringResource(R.string.android_storage), stringResource(R.string.enabled_legend), DsIcons.Logo)
-                    if (config.enableHwAccess) SummaryItem(stringResource(R.string.hardware_access), stringResource(R.string.enabled_legend), Icons.Default.Devices)
-                    if (!config.enableHwAccess && config.enableGpuMode) SummaryItem(stringResource(R.string.gpu_access), stringResource(R.string.enabled_legend), Icons.Default.DeveloperBoard)
-                    if (config.enableTermuxX11) SummaryItem(stringResource(R.string.termux_x11), stringResource(R.string.enabled_legend), painterResource(id = R.drawable.ic_x11))
-                    if (config.enableAnland) SummaryItem(stringResource(R.string.enable_anland), stringResource(R.string.enabled_legend), Icons.Default.DesktopWindows)
-                    if (config.enableVirgl) SummaryItem(stringResource(R.string.enable_virgl), stringResource(R.string.enabled_legend), Icons.Default.Layers)
-                    if (config.enablePulseaudio) SummaryItem(stringResource(R.string.enable_pulseaudio), stringResource(R.string.enabled_legend), Icons.AutoMirrored.Filled.VolumeUp)
-                    if (config.selinuxPermissive) SummaryItem(stringResource(R.string.selinux_permissive), stringResource(R.string.enabled_legend), Icons.Default.Security)
-                    if (config.allowSandboxing) SummaryItem(stringResource(R.string.allow_userns), stringResource(R.string.enabled_legend), Icons.Default.Groups)
-                    if (config.volatileMode) SummaryItem(stringResource(R.string.volatile_mode), stringResource(R.string.enabled_legend), Icons.Default.AutoDelete)
-                    if (config.runAtBoot) SummaryItem(stringResource(R.string.run_at_boot), stringResource(R.string.enabled_legend), Icons.Default.PowerSettingsNew)
-                    if (config.forceCgroupv1) SummaryItem(stringResource(R.string.force_cgroupv1), stringResource(R.string.enabled_legend), Icons.Default.Layers)
-                    if (config.privileged.isNotEmpty()) SummaryItem(stringResource(R.string.privileged_mode), config.privileged, Icons.Default.GppMaybe)
+                    // Set by every Option that draws, so the "nothing enabled" line needs no
+                    // list of every flag.
+                    var anyOption = false
+                    @Composable
+                    fun Option(shown: Boolean, label: String, value: String, icon: Painter) {
+                        if (!shown) return
+                        anyOption = true
+                        SummaryItem(label, value, icon)
+                    }
+                    @Composable
+                    fun Option(shown: Boolean, label: String, value: String, icon: ImageVector) {
+                        // The painter is only built for a row that draws.
+                        if (!shown) return
+                        anyOption = true
+                        SummaryItem(label, value, icon)
+                    }
+
+                    Option(config.disableIPv6, stringResource(R.string.disable_ipv6), stringResource(R.string.enabled_legend), Icons.Default.NetworkCheck)
+                    Option(config.enableAndroidStorage, stringResource(R.string.android_storage), stringResource(R.string.enabled_legend), DsIcons.Logo)
+                    Option(config.enableHwAccess, stringResource(R.string.hardware_access), stringResource(R.string.enabled_legend), Icons.Default.Devices)
+                    Option(!config.enableHwAccess && config.enableGpuMode, stringResource(R.string.gpu_access), stringResource(R.string.enabled_legend), Icons.Default.DeveloperBoard)
+                    Option(config.enableTermuxX11, stringResource(R.string.termux_x11), stringResource(R.string.enabled_legend), painterResource(id = R.drawable.ic_x11))
+                    Option(config.enableAnland, stringResource(R.string.enable_anland), stringResource(R.string.enabled_legend), Icons.Default.DesktopWindows)
+                    Option(config.enableVirgl, stringResource(R.string.enable_virgl), stringResource(R.string.enabled_legend), Icons.Default.Layers)
+                    Option(config.enablePulseaudio, stringResource(R.string.enable_pulseaudio), stringResource(R.string.enabled_legend), Icons.AutoMirrored.Filled.VolumeUp)
+                    Option(config.selinuxPermissive, stringResource(R.string.selinux_permissive), stringResource(R.string.enabled_legend), Icons.Default.Security)
+                    Option(config.allowSandboxing, stringResource(R.string.allow_userns), stringResource(R.string.enabled_legend), Icons.Default.Groups)
+                    Option(config.volatileMode, stringResource(R.string.volatile_mode), stringResource(R.string.enabled_legend), Icons.Default.AutoDelete)
+                    Option(config.runAtBoot, stringResource(R.string.run_at_boot), stringResource(R.string.enabled_legend), Icons.Default.PowerSettingsNew)
+                    Option(config.forceCgroupv1, stringResource(R.string.force_cgroupv1), stringResource(R.string.enabled_legend), Icons.Default.Layers)
+                    Option(config.privileged.isNotEmpty(), stringResource(R.string.privileged_mode), config.privileged, Icons.Default.GppMaybe)
                     val context = LocalContext.current
                     val memoryLabel = ResourceLimits.memoryLabel(context, config)
                     val cpuLabel = ResourceLimits.cpuLabel(context, config)
                     val pidsLabel = ResourceLimits.pidsLabel(context, config)
-                    if (memoryLabel != null) SummaryItem(stringResource(R.string.limit_memory), memoryLabel, Icons.Default.Memory)
-                    if (memoryLabel != null && config.allowSwap) SummaryItem(stringResource(R.string.limit_swap), stringResource(R.string.enabled_legend), Icons.Default.SwapVert)
-                    if (cpuLabel != null) SummaryItem(stringResource(R.string.limit_cpu), cpuLabel, Icons.Default.Speed)
-                    if (pidsLabel != null) SummaryItem(stringResource(R.string.limit_pids), pidsLabel, Icons.Default.Tag)
+                    Option(memoryLabel != null, stringResource(R.string.limit_memory), memoryLabel.orEmpty(), Icons.Default.Memory)
+                    Option(memoryLabel != null && config.allowSwap, stringResource(R.string.limit_swap), stringResource(R.string.enabled_legend), Icons.Default.SwapVert)
+                    Option(cpuLabel != null, stringResource(R.string.limit_cpu), cpuLabel.orEmpty(), Icons.Default.Speed)
+                    Option(pidsLabel != null, stringResource(R.string.limit_pids), pidsLabel.orEmpty(), Icons.Default.Tag)
 
                     val envCount = com.droidspaces.app.util.ValidationUtils.countEnvVars(config.envFileContent)
-                    if (envCount > 0) {
-                        SummaryItem(stringResource(R.string.environment_variables), stringResource(R.string.environment_variables_configured, envCount), Icons.Default.Code)
+                    Option(envCount > 0, stringResource(R.string.environment_variables), stringResource(R.string.environment_variables_configured, envCount), Icons.Default.Code)
+
+                    config.bindMounts.forEach { mount ->
+                        Option(true, stringResource(R.string.bind_mounts), "${mount.src} → ${mount.dest}", Icons.Default.Link)
                     }
 
-                    if (config.bindMounts.isNotEmpty()) {
-                        config.bindMounts.forEach { mount ->
-                            SummaryItem(stringResource(R.string.bind_mounts), "${mount.src} → ${mount.dest}", Icons.Default.Link)
-                        }
+                    Option(config.upstreamInterfaces.isNotEmpty(), stringResource(R.string.upstream_interface_title), config.upstreamInterfaces.joinToString(", "), Icons.Default.Public)
+
+                    config.portForwards.forEach { forward ->
+                        Option(true, stringResource(R.string.port_forwarding), "${forward.hostPort} → ${forward.containerPort ?: forward.hostPort} (${forward.proto})", Icons.AutoMirrored.Filled.ArrowForward)
                     }
 
-                    if (config.upstreamInterfaces.isNotEmpty()) {
-                        SummaryItem(stringResource(R.string.upstream_interface_title), config.upstreamInterfaces.joinToString(", "), Icons.Default.Public)
-                    }
-
-                    if (config.portForwards.isNotEmpty()) {
-                        config.portForwards.forEach { forward ->
-                            SummaryItem(stringResource(R.string.port_forwarding), "${forward.hostPort} → ${forward.containerPort ?: forward.hostPort} (${forward.proto})", Icons.AutoMirrored.Filled.ArrowForward)
-                        }
-                    }
-
-                    if (!config.enableAndroidStorage &&
-                        !config.enableHwAccess && !config.enableGpuMode && !config.selinuxPermissive &&
-                        !config.allowSandboxing && !config.volatileMode && config.bindMounts.isEmpty() &&
-                        !config.runAtBoot && !config.disableIPv6 &&
-                        !config.enableTermuxX11 && !config.enableAnland && !config.enableVirgl && !config.enablePulseaudio &&
-                        !config.forceCgroupv1 &&
-                        config.memoryLimit == 0L && config.cpuQuota == 0L && config.pidsLimit == 0L &&
-                        config.upstreamInterfaces.isEmpty() && config.portForwards.isEmpty() &&
-                        config.envFileContent.isNullOrBlank()) {
+                    if (!anyOption) {
                         Text(
                             text = stringResource(R.string.no_options_enabled),
                             style = MaterialTheme.typography.bodySmall,
@@ -192,33 +193,10 @@ fun InstallationSummaryScreen(
 }
 
 @Composable
-private fun SummaryItem(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) =
-    SummaryItem(label, value) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        )
-    }
+private fun SummaryItem(label: String, value: String, icon: ImageVector) = SummaryItem(label, value, rememberVectorPainter(icon))
 
 @Composable
-private fun SummaryItem(label: String, value: String, icon: androidx.compose.ui.graphics.painter.Painter) =
-    SummaryItem(label, value) {
-        Icon(
-            painter = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-        )
-    }
-
-@Composable
-private fun SummaryItem(
-    label: String,
-    value: String,
-    icon: @Composable () -> Unit
-) {
+private fun SummaryItem(label: String, value: String, icon: Painter) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -226,7 +204,7 @@ private fun SummaryItem(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        icon()
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
