@@ -318,7 +318,7 @@ int show_containers(struct ds_config *cfg) {
     char snap[PATH_MAX];
     if (build_proc_root_path(pid, "/run/droidspaces/container.config", snap,
                              sizeof(snap)) == 0 &&
-        ds_config_load(snap, &tmp_cfg) == 0) {
+        ds_config_peek_path(snap, &tmp_cfg) == 0) {
       safe_strncpy(st->name, tmp_cfg.container_name, sizeof(st->name));
       safe_strncpy(st->hostname, tmp_cfg.hostname, sizeof(st->hostname));
       ds_anland_load_sock(&tmp_cfg);
@@ -478,7 +478,7 @@ int ds_metadata_sync(pid_t pid) {
   build_proc_root_path(pid, "/run/droidspaces/container.config", path,
                        sizeof(path));
 
-  if (ds_config_load(path, &recovery_cfg) == 0) {
+  if (ds_config_peek_path(path, &recovery_cfg) == 0) {
     snprintf(recovery_cfg.config_file, sizeof(recovery_cfg.config_file),
              "%.3800s/container.config", container_dir);
 
@@ -635,7 +635,7 @@ int ds_feature_needs(size_t cfg_flag_offset) {
     char name[256];
     get_container_name_from_pidfile(ent->d_name, name, sizeof(name));
     struct ds_config tmp = {0};
-    if (ds_config_load_by_name(name, &tmp) == 0) {
+    if (ds_config_peek(name, &tmp) == 0) {
       int flag = *(int *)((char *)&tmp + cfg_flag_offset);
       pid_t pid;
       int running = flag && is_container_running(&tmp, &pid);
@@ -661,7 +661,7 @@ int ds_feature_needs(size_t cfg_flag_offset) {
     if (ent->d_name[0] == '.')
       continue;
     struct ds_config tmp = {0};
-    if (ds_config_load_by_name(ent->d_name, &tmp) == 0) {
+    if (ds_config_peek(ent->d_name, &tmp) == 0) {
       int flag = *(int *)((char *)&tmp + cfg_flag_offset);
       if (flag) {
         installed = 1;

@@ -964,6 +964,11 @@ static void write_to_log_file(const char *name, const char *component,
 
 void ds_log_internal(const char *prefix, const char *color, int is_err,
                      const char *fmt, ...) {
+  /* A peek (ds_config_peek) at a config file prints none of the file's
+   * complaints; errors are the command's own, so they still go out. */
+  if (ds_log_silent == DS_LOG_PEEK && prefix[0] != '-')
+    return;
+
   char raw_msg[8192];
   va_list ap;
   va_start(ap, fmt);

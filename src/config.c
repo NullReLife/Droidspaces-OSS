@@ -139,10 +139,9 @@ int parse_privileged(const char *value, struct ds_config *cfg) {
     while (i < n && strcasecmp(t, priv_bits[i].name) != 0)
       i++;
     if (i == n) {
-      ds_error(
-          "Unknown privileged tag '%s' (nomask, nocaps, noseccomp, shared, "
-          "full)",
-          t);
+      ds_warn("Unknown privileged tag '%s' (nomask, nocaps, noseccomp, shared, "
+              "full)",
+              t);
       cfg->privileged_mask = 0;
       safe_strncpy(cfg->privileged_bad, value, sizeof(cfg->privileged_bad));
       return -1;
@@ -825,7 +824,7 @@ int ds_config_save(const char *config_path, struct ds_config *cfg) {
   struct ds_config disk;
   ds_config_init(&disk);
   if (access(config_path, F_OK) == 0 &&
-      ds_config_load(config_path, &disk) == 0) {
+      ds_config_peek_path(config_path, &disk) == 0) {
     sort_bind_mounts(&disk);
     char *dbuf = NULL;
     size_t dsize = 0;
@@ -898,6 +897,24 @@ int ds_config_load_by_name(const char *name, struct ds_config *cfg) {
   }
 
   return ds_config_load(config_path, cfg);
+}
+
+/* See the peek level in ds_log_internal. */
+static int peek(int (*load)(const char *, struct ds_config *), const char *arg,
+                struct ds_config *cfg) {
+  int was = ds_log_silent;
+  ds_log_silent = DS_LOG_PEEK;
+  int ret = load(arg, cfg);
+  ds_log_silent = was;
+  return ret;
+}
+
+int ds_config_peek(const char *name, struct ds_config *cfg) {
+  return peek(ds_config_load_by_name, name, cfg);
+}
+
+int ds_config_peek_path(const char *config_path, struct ds_config *cfg) {
+  return peek(ds_config_load, config_path, cfg);
 }
 
 int ds_config_save_by_name(const char *name, struct ds_config *cfg) {

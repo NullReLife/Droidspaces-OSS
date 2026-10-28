@@ -520,7 +520,9 @@ int ds_net_check_ip_collision(const char *ip_str, const char *exclude_name) {
     struct ds_config other;
     ds_config_init(&other);
 
-    if (ds_config_load(config_path, &other) == 0) {
+    /* By path: this runs inside the auto-assign loop, and a by-name load
+     * costs a /proc scan per directory. */
+    if (ds_config_peek_path(config_path, &other) == 0) {
       if (other.static_nat_ip[0] && strcmp(other.static_nat_ip, ip_str) == 0)
         collision = 1;
       ds_config_free(&other);
@@ -1277,7 +1279,7 @@ static pid_t gateway_pid_of(const char *name) {
   struct ds_config c;
   ds_config_init(&c);
   safe_strncpy(c.container_name, name, sizeof(c.container_name));
-  (void)ds_config_load_by_name(name, &c);
+  (void)ds_config_peek(name, &c);
   pid_t p = 0;
   if (!is_container_running(&c, &p))
     p = 0;
@@ -1645,7 +1647,7 @@ void ds_net_rewire_gateway_clients(const char *gateway_name,
       continue;
 
     struct ds_config c = {0};
-    if (ds_config_load_by_name(ent->d_name, &c) != 0)
+    if (ds_config_peek(ent->d_name, &c) != 0)
       continue;
 
     pid_t p = 0;
@@ -1700,7 +1702,7 @@ void ds_net_gateway_teardown(const char *gateway_name) {
       continue;
 
     struct ds_config c = {0};
-    if (ds_config_load_by_name(ent->d_name, &c) != 0)
+    if (ds_config_peek(ent->d_name, &c) != 0)
       continue;
 
     if (!(c.net_mode == DS_NET_GATEWAY && c.gateway_container[0] &&
@@ -1824,7 +1826,7 @@ static int macvlan_parent_taken(const struct ds_config *cfg, char *who,
     if (ent->d_name[0] == '.')
       continue;
     struct ds_config c = {0};
-    if (ds_config_load_by_name(ent->d_name, &c) != 0)
+    if (ds_config_peek(ent->d_name, &c) != 0)
       continue;
     pid_t p = 0;
     if (c.net_mode == DS_NET_MACVLAN &&

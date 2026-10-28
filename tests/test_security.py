@@ -5,7 +5,7 @@
 
 import unittest
 
-from dstest import CAPS_DROPPED_NO_HW, DsTest, cap_mask, ds, require_daemon
+from dstest import CAPS_DROPPED_NO_HW, Container, DsTest, cap_mask, ds, require_daemon
 
 
 def setUpModule():
@@ -131,6 +131,28 @@ class Privileged(DsTest):
         d = caps(c)
         self.assertEqual((d["CapBnd"], d["Seccomp"]), (cap_mask(CAPS_DROPPED_NO_HW), "2"))
         self.assertEqual(c.saved_config()["privileged"], "nocaps,bogus")
+
+    def test_a_neighbours_bad_config_is_its_own_business(self):
+        # Every start, listing and stop reads other containers' config files: the static IP check, the
+        # gateway wiring, the container table. A bad value in one of them used to be printed, and logged,
+        # under whichever container was being worked on. The owner still hears about it, by -C and by -n.
+        bad = Container("badtag-neighbour").prepare()
+        self.addCleanup(bad.cleanup)
+        conf = bad.work / "x.conf"
+        conf.write_text(f"name={bad.name}\nrootfs_path={bad.rootfs}\nprivileged=nocaps,bogus\n")
+        p = ds("-C", str(conf), "start", check=True)
+        self.assertIn("Unknown privileged tag 'bogus'", p.stdout + p.stderr)
+        bad.stop(expect=0)
+        p = bad.start(rootfs=False, reset=False)  # the saved config, by name
+        self.assertIn("Unknown privileged tag 'bogus'", p.stdout + p.stderr)
+        self.assertIn("Unknown privileged tag 'bogus'", bad.log())
+
+        good = Container("good-neighbour").prepare()
+        self.addCleanup(good.cleanup)
+        p = good.start()
+        for what, text in (("start", p), ("show", ds("show", check=True)), ("stop", good.stop(expect=0))):
+            self.assertNotIn("privileged tag", text.stdout + text.stderr, f"a neighbour's complaint in {what}")
+        self.assertNotIn("privileged tag", good.log())
 
     def test_unknown_tag_grants_nothing(self):
         c = self.container("badtag2", "--privileged=bogus", expect=None)

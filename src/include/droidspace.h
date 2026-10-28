@@ -176,6 +176,8 @@
 /* Logging macros & Centralized Engine */
 
 extern int ds_log_silent;
+/* Also mutes this container's log, see ds_log_internal. */
+#define DS_LOG_PEEK 2
 extern char ds_log_container_name[256];
 extern int ds_log_container_fd;
 
@@ -608,6 +610,8 @@ int ds_bridge_termux_socket(const char *leaf, const char *dst,
 
 int ds_config_load(const char *config_path, struct ds_config *cfg);
 int ds_config_load_by_name(const char *name, struct ds_config *cfg);
+int ds_config_peek(const char *name, struct ds_config *cfg);
+int ds_config_peek_path(const char *config_path, struct ds_config *cfg);
 int ds_config_save(const char *config_path, struct ds_config *cfg);
 int ds_config_save_by_name(const char *name, struct ds_config *cfg);
 /* --net / net_mode= value to its mode, -1 if unknown. */
