@@ -71,46 +71,10 @@ android {
                 enableV3Signing = true
                 enableV4Signing = true
             }
-        } else {
-            // Fallback to default debug keystore or generate a temporary one
-            var fallbackKeystore = file(System.getProperty("user.home") + "/.android/debug.keystore")
-
-            if (!keystoreFile.exists() && !fallbackKeystore.exists()) {
-                println("WARNING: No keystore found. Generating temporary CI keystore...")
-                val ciKeystore = file("../../ci-debug.keystore")
-                if (!ciKeystore.exists()) {
-                    val dn = "CN=John Doe, OU=Mobile, O=Anonymized, L=Earth, ST=Galaxy, C=UN"
-                    project.exec {
-                        commandLine(
-                            "keytool", "-genkeypair",
-                            "-v",
-                            "-keystore", ciKeystore.absolutePath,
-                            "-alias", "droidspaces",
-                            "-keyalg", "RSA",
-                            "-keysize", "2048",
-                            "-validity", "10000",
-                            "-storetype", "JKS",
-                            "-storepass", "android",
-                            "-keypass", "android",
-                            "-dname", dn,
-                            "-sigalg", "SHA256withRSA"
-                        )
-                    }
-                }
-                fallbackKeystore = ciKeystore
-            }
-
-            println("Using fallback keystore: ${fallbackKeystore.absolutePath}")
-
-            getByName("debug") {
-                storeFile = fallbackKeystore
-                storePassword = "android"
-                keyAlias = if (fallbackKeystore.name.contains("ci-debug")) "droidspaces" else "androiddebugkey"
-                keyPassword = "android"
-            }
-            create("release") {
-                initWith(getByName("debug"))
-            }
+        // No release key (a fork, a pull request): the release build type signs with
+        // the debug config below. AGP creates ~/.android/debug.keystore when that
+        // config's file is missing, as on a fresh runner, but only for the config
+        // named "debug", not for a copy of it under another name.
         }
     }
 
@@ -122,7 +86,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
