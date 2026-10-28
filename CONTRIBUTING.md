@@ -602,7 +602,7 @@ an unknown line.
 | `ensure_workspace` | Creating the tree |
 | `is_container_running`, `find_container_by_name`, `find_container_init_pid`, `is_container_init` | Container lookup |
 | `ds_feature_needs(offsetof(struct ds_config, field))` | The generic feature scanner. A new global daemon adds a two-line wrapper here, not a new scanner |
-| `ds_seccomp_apply_minimal`, `android_seccomp_setup` | The seccomp filters |
+| `ds_seccomp_apply_minimal`, `ds_seccomp_keyring_shim` | The seccomp filters |
 | `ds_ksu_neutralize_root_escape` | KernelSU hardening. Must run **before** `ds_seccomp_apply_minimal`, whose magic-reboot block would otherwise deny the reboot it needs |
 | `ds_apply_capability_hardening` | Capability dropping |
 

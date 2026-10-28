@@ -1365,7 +1365,7 @@ int enter_rootfs(struct ds_config *cfg, const char *user) {
      * and the seccomp filter below denies that very magic reboot. */
     ds_ksu_neutralize_root_escape();
     ds_seccomp_apply_minimal(cfg->privileged_mask, cfg->sandboxing_allowed);
-    android_seccomp_setup(cfg->privileged_mask);
+    ds_seccomp_keyring_shim(cfg->privileged_mask);
     ds_apply_capability_hardening(cfg->hw_access, cfg->privileged_mask,
                                   cfg->sandboxing_allowed);
     ds_log_silent = 0;
@@ -1558,7 +1558,7 @@ int run_in_rootfs(struct ds_config *cfg, char **argv, const char *as_user) {
      * and the seccomp filter below denies that very magic reboot. */
     ds_ksu_neutralize_root_escape();
     ds_seccomp_apply_minimal(cfg->privileged_mask, cfg->sandboxing_allowed);
-    android_seccomp_setup(cfg->privileged_mask);
+    ds_seccomp_keyring_shim(cfg->privileged_mask);
     ds_apply_capability_hardening(cfg->hw_access, cfg->privileged_mask,
                                   cfg->sandboxing_allowed);
     ds_log_silent = 0;

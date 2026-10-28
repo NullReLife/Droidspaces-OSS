@@ -120,6 +120,8 @@ void ds_env_save(const char *path, struct ds_config *cfg) {
     fprintf(f, "export GALLIUM_DRIVER='virpipe'\n");
   if (is_android() && cfg->pulseaudio)
     fprintf(f, "export PULSE_SERVER='unix:" DS_PULSE_SOCKET "'\n");
+  if (ds_mount_api_shim_wanted(cfg))
+    fprintf(f, "export LIBMOUNT_FORCE_MOUNT2='always'\n");
 
   fclose(f);
   chmod(path, 0755);

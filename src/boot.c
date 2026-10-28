@@ -595,7 +595,8 @@ int internal_boot(struct ds_config *cfg) {
    * Best-effort, silent no-op on non-KSU kernels. */
   ds_ksu_neutralize_root_escape();
   ds_seccomp_apply_minimal(cfg->privileged_mask, cfg->sandboxing_allowed);
-  android_seccomp_setup(cfg->privileged_mask);
+  ds_seccomp_keyring_shim(cfg->privileged_mask);
+  ds_seccomp_mount_api_shim(cfg);
 
   ds_apply_capability_hardening(cfg->hw_access, cfg->privileged_mask,
                                 cfg->sandboxing_allowed);
@@ -662,6 +663,11 @@ int internal_boot(struct ds_config *cfg) {
       }
     }
     /* statfs failure → leave systemd to probe on its own */
+
+    /* libmount treats the shim's EPERM as fatal, see
+     * ds_seccomp_mount_api_shim. */
+    if (ds_mount_api_shim_wanted(cfg))
+      init_args[argc++] = (char *)"systemd.setenv=LIBMOUNT_FORCE_MOUNT2=always";
   }
 
   init_args[argc] = NULL;

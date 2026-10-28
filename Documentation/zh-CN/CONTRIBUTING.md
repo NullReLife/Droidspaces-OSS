@@ -572,7 +572,7 @@ libsu 的全局配置在 `DroidspacesApplication.kt` 中，那是唯一应该设
 | `ensure_workspace` | 创建目录树 |
 | `is_container_running`、`find_container_by_name`、`find_container_init_pid`、`is_container_init` | 容器查找 |
 | `ds_feature_needs(offsetof(struct ds_config, field))` | 通用的特性扫描。新增全局守护进程时在这里加一个两行的封装，而不是另写扫描器 |
-| `ds_seccomp_apply_minimal`、`android_seccomp_setup` | seccomp 过滤器 |
+| `ds_seccomp_apply_minimal`、`ds_seccomp_keyring_shim` | seccomp 过滤器 |
 | `ds_ksu_neutralize_root_escape` | KernelSU 加固。必须在 `ds_seccomp_apply_minimal` **之前**运行，否则后者的 magic reboot 拦截会挡掉它需要的那次 reboot 调用 |
 | `ds_apply_capability_hardening` | capability 丢弃 |
 

@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <glob.h>
 #include <grp.h>
 #include <limits.h>
 #include <linux/if_link.h>
@@ -651,8 +652,11 @@ void ds_set_selinux_permissive(int enable);
 int ds_get_selinux_status(void);
 void android_remount_data_suid(void);
 int android_setup_storage(const char *rootfs_path);
-int android_seccomp_setup(int privileged_mask);
+int ds_seccomp_keyring_shim(int privileged_mask);
 int ds_seccomp_apply_minimal(int privileged_mask, int sandboxing_allowed);
+int ds_kernel_has_mount_api(void);
+int ds_mount_api_shim_wanted(const struct ds_config *cfg);
+int ds_seccomp_mount_api_shim(const struct ds_config *cfg);
 
 /* KernelSU container-escape hardening: ask KSU to mark the current thread
  * (TIF_KSU_DISABLE_ESCAPE_WITH_ROOT via KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT)
