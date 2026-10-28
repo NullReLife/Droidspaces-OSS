@@ -80,45 +80,42 @@ fun UnitDetailScreen(
 
     LaunchedEffect(containerName, unitName) { load() }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        // A unit name is machine text and runs long, so this stays mono and
-                        // one step down from the titleLarge every other screen title uses.
-                        Text(
-                            unitName,
-                            style = MaterialTheme.typography.titleMedium.copy(fontFamily = JetBrainsMono),
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back))
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = { load() }) { Icon(Icons.Default.Refresh, context.getString(R.string.refresh)) }
-                        IconButton(onClick = onViewLogs) { Icon(Icons.AutoMirrored.Filled.Article, context.getString(R.string.view_logs)) }
-                        IconButton(onClick = onEditOverride) { Icon(Icons.Default.Edit, context.getString(R.string.edit_override)) }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-                )
-            },
-            containerColor = Color.Transparent
-        ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-                when (val s = state) {
-                    is UnitDetailState.Loading -> FullScreenLoading(message = context.getString(R.string.fetching_services))
-                    is UnitDetailState.Error -> ErrorState(
-                        title = context.getString(R.string.unit_detail_load_error_title),
-                        description = context.getString(R.string.unit_detail_load_error_message),
-                        onRetry = { load() }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    // A unit name is machine text and runs long, so this stays mono and
+                    // one step down from the titleLarge every other screen title uses.
+                    Text(
+                        unitName,
+                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = JetBrainsMono),
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
-                    is UnitDetailState.Ready -> UnitDetailContent(s.inspection, context)
-                }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back))
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { load() }) { Icon(Icons.Default.Refresh, context.getString(R.string.refresh)) }
+                    IconButton(onClick = onViewLogs) { Icon(Icons.AutoMirrored.Filled.Article, context.getString(R.string.view_logs)) }
+                    IconButton(onClick = onEditOverride) { Icon(Icons.Default.Edit, context.getString(R.string.edit_override)) }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when (val s = state) {
+                is UnitDetailState.Loading -> FullScreenLoading(message = context.getString(R.string.fetching_services))
+                is UnitDetailState.Error -> ErrorState(
+                    title = context.getString(R.string.unit_detail_load_error_title),
+                    description = context.getString(R.string.unit_detail_load_error_message),
+                    onRetry = { load() }
+                )
+                is UnitDetailState.Ready -> UnitDetailContent(s.inspection, context)
             }
         }
     }

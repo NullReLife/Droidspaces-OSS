@@ -41,9 +41,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.droidspaces.app.ui.component.DsSnackbarHost
 import com.droidspaces.app.ui.util.ProgressDialog
+import com.droidspaces.app.ui.util.FullScreenLoading
 import com.droidspaces.app.ui.util.ErrorLogsDialog
-import com.droidspaces.app.ui.util.LoadingIndicator
-import com.droidspaces.app.ui.util.LoadingSize
 import com.droidspaces.app.ui.util.AnimatedListEntry
 import com.droidspaces.app.ui.util.rememberAnimatedEntries
 import com.droidspaces.app.ui.util.showError
@@ -170,12 +169,7 @@ fun ContainersScreen(
             }
             entries.isEmpty() -> {
                 if (containerViewModel.isRefreshing) {
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(bottom = bottomBarInset),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        LoadingIndicator(size = LoadingSize.Large)
-                    }
+                    FullScreenLoading(modifier = Modifier.padding(bottom = bottomBarInset))
                 } else {
                     EmptyState(
                         icon = DsIcons.Logo,

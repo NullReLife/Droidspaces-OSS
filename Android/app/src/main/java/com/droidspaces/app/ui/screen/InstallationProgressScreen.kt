@@ -151,9 +151,6 @@ fun InstallationProgressScreen(
                                 .fillMaxWidth()
                                 .height(56.dp),
                             shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))

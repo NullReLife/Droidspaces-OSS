@@ -200,9 +200,18 @@ fun DroidspacesTheme(
         }
     }
 
-    SystemBarStyle(
-        darkMode = darkTheme
-    )
+    // Transparent bars, icons matching the theme. The navigation bar is dark() or
+    // light() rather than auto(): auto() hands the OS a MODE_NIGHT_AUTO style, and on
+    // API 29+ that turns the navigation-bar contrast scrim back on, a grey band over
+    // the app's own bar on three-button phones.
+    val activity = context as? ComponentActivity
+    SideEffect {
+        val transparent = Color.Transparent.toArgb()
+        activity?.enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(transparent, transparent) { darkTheme },
+            navigationBarStyle = if (darkTheme) SystemBarStyle.dark(transparent) else SystemBarStyle.light(transparent, transparent),
+        )
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,
@@ -210,33 +219,4 @@ fun DroidspacesTheme(
         typography = Typography,
         content = content
     )
-}
-
-@Composable
-private fun SystemBarStyle(
-    darkMode: Boolean,
-    statusBarScrim: Color = Color.Transparent,
-    navigationBarScrim: Color = Color.Transparent,
-) {
-    val context = LocalContext.current
-    val activity = context as? ComponentActivity
-
-    SideEffect {
-        activity?.enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(
-                statusBarScrim.toArgb(),
-                statusBarScrim.toArgb(),
-            ) { darkMode },
-            navigationBarStyle = when {
-                darkMode -> SystemBarStyle.dark(
-                    navigationBarScrim.toArgb()
-                )
-
-                else -> SystemBarStyle.light(
-                    navigationBarScrim.toArgb(),
-                    navigationBarScrim.toArgb(),
-                )
-            }
-        )
-    }
 }

@@ -58,60 +58,57 @@ fun JournaldScreen(
         viewModel.loadLogs(containerName, unitName)
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Column {
-                            // Title carries a unit name, so it stays one step below the
-                            // titleLarge every other screen title uses.
-                            Text(
-                                context.getString(R.string.logs_title, unitName),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                            Text(
-                                containerName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back))
-                        }
-                    },
-                    actions = {
-                        LineCountSelector(
-                            selected = viewModel.lineCount,
-                            onSelected = { viewModel.lineCount = it },
-                            enabled = state !is JournaldState.Loading
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        // Title carries a unit name, so it stays one step below the
+                        // titleLarge every other screen title uses.
+                        Text(
+                            context.getString(R.string.logs_title, unitName),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
                         )
-                        IconButton(
-                            onClick = { viewModel.loadLogs(containerName, unitName) },
-                            enabled = state !is JournaldState.Loading
-                        ) {
-                            Icon(Icons.Default.Refresh, context.getString(R.string.refresh))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-                )
-            },
-            containerColor = Color.Transparent
-        ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-                when (val s = state) {
-                    is JournaldState.Loading -> FullScreenLoading(message = context.getString(R.string.fetching_logs))
-                    is JournaldState.Error -> ErrorState(
-                        title = context.getString(R.string.journal_load_error_title),
-                        description = context.getString(R.string.journal_load_error_message),
-                        onRetry = { viewModel.loadLogs(containerName, unitName) }
+                        Text(
+                            containerName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back))
+                    }
+                },
+                actions = {
+                    LineCountSelector(
+                        selected = viewModel.lineCount,
+                        onSelected = { viewModel.lineCount = it },
+                        enabled = state !is JournaldState.Loading
                     )
-                    is JournaldState.Ready -> JournaldContent(s.logs)
-                }
+                    IconButton(
+                        onClick = { viewModel.loadLogs(containerName, unitName) },
+                        enabled = state !is JournaldState.Loading
+                    ) {
+                        Icon(Icons.Default.Refresh, context.getString(R.string.refresh))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when (val s = state) {
+                is JournaldState.Loading -> FullScreenLoading(message = context.getString(R.string.fetching_logs))
+                is JournaldState.Error -> ErrorState(
+                    title = context.getString(R.string.journal_load_error_title),
+                    description = context.getString(R.string.journal_load_error_message),
+                    onRetry = { viewModel.loadLogs(containerName, unitName) }
+                )
+                is JournaldState.Ready -> JournaldContent(s.logs)
             }
         }
     }

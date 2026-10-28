@@ -51,7 +51,7 @@ import com.droidspaces.app.util.ContainerUsersManager
 import com.droidspaces.app.util.FontInfo
 import com.droidspaces.app.util.PreferencesManager
 import java.io.File
-import com.droidspaces.app.ui.util.LoadingIndicator
+import com.droidspaces.app.ui.util.FullScreenLoading
 import com.droidspaces.app.ui.util.LoadingSize
 import com.termux.terminal.TerminalSession
 import com.termux.view.TerminalView
@@ -368,9 +368,7 @@ fun ContainerTerminalScreen(
                 .background(if (terminalDarkTheme) Color.Black else MaterialTheme.colorScheme.surface)
         ) {
             if (binder == null || tabs.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    LoadingIndicator(size = LoadingSize.Medium)
-                }
+                FullScreenLoading(size = LoadingSize.Medium)
             } else {
                 tabs.forEach { tab ->
                     key(tab.id) {

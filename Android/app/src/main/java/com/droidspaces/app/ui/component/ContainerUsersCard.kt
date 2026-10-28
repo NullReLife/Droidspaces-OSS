@@ -215,10 +215,6 @@ fun ContainerUsersCard(
                     },
                     modifier = Modifier.widthIn(min = 140.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
                 ) {
                     Icon(
                         Icons.Default.ContentCopy,

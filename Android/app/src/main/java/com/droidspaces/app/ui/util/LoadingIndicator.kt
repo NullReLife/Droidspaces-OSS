@@ -50,7 +50,8 @@ fun LoadingIndicator(
 @Composable
 fun FullScreenLoading(
     message: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: LoadingSize = LoadingSize.Large,
 ) {
     Box(
         modifier = modifier.fillMaxSize(),
@@ -61,7 +62,7 @@ fun FullScreenLoading(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            LoadingIndicator(size = LoadingSize.Large)
+            LoadingIndicator(size = size)
             message?.let {
                 Text(
                     text = it,

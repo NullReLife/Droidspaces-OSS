@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.droidspaces.app.ui.component.ContainerUsersCard
 import com.droidspaces.app.ui.component.DsSnackbarHost
 import com.droidspaces.app.util.ContainerInfo
+import com.droidspaces.app.util.ResourceLimits
 import com.droidspaces.app.util.ContainerOSInfoManager
 import com.droidspaces.app.util.ContainerDiskUsageManager
 import com.droidspaces.app.util.ContainerUsersManager
@@ -124,10 +125,7 @@ fun ContainerDetailsScreen(
                         break
                     }
 
-                    val currentInfo = osInfo
-                    if (currentInfo == null || hasOSInfoChanged(currentInfo, newOSInfo)) {
-                        osInfo = newOSInfo
-                    }
+                    if (osInfo != newOSInfo) osInfo = newOSInfo
                 } catch (e: Exception) {
                     // Silently ignore refresh errors to keep the UI smooth
                 }
@@ -311,28 +309,6 @@ private sealed class InitSystemCardState {
 }
 
 /**
- * Helper function to check if OS info actually changed.
- * Only updates UI when there are real changes (prevents unnecessary recompositions).
- */
-private fun hasOSInfoChanged(old: ContainerOSInfoManager.OSInfo, new: ContainerOSInfoManager.OSInfo): Boolean {
-    return old.prettyName != new.prettyName ||
-           old.name != new.name ||
-           old.version != new.version ||
-           old.versionId != new.versionId ||
-           old.id != new.id ||
-           old.hostname != new.hostname ||
-           old.ipAddress != new.ipAddress ||
-           old.anlandSocket != new.anlandSocket ||
-           old.x11 != new.x11 ||
-           old.uptime != new.uptime ||
-           old.cpuUsage != new.cpuUsage ||
-           old.ramUsedKb != new.ramUsedKb ||
-           old.ramPercent != new.ramPercent ||
-           old.ramLimitKb != new.ramLimitKb
-}
-
-
-/**
  * Info row with optimized layout - no unnecessary recompositions
  */
 @Composable
@@ -477,10 +453,6 @@ private fun TerminalCard(
                 onClick = onOpenTerminal,
                 modifier = Modifier.widthIn(min = 140.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
             ) {
                 Icon(
                     if (sessionCount > 0) Icons.Default.Terminal else Icons.Default.ChevronRight,
@@ -564,8 +536,8 @@ private fun SparseDiskUsageCard(
                     val subtitle = usage?.let {
                         context.getString(
                             R.string.disk_usage_used_of_total,
-                            formatBytes(it.usedBytes),
-                            formatBytes(it.totalBytes)
+                            ResourceLimits.formatBytes(it.usedBytes),
+                            ResourceLimits.formatBytes(it.totalBytes)
                         )
                     } ?: context.getString(R.string.disk_usage_calculating)
                     Text(
@@ -586,16 +558,6 @@ private fun SparseDiskUsageCard(
             )
         }
     }
-}
-
-/**
- * Formats a byte count as a human-readable string (GiB with one decimal, or MiB below 1 GiB).
- */
-private fun formatBytes(bytes: Long): String {
-    val gb = bytes.toDouble() / (1024.0 * 1024.0 * 1024.0)
-    if (gb >= 1.0) return String.format("%.1f GB", gb)
-    val mb = bytes.toDouble() / (1024.0 * 1024.0)
-    return String.format("%.0f MB", mb)
 }
 
 /**
@@ -718,10 +680,6 @@ private fun PremiumInitSystemCard(
                             onClick = { onNavigateToServices(currentState.initSystem) },
                             modifier = Modifier.widthIn(min = 140.dp),
                             shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
                         ) {
                             Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
@@ -804,10 +762,6 @@ private fun DisplayAppCard(
                 onClick = onLaunch,
                 modifier = Modifier.widthIn(min = 140.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
             ) {
                 Icon(Icons.Default.ChevronRight, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))

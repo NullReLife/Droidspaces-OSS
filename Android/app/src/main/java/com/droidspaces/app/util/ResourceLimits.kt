@@ -35,6 +35,14 @@ object ResourceLimits {
 
     /** A live figure: "13.50 MB", "2.88 GB", two decimals in whichever unit fits, the way
      * fastfetch prints memory. Limits keep the round [formatMemory] look. */
+    /** A byte count for a size chip or a usage line: one decimal, binary units. */
+    fun formatBytes(bytes: Long): String = when {
+        bytes >= 1L shl 30 -> "%.1f GB".format(Locale.getDefault(), bytes / (1L shl 30).toDouble())
+        bytes >= 1L shl 20 -> "%.1f MB".format(Locale.getDefault(), bytes / (1L shl 20).toDouble())
+        bytes >= 1L shl 10 -> "%.0f KB".format(Locale.getDefault(), bytes / 1024.0)
+        else -> "$bytes B"
+    }
+
     fun formatMemoryUsage(context: Context, kb: Long): String {
         fun two(v: Double) = String.format(Locale.getDefault(), "%.2f", v)
         return when {

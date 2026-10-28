@@ -183,78 +183,73 @@ fun InitServiceScreen(
 
     val clearFocus = rememberClearFocus()
 
-    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(context.getString(titleRes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
-                    navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back)) } },
-                    actions = { IconButton(onClick = { fetchServices() }, enabled = screenState !is InitScreenState.Loading && actionState is InitActionState.Idle) { Icon(Icons.Default.Refresh, context.getString(R.string.refresh)) } },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                )
-            },
-            snackbarHost = { DsSnackbarHost(snackbarHostState) },
-            containerColor = Color.Transparent
-        ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    when (screenState) {
-                        is InitScreenState.Loading -> FullScreenLoading(message = context.getString(R.string.fetching_services))
-                        is InitScreenState.NotAvailable -> InitServiceNotAvailable()
-                        is InitScreenState.Ready -> {
-                            val pagerState = rememberPagerState(
-                                initialPage = filters.indexOfFirst { it.id == selectedFilterId }.coerceAtLeast(0),
-                                pageCount = { filters.size }
-                            )
-                            // Swiping between filter pages keeps the chip row selection in sync.
-                            LaunchedEffect(pagerState.currentPage) {
-                                viewModel.selectedFilterId = filters[pagerState.currentPage].id
-                            }
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                InitServiceSearchBar(query = searchQuery, onQueryChange = { viewModel.searchQuery = it })
-                                InitServiceFilterChipsRow(
-                                    filters = filters,
-                                    counts = counts,
-                                    selectedFilterId = selectedFilterId,
-                                    onFilterSelected = { id ->
-                                        clearFocus()
-                                        val idx = filters.indexOfFirst { it.id == id }
-                                        if (idx >= 0) scope.launch {
-                                            // Animate only for adjacent hops; jump directly for distant
-                                            // ones so we don't flip through every page in between.
-                                            if (kotlin.math.abs(idx - pagerState.currentPage) <= 1) {
-                                                pagerState.animateScrollToPage(idx)
-                                            } else {
-                                                pagerState.scrollToPage(idx)
-                                            }
-                                        }
-                                    }
-                                )
-                                if (searchQuery.isNotBlank()) {
-                                    // Search overrides the filter pages: one results list across all services.
-                                    val results = allRows.filter { it.name.contains(searchQuery, ignoreCase = true) }
-                                    if (results.isEmpty()) {
-                                        InitServiceEmptyState(emptyRes = selectedFilter.emptyRes, modifier = Modifier.weight(1f))
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(context.getString(titleRes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, context.getString(R.string.back)) } },
+                actions = { IconButton(onClick = { fetchServices() }, enabled = screenState !is InitScreenState.Loading && actionState is InitActionState.Idle) { Icon(Icons.Default.Refresh, context.getString(R.string.refresh)) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            )
+        },
+        snackbarHost = { DsSnackbarHost(snackbarHostState) }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            when (screenState) {
+                is InitScreenState.Loading -> FullScreenLoading(message = context.getString(R.string.fetching_services))
+                is InitScreenState.NotAvailable -> InitServiceNotAvailable()
+                is InitScreenState.Ready -> {
+                    val pagerState = rememberPagerState(
+                        initialPage = filters.indexOfFirst { it.id == selectedFilterId }.coerceAtLeast(0),
+                        pageCount = { filters.size }
+                    )
+                    // Swiping between filter pages keeps the chip row selection in sync.
+                    LaunchedEffect(pagerState.currentPage) {
+                        viewModel.selectedFilterId = filters[pagerState.currentPage].id
+                    }
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        InitServiceSearchBar(query = searchQuery, onQueryChange = { viewModel.searchQuery = it })
+                        InitServiceFilterChipsRow(
+                            filters = filters,
+                            counts = counts,
+                            selectedFilterId = selectedFilterId,
+                            onFilterSelected = { id ->
+                                clearFocus()
+                                val idx = filters.indexOfFirst { it.id == id }
+                                if (idx >= 0) scope.launch {
+                                    // Animate only for adjacent hops; jump directly for distant
+                                    // ones so we don't flip through every page in between.
+                                    if (kotlin.math.abs(idx - pagerState.currentPage) <= 1) {
+                                        pagerState.animateScrollToPage(idx)
                                     } else {
-                                        LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                            items(results, key = { it.name }) { row ->
-                                                InitServiceCard(row = row, onAction = { actionName, act -> executeAction(row.name, actionName, act) })
-                                            }
-                                        }
+                                        pagerState.scrollToPage(idx)
                                     }
+                                }
+                            }
+                        )
+                        if (searchQuery.isNotBlank()) {
+                            // Search overrides the filter pages: one results list across all services.
+                            val results = allRows.filter { it.name.contains(searchQuery, ignoreCase = true) }
+                            if (results.isEmpty()) {
+                                InitServiceEmptyState(emptyRes = selectedFilter.emptyRes, modifier = Modifier.weight(1f))
+                            } else {
+                                LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    items(results, key = { it.name }) { row ->
+                                        InitServiceCard(row = row, onAction = { actionName, act -> executeAction(row.name, actionName, act) })
+                                    }
+                                }
+                            }
+                        } else {
+                            HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
+                                val pageFilter = filters[page]
+                                val rows = allRows.filter(pageFilter.predicate)
+                                    .sortedWith(compareByDescending<InitServiceRow> { it.isRunning }.thenBy { it.name })
+                                if (rows.isEmpty()) {
+                                    InitServiceEmptyState(emptyRes = pageFilter.emptyRes, modifier = Modifier.fillMaxSize())
                                 } else {
-                                    HorizontalPager(state = pagerState, modifier = Modifier.weight(1f)) { page ->
-                                        val pageFilter = filters[page]
-                                        val rows = allRows.filter(pageFilter.predicate)
-                                            .sortedWith(compareByDescending<InitServiceRow> { it.isRunning }.thenBy { it.name })
-                                        if (rows.isEmpty()) {
-                                            InitServiceEmptyState(emptyRes = pageFilter.emptyRes, modifier = Modifier.fillMaxSize())
-                                        } else {
-                                            LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                                items(rows, key = { it.name }) { row ->
-                                                    InitServiceCard(row = row, onAction = { actionName, act -> executeAction(row.name, actionName, act) })
-                                                }
-                                            }
+                                    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        items(rows, key = { it.name }) { row ->
+                                            InitServiceCard(row = row, onAction = { actionName, act -> executeAction(row.name, actionName, act) })
                                         }
                                     }
                                 }
