@@ -66,6 +66,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.content.res.ResourcesCompat
 import com.droidspaces.app.R
+import com.droidspaces.app.ui.component.DsRadioRow
 
 private data class TerminalTab(
     val id: String,
@@ -646,41 +647,7 @@ private fun UserPickerDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 users.forEach { user ->
-                    val isSelected = user == selected
-                    Surface(
-                        onClick = { selected = user },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) 
-                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp, 
-                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                        ),
-                        tonalElevation = 0.dp
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = user,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface
-                            )
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { selected = user },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
-                                )
-                            )
-                        }
-                    }
+                    DsRadioRow(label = user, selected = user == selected, onClick = { selected = user })
                 }
             }
     }

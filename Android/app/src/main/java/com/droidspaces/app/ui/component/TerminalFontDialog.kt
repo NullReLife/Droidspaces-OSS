@@ -3,18 +3,12 @@ package com.droidspaces.app.ui.component
 import android.graphics.Typeface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -130,19 +124,19 @@ fun TerminalFontDialog(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            FontRow(
+            DsRadioRow(
                 label = context.getString(R.string.terminal_font_default),
                 fontFamily = JetBrainsMono,
                 selected = effectiveSelection.isEmpty(),
                 onClick = { selected = "" }
             )
             importedFonts.forEach { file ->
-                FontRow(
+                DsRadioRow(
                     label = fontNames[file.name] ?: file.nameWithoutExtension,
                     fontFamily = fontFamilies[file.name] ?: JetBrainsMono,
                     selected = effectiveSelection == file.name,
                     onClick = { selected = file.name },
-                    onDelete = {
+                    delete = context.getString(R.string.terminal_font_delete) to {
                         file.delete()
                         if (selected == file.name) selected = ""
                         importedFonts = listFonts()
@@ -159,83 +153,6 @@ fun TerminalFontDialog(
             )
         }
 
-        // Same add-button look as the env vars dialog
-        val addBtnShape = RoundedCornerShape(16.dp)
-        Surface(
-            modifier = Modifier.fillMaxWidth().clip(addBtnShape).clickable(
-                onClick = { fontPickerLauncher.launch("*/*") }
-            ),
-            shape = addBtnShape,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-            tonalElevation = 0.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(context.getString(R.string.terminal_font_import), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-// Same row style as the terminal user picker in ContainerTerminalScreen
-@Composable
-private fun FontRow(
-    label: String,
-    fontFamily: FontFamily,
-    selected: Boolean,
-    onClick: () -> Unit,
-    onDelete: (() -> Unit)? = null,
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-        ),
-        tonalElevation = 0.dp
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                // The row's own face is the live preview
-                fontFamily = fontFamily,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
-            if (onDelete != null) {
-                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = LocalContext.current.getString(R.string.terminal_font_delete),
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                    )
-                }
-            }
-            RadioButton(
-                selected = selected,
-                onClick = onClick,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
-                )
-            )
-        }
+        AddEntryButton(context.getString(R.string.terminal_font_import), onClick = { fontPickerLauncher.launch("*/*") })
     }
 }

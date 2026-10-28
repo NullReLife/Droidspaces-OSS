@@ -1,12 +1,9 @@
 package com.droidspaces.app.ui.screen
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -20,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -61,6 +57,8 @@ import com.droidspaces.app.util.CommandResult
 import com.droidspaces.app.util.ServiceStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.droidspaces.app.ui.component.DsSearchBar
+import androidx.compose.material3.LocalContentColor
 
 // One screen drives all four init systems: each maps its manager's ServiceInfo to a row
 // whose actions are already bound to that manager.
@@ -208,7 +206,7 @@ fun InitServiceScreen(
                         viewModel.selectedFilterId = filters[pagerState.currentPage].id
                     }
                     Column(modifier = Modifier.fillMaxSize()) {
-                        InitServiceSearchBar(query = searchQuery, onQueryChange = { viewModel.searchQuery = it })
+                        DsSearchBar(searchQuery, { viewModel.searchQuery = it }, context.getString(R.string.search_services), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.surfaceContainer)
                         InitServiceFilterChipsRow(
                             filters = filters,
                             counts = counts,
@@ -263,45 +261,6 @@ fun InitServiceScreen(
 
     (actionState as? InitActionState.InProgress)?.let { state -> ProgressDialog(message = context.getString(R.string.actioning_service, state.actionName, state.serviceName)) }
     logsDialogContent?.let { logs -> ErrorLogsDialog(logs = logs, onDismiss = { logsDialogContent = null }) }
-}
-
-@Composable
-private fun InitServiceSearchBar(query: String, onQueryChange: (String) -> Unit) {
-    val context = LocalContext.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-    val borderColor by animateColorAsState(
-        targetValue = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-        animationSpec = AnimationUtils.fastSpec()
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, borderColor)
-    ) {
-        TextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            interactionSource = interactionSource,
-            placeholder = { Text(context.getString(R.string.search_services), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-            leadingIcon = { Icon(Icons.Default.Search, null, tint = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
-            trailingIcon = { if (query.isNotEmpty()) { IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Default.Clear, null) } } },
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.primary
-            ),
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyLarge,
-            keyboardOptions = FocusUtils.searchKeyboardOptions,
-            keyboardActions = FocusUtils.clearFocusKeyboardActions()
-        )
-    }
 }
 
 @Composable
@@ -375,6 +334,30 @@ private fun statusLabelRes(status: ServiceStatus): Int = when (status) {
     ServiceStatus.UNKNOWN -> R.string.unknown_legend
 }
 
+/**
+ * A 48dp action pill on a [container] fill. An [accent] tints the icon, label
+ * and border; without one the pill is the neutral grey of a secondary action.
+ */
+@Composable
+private fun PillButton(icon: ImageVector, label: String, accent: Color?, container: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = container,
+        border = BorderStroke(1.dp, (accent ?: MaterialTheme.colorScheme.outlineVariant).copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+        ) {
+            Icon(icon, null, Modifier.size(18.dp), tint = accent ?: LocalContentColor.current)
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = accent ?: Color.Unspecified)
+        }
+    }
+}
+
 @Composable
 private fun InitServiceCard(
     row: InitServiceRow,
@@ -434,52 +417,19 @@ private fun InitServiceCard(
                     Row(modifier = Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val unmask = row.unmask
                         if (row.isMasked && unmask != null) {
-                            Surface(
-                                onClick = { onAction(context.getString(R.string.unmask), unmask) },
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Icon(Icons.Default.LockOpen, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                                        Text(context.getString(R.string.unmask), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                }
-                            }
+                            val label = context.getString(R.string.unmask)
+                            PillButton(Icons.Default.LockOpen, label, MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f), Modifier.weight(1f)) { onAction(label, unmask) }
                         } else {
-                            val btnColor = if (row.isRunning) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                            val accentColor = if (row.isRunning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                            Surface(
-                                onClick = { onAction(if (row.isRunning) context.getString(R.string.stop) else context.getString(R.string.start), row.startStop) },
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = btnColor,
-                                border = BorderStroke(1.dp, accentColor.copy(alpha = 0.2f))
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Icon(if (row.isRunning) Icons.Default.Stop else Icons.Default.PlayArrow, null, Modifier.size(18.dp), tint = accentColor)
-                                        Text(if (row.isRunning) context.getString(R.string.stop) else context.getString(R.string.start), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = accentColor)
-                                    }
-                                }
-                            }
+                            val label = context.getString(if (row.isRunning) R.string.stop else R.string.start)
+                            PillButton(
+                                if (row.isRunning) Icons.Default.Stop else Icons.Default.PlayArrow, label,
+                                if (row.isRunning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                (if (row.isRunning) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer).copy(alpha = 0.4f),
+                                Modifier.weight(1f)
+                            ) { onAction(label, row.startStop) }
                             if (!row.isStatic) {
-                                Surface(
-                                    onClick = { onAction(if (row.isEnabled) context.getString(R.string.disable_service) else context.getString(R.string.enable_service), row.enableDisable) },
-                                    modifier = Modifier.weight(1f).height(48.dp),
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-                                ) {
-                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Icon(if (row.isEnabled) Icons.Default.Block else Icons.Default.CheckCircle, null, Modifier.size(18.dp))
-                                            Text(if (row.isEnabled) context.getString(R.string.disable_service) else context.getString(R.string.enable_service), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
+                                val toggle = context.getString(if (row.isEnabled) R.string.disable_service else R.string.enable_service)
+                                PillButton(if (row.isEnabled) Icons.Default.Block else Icons.Default.CheckCircle, toggle, null, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), Modifier.weight(1f)) { onAction(toggle, row.enableDisable) }
                             }
                             if (row.menu.isNotEmpty()) {
                                 Box {

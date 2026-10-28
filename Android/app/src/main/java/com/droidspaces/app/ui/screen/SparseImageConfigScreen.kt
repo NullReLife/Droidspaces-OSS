@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.droidspaces.app.R
 import com.droidspaces.app.ui.theme.DsIcons
+import com.droidspaces.app.ui.component.ToggleCard
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -280,68 +281,16 @@ fun SparseImageConfigScreen(
                 }
             }
 
-            // Toggle
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { if (directoryModeAllowed) useSparseImage = !useSparseImage },
+            ToggleCard(
+                title = context.getString(R.string.use_sparse_image),
+                description = context.getString(
+                    if (directoryModeAllowed) R.string.use_sparse_image_description else R.string.storage_location_image_forced
+                ),
+                checked = useSparseImage,
+                onCheckedChange = { useSparseImage = it },
                 enabled = directoryModeAllowed,
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = DsIcons.Logo,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = context.getString(R.string.use_sparse_image),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = if (directoryModeAllowed) {
-                                    context.getString(R.string.use_sparse_image_description)
-                                } else {
-                                    context.getString(R.string.storage_location_image_forced)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                    Switch(
-                        checked = useSparseImage,
-                        enabled = directoryModeAllowed,
-                        onCheckedChange = { useSparseImage = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            uncheckedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                        )
-                    )
-                }
-            }
+                icon = DsIcons.Logo
+            )
 
             // Size input
             if (useSparseImage) {
