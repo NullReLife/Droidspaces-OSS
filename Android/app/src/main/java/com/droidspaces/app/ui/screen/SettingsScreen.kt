@@ -43,6 +43,9 @@ import com.droidspaces.app.ui.component.DialogFooterRow
 import com.droidspaces.app.ui.component.SectionHeader
 import com.droidspaces.app.ui.component.AccentColorPicker
 import com.droidspaces.app.ui.component.BugReportDialog
+import com.droidspaces.app.ui.component.GroupDivider
+import com.droidspaces.app.ui.component.GroupHeader
+import com.droidspaces.app.ui.component.NavRow
 import com.droidspaces.app.ui.component.SettingsGroup
 import com.droidspaces.app.ui.component.SwitchItem
 import com.droidspaces.app.ui.theme.ThemePalette
@@ -51,7 +54,6 @@ import com.droidspaces.app.ui.viewmodel.AppStateViewModel
 import com.droidspaces.app.util.PreferencesManager
 import com.droidspaces.app.util.LocaleHelper
 import com.droidspaces.app.util.ContributorManager
-import com.droidspaces.app.util.Contributor
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.ui.graphics.asImageBitmap
@@ -160,148 +162,79 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             // Backend Reinstallation Section
-            SectionHeader(
-                text = context.getString(R.string.backend_section),
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
-            )
+            GroupHeader(context.getString(R.string.backend_section))
 
             SettingsGroup {
-                    ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = null,
-                        tint = if (isRootAvailable) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        }
-                    )
-                },
-                headlineContent = {
-                    Text(
-                        text = context.getString(R.string.reinstall_backend),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isRootAvailable) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        }
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = context.getString(R.string.reinstall_backend_description),
-                        color = if (isRootAvailable) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                        }
-                    )
-                },
-                modifier = Modifier
-                    .then(
-                        if (isRootAvailable) {
-                            Modifier.clickable {
-                                onNavigateToInstallation()
+                NavRow(
+                    icon = Icons.Default.Build,
+                    title = context.getString(R.string.reinstall_backend),
+                    summary = context.getString(R.string.reinstall_backend_description),
+                    enabled = isRootAvailable,
+                    onClick = onNavigateToInstallation
+                )
+
+                GroupDivider()
+
+                // Daemon Mode Toggle
+                SwitchItem(
+                    icon = Icons.Default.SettingsBackupRestore,
+                    title = context.getString(R.string.daemon_mode),
+                    summary = context.getString(R.string.daemon_mode_description),
+                    checked = isDaemonModeEnabled,
+                    enabled = isRootAvailable,
+                    onCheckedChange = { checked ->
+                        prefsManager.isDaemonModeEnabled = checked
+                    }
+                )
+
+                GroupDivider()
+
+                val isBackendAvailable = appStateViewModel.isBackendAvailable
+                SwitchItem(
+                    icon = Icons.Default.Link,
+                    title = context.getString(R.string.symlink_integration),
+                    summary = context.getString(R.string.symlink_integration_description),
+                    checked = isSymlinkEnabled,
+                    enabled = isBackendAvailable,
+                    onCheckedChange = { checked ->
+                        scope.launch {
+                            val ok = withContext(Dispatchers.IO) {
+                                if (checked) SymlinkInstaller.enable() else SymlinkInstaller.disable()
                             }
-                        } else {
-                            Modifier
-                        }
-                    )
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-            // Daemon Mode Toggle
-            SwitchItem(
-                icon = Icons.Default.SettingsBackupRestore,
-                title = context.getString(R.string.daemon_mode),
-                summary = context.getString(R.string.daemon_mode_description),
-                checked = isDaemonModeEnabled,
-                enabled = isRootAvailable,
-                onCheckedChange = { checked ->
-                    prefsManager.isDaemonModeEnabled = checked
-                }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-            val isBackendAvailable = appStateViewModel.isBackendAvailable
-            SwitchItem(
-                icon = Icons.Default.Link,
-                title = context.getString(R.string.symlink_integration),
-                summary = context.getString(R.string.symlink_integration_description),
-                checked = isSymlinkEnabled,
-                enabled = isBackendAvailable,
-                onCheckedChange = { checked ->
-                    scope.launch {
-                        val ok = withContext(Dispatchers.IO) {
-                            if (checked) SymlinkInstaller.enable() else SymlinkInstaller.disable()
-                        }
-                        if (ok) {
-                            prefsManager.isSymlinkEnabled = checked
+                            if (ok) {
+                                prefsManager.isSymlinkEnabled = checked
+                            }
                         }
                     }
-                }
-            )
+                )
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                GroupDivider()
 
-            // Auto Boot Priority - clickable to navigate to the boot-order screen
-            val autoBootAlpha = if (autoBootUsable) 1f else 0.38f
-            ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Default.LowPriority,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = autoBootAlpha)
-                    )
-                },
-                headlineContent = {
-                    Text(
-                        text = context.getString(R.string.auto_boot_priority),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = autoBootAlpha)
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = context.getString(R.string.auto_boot_priority_description),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = autoBootAlpha)
-                    )
-                },
-                trailingContent = {
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = autoBootAlpha)
-                    )
-                },
-                modifier = Modifier.then(if (autoBootUsable) Modifier.clickable { onNavigateToAutoBootPriority() } else Modifier)
-            )
+                // Auto Boot Priority - clickable to navigate to the boot-order screen
+                NavRow(
+                    icon = Icons.Default.LowPriority,
+                    title = context.getString(R.string.auto_boot_priority),
+                    summary = context.getString(R.string.auto_boot_priority_description),
+                    enabled = autoBootUsable,
+                    onClick = onNavigateToAutoBootPriority
+                )
 
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                GroupDivider()
 
-            // Requirements Card - clickable to navigate to requirements page
-            RequirementsCard(
-                onNavigateToRequirements = onNavigateToRequirements
-            )
-                }
-
-            Spacer(modifier = Modifier.height(8.dp))
+                NavRow(
+                    icon = Icons.Default.Code,
+                    title = context.getString(R.string.requirements),
+                    summary = context.getString(R.string.requirements_for_droidspaces),
+                    onClick = onNavigateToRequirements
+                )
+            }
 
             // Theme Section
-            SectionHeader(
-                text = context.getString(R.string.appearance_section),
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
-            )
+            GroupHeader(context.getString(R.string.appearance_section))
 
             SettingsGroup {
-                    // Language Picker
-            val currentLanguageDisplay = remember(currentAppLocale) {
+                // Language Picker
+                val currentLanguageDisplay = remember(currentAppLocale) {
                 val currentLanguageCode = LocaleHelper.getCurrentLanguageCode()
                 if (currentLanguageCode == "system") {
                     context.getString(R.string.system_default)
@@ -311,137 +244,99 @@ fun SettingsScreen(
                     val matchingLanguage = availableLanguages.find { it.code == currentLanguageCode }
                     matchingLanguage?.nativeName ?: context.getString(R.string.system_default)
                 }
-            }
-
-            ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Default.Translate,
-                        contentDescription = null
-                    )
-                },
-                headlineContent = {
-                    Text(
-                        text = context.getString(R.string.language),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                supportingContent = {
-                    Text(currentLanguageDisplay)
-                },
-                modifier = Modifier.clickable {
-                    showLanguageDialog = true
-                }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-            // Follow System Theme
-            SwitchItem(
-                icon = Icons.Default.BrightnessAuto,
-                title = context.getString(R.string.follow_system_theme),
-                summary = context.getString(R.string.follow_system_theme_description),
-                checked = followSystemTheme,
-                onCheckedChange = { checked ->
-                    prefsManager.followSystemTheme = checked
-                }
-            )
-
-            // Dark Theme (only shown when not following system)
-            if (!followSystemTheme) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                SwitchItem(
-                    icon = Icons.Default.DarkMode,
-                    title = context.getString(R.string.dark_theme),
-                    summary = context.getString(R.string.dark_theme_description),
-                    checked = darkTheme,
-                    onCheckedChange = { checked ->
-                        prefsManager.darkTheme = checked
-                    }
-                )
-            }
-
-            // AMOLED Mode (shown when followSystemTheme is true OR manual darkTheme is true)
-            if (followSystemTheme || darkTheme) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                SwitchItem(
-                    icon = Icons.Default.RadioButtonUnchecked,
-                    title = context.getString(R.string.amoled_mode),
-                    summary = context.getString(R.string.amoled_mode_description),
-                    checked = amoledMode,
-                    enabled = true,
-                    onCheckedChange = { checked ->
-                        prefsManager.amoledMode = checked
-                        // Theme state updates automatically via SharedPreferences listener
-                    }
-                )
-            }
-
-            // Use Dynamic Color (Monet theming) - Only show on Android 12+
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                SwitchItem(
-                    icon = Icons.Default.ColorLens,
-                    title = context.getString(R.string.dynamic_color),
-                    summary = context.getString(R.string.dynamic_color_description),
-                    checked = useDynamicColor,
-                    onCheckedChange = { checked ->
-                        prefsManager.useDynamicColor = checked
-                        // Theme state updates automatically via SharedPreferences listener
-                    }
-                )
-            }
-
-            // Accent Color Picker - show when dynamic color is off,
-            // or always show on devices below Android 12 (no dynamic color support)
-            if (!useDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                AccentColorPicker(
-                    selectedPalette = themeState.themePalette,
-                    isDarkTheme = darkTheme,
-                    onPaletteSelected = { palette ->
-                        prefsManager.themePalette = palette.name
-                    }
-                )
-            }
-
-            // Terminal customization lives on its own page (dark mode, font size, ...)
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Default.Terminal,
-                        contentDescription = null
-                    )
-                },
-                headlineContent = {
-                    Text(
-                        text = context.getString(R.string.terminal),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                supportingContent = {
-                    Text(context.getString(R.string.terminal_appearance_summary))
-                },
-                trailingContent = {
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null
-                    )
-                },
-                modifier = Modifier.clickable { onNavigateToTerminalAppearance() }
-            )
                 }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                NavRow(
+                    icon = Icons.Default.Translate,
+                    title = context.getString(R.string.language),
+                    value = currentLanguageDisplay,
+                    onClick = { showLanguageDialog = true },
+                    chevron = false
+                )
+
+                GroupDivider()
+
+                // Follow System Theme
+                SwitchItem(
+                    icon = Icons.Default.BrightnessAuto,
+                    title = context.getString(R.string.follow_system_theme),
+                    summary = context.getString(R.string.follow_system_theme_description),
+                    checked = followSystemTheme,
+                    onCheckedChange = { checked ->
+                        prefsManager.followSystemTheme = checked
+                    }
+                )
+
+                // Dark Theme (only shown when not following system)
+                if (!followSystemTheme) {
+                    GroupDivider()
+                    SwitchItem(
+                        icon = Icons.Default.DarkMode,
+                        title = context.getString(R.string.dark_theme),
+                        summary = context.getString(R.string.dark_theme_description),
+                        checked = darkTheme,
+                        onCheckedChange = { checked ->
+                            prefsManager.darkTheme = checked
+                        }
+                    )
+                }
+
+                // AMOLED Mode (shown when followSystemTheme is true OR manual darkTheme is true)
+                if (followSystemTheme || darkTheme) {
+                    GroupDivider()
+                    SwitchItem(
+                        icon = Icons.Default.RadioButtonUnchecked,
+                        title = context.getString(R.string.amoled_mode),
+                        summary = context.getString(R.string.amoled_mode_description),
+                        checked = amoledMode,
+                        enabled = true,
+                        onCheckedChange = { checked ->
+                            prefsManager.amoledMode = checked
+                            // Theme state updates automatically via SharedPreferences listener
+                        }
+                    )
+                }
+
+                // Use Dynamic Color (Monet theming) - Only show on Android 12+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    GroupDivider()
+                    SwitchItem(
+                        icon = Icons.Default.ColorLens,
+                        title = context.getString(R.string.dynamic_color),
+                        summary = context.getString(R.string.dynamic_color_description),
+                        checked = useDynamicColor,
+                        onCheckedChange = { checked ->
+                            prefsManager.useDynamicColor = checked
+                            // Theme state updates automatically via SharedPreferences listener
+                        }
+                    )
+                }
+
+                // Accent Color Picker - show when dynamic color is off,
+                // or always show on devices below Android 12 (no dynamic color support)
+                if (!useDynamicColor || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+                    GroupDivider()
+                    AccentColorPicker(
+                        selectedPalette = themeState.themePalette,
+                        isDarkTheme = darkTheme,
+                        onPaletteSelected = { palette ->
+                            prefsManager.themePalette = palette.name
+                        }
+                    )
+                }
+
+                // Terminal customization lives on its own page (dark mode, font size, ...)
+                GroupDivider()
+                NavRow(
+                    icon = Icons.Default.Terminal,
+                    title = context.getString(R.string.terminal),
+                    summary = context.getString(R.string.terminal_appearance_summary),
+                    onClick = onNavigateToTerminalAppearance
+                )
+            }
 
             // Updates Section
-            SectionHeader(
-                text = context.getString(R.string.updates_section),
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
-            )
+            GroupHeader(context.getString(R.string.updates_section))
 
             SettingsGroup {
                 var checkAppUpdates by remember { mutableStateOf(prefsManager.checkAppUpdates) }
@@ -459,70 +354,23 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Debugging Section
-            SectionHeader(
-                text = context.getString(R.string.debugging_section),
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
-            )
+            GroupHeader(context.getString(R.string.debugging_section))
 
             SettingsGroup {
-                ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Default.BugReport,
-                        contentDescription = null,
-                        tint = if (isRootAvailable) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        }
-                    )
-                },
-                headlineContent = {
-                    Text(
-                        text = context.getString(R.string.generate_bug_report),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isRootAvailable) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                        }
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = context.getString(R.string.generate_bug_report_description),
-                        color = if (isRootAvailable) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                        }
-                    )
-                },
-                modifier = Modifier
-                    .then(
-                        if (isRootAvailable) {
-                            Modifier.clickable {
-                                showBugReportDialog = true
-                            }
-                        } else {
-                            Modifier
-                        }
-                    )
+                NavRow(
+                    icon = Icons.Default.BugReport,
+                    title = context.getString(R.string.generate_bug_report),
+                    summary = context.getString(R.string.generate_bug_report_description),
+                    enabled = isRootAvailable,
+                    onClick = { showBugReportDialog = true },
+                    chevron = false
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Experimental Section, only for a 32-bit userspace on a 64-bit kernel
             if (DeviceArch.is32Bit()) {
-                SectionHeader(
-                    text = context.getString(R.string.experimental_section),
-                    modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
-                )
+                GroupHeader(context.getString(R.string.experimental_section))
 
                 SettingsGroup {
                     SwitchItem(
@@ -539,37 +387,18 @@ fun SettingsScreen(
                         }
                     )
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // About Section
-            SectionHeader(
-                text = context.getString(R.string.about_section),
-                modifier = Modifier.padding(start = 24.dp, bottom = 8.dp, top = 8.dp)
-            )
+            GroupHeader(context.getString(R.string.about_section))
 
             SettingsGroup {
-                ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null
-                    )
-                },
-                headlineContent = {
-                    Text(
-                        text = context.getString(R.string.about_droidspaces),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                },
-                supportingContent = {
-                    Text(getAppVersion(context))
-                },
-                modifier = Modifier.clickable {
-                    showAboutDialog = true
-                }
+                NavRow(
+                    icon = Icons.Default.Info,
+                    title = context.getString(R.string.about_droidspaces),
+                    summary = getAppVersion(context),
+                    onClick = { showAboutDialog = true },
+                    chevron = false
                 )
             }
 
@@ -647,115 +476,20 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column {
-                    // Developer 1
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ravindu644"))
-                                context.startActivity(intent)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = context.getString(R.string.developer_ravindu644),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = context.getString(R.string.developer_ravindu644_role),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = context.getString(R.string.github),
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    LinkRow("https://github.com/ravindu644", context.getString(R.string.developer_ravindu644), context.getString(R.string.developer_ravindu644_role)) {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                    // Telegram channel
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Droidspaces"))
-                                context.startActivity(intent)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_telegram),
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = context.getString(R.string.telegram_channel),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = context.getString(R.string.telegram_channel),
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    GroupDivider()
+                    LinkRow("https://t.me/Droidspaces", context.getString(R.string.telegram_channel)) {
+                        Icon(painterResource(R.drawable.ic_telegram), contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     }
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                    // Source Code row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/ravindu644/Droidspaces-OSS"))
-                                context.startActivity(intent)
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Code,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = context.getString(R.string.source_code),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = context.getString(R.string.source_code),
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
+                    GroupDivider()
+                    LinkRow("https://github.com/ravindu644/Droidspaces-OSS", context.getString(R.string.source_code)) {
+                        Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
 
-            // Contributors
             SectionHeader(text = context.getString(R.string.contributors))
             val contributors = remember { ContributorManager.load(context) }
             Surface(
@@ -766,58 +500,52 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             ) {
                 Column {
                     contributors.forEachIndexed { index, contributor ->
-                        ContributorItem(
-                            contributor = contributor,
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(contributor.githubUrl))
-                                context.startActivity(intent)
-                            }
-                        )
-                        if (index < contributors.size - 1) {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        if (index > 0) GroupDivider()
+                        val avatar = remember(contributor.avatarB64) {
+                            if (contributor.avatarB64.isNotEmpty()) runCatching {
+                                val bytes = Base64.decode(contributor.avatarB64, Base64.DEFAULT)
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                            }.getOrNull() else null
+                        }
+                        LinkRow(
+                            contributor.githubUrl,
+                            contributor.login,
+                            context.resources.getQuantityString(R.plurals.commit_count, contributor.commits, contributor.commits)
+                        ) {
+                            if (avatar != null) Image(avatar, contentDescription = null, modifier = Modifier.size(28.dp).clip(CircleShape))
+                            else Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
-            }
-
+        }
     }
-    }
+}
 
-
+/** A row that opens [url]: a leading icon or avatar, a title, an optional second line, the open-in-new mark. */
 @Composable
-private fun ContributorItem(contributor: Contributor, onClick: () -> Unit) {
+private fun LinkRow(url: String, title: String, subtitle: String? = null, leading: @Composable () -> Unit) {
     val context = LocalContext.current
-    val bitmap = remember(contributor.avatarB64) {
-        if (contributor.avatarB64.isNotEmpty()) runCatching {
-            val bytes = Base64.decode(contributor.avatarB64, Base64.DEFAULT)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        }.getOrNull() else null
-    }
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            // No browser at all on a locked-down profile: the tap does nothing rather than crash.
+            .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap,
-                contentDescription = null,
-                modifier = Modifier.size(28.dp).clip(CircleShape)
-            )
-        } else {
-            Icon(Icons.Default.Person, contentDescription = null,
-                modifier = Modifier.size(28.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        leading()
         Column(modifier = Modifier.weight(1f)) {
-            Text(contributor.login, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            Text(context.resources.getQuantityString(R.plurals.commit_count, contributor.commits, contributor.commits), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.AutoMirrored.Filled.OpenInNew,
-            contentDescription = context.getString(R.string.github),
+        Icon(
+            Icons.AutoMirrored.Filled.OpenInNew,
+            contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
     }
 }
 
@@ -828,46 +556,6 @@ private fun getAppVersion(context: Context): String {
     } catch (e: PackageManager.NameNotFoundException) {
         context.getString(R.string.unknown)
     }
-}
-
-/**
- * Requirements Card - Clickable card that navigates to requirements page
- */
-@Composable
-private fun RequirementsCard(
-    onNavigateToRequirements: () -> Unit
-) {
-    val context = LocalContext.current
-
-    ListItem(colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = {
-            Icon(
-                imageVector = Icons.Default.Code,
-                contentDescription = null
-            )
-        },
-        headlineContent = {
-            Text(
-                text = context.getString(R.string.requirements),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-        },
-        supportingContent = {
-            Text(
-                text = context.getString(R.string.requirements_for_droidspaces),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        trailingContent = {
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        modifier = Modifier.clickable(onClick = onNavigateToRequirements)
-    )
 }
 
 /**

@@ -105,7 +105,8 @@ fun GroupIntro(text: String, modifier: Modifier = Modifier) {
  * A row inside a [SettingsGroup] that opens a page. [value] is the setting's
  * current state in the accent colour, [summary] a quieter line under it.
  * [error] replaces the summary with the reason the page's settings cannot be
- * saved yet.
+ * saved yet. A row that opens a dialog rather than a page passes
+ * [chevron] = false, so the mark keeps meaning "a page follows".
  */
 @Composable
 fun NavRow(
@@ -118,6 +119,7 @@ fun NavRow(
     valueFontFamily: FontFamily? = null,
     enabled: Boolean = true,
     error: String? = null,
+    chevron: Boolean = true,
 ) {
     Row(
         modifier = modifier
@@ -130,7 +132,8 @@ fun NavRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            // LocalContentColor, as SwitchItem's icon, so a group mixing the two keeps one shade.
+            Icon(icon, contentDescription = null)
             Spacer(Modifier.width(16.dp))
         }
         Column(Modifier.weight(1f)) {
@@ -162,12 +165,14 @@ fun NavRow(
                 )
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        )
+        if (chevron) {
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+        }
     }
 }
 
