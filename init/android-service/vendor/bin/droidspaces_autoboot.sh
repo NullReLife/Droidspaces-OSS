@@ -66,52 +66,24 @@ fi
 # Breaking container's networking :)
 wait_for_network
 
-# Scan and boot containers (priority-ordered, gateway-aware)
+# Scan and boot containers in priority order
 #
 # Containers boot from the smallest run_at_boot_priority to the largest; missing
-# or invalid priorities sort last (best-effort), then alphabetically. A
-# net_mode=gateway client is skipped if its gateway_container did not come up,
-# so we never boot a router-less client. Independent containers always boot, and
-# a single failure never blocks the rest.
+# or invalid priorities sort last (best-effort), then alphabetically. A gateway
+# client boots whether or not its gateway is up: the gateway wires every client
+# it finds when it comes up itself. A single failure never blocks the rest.
 log "Scanning for containers with run_at_boot=1..."
 success=0
 failed=0
-skipped=0
 
 TAB=$($BB printf '\t')
 BOOT_TABLE="${DROIDSPACE_DIR}/.autoboot_table"
 SORTED_FILE="${DROIDSPACE_DIR}/.autoboot_sorted"
-STARTED_OK="${DROIDSPACE_DIR}/.autoboot_started"
 : > "${BOOT_TABLE}"
-: > "${STARTED_OK}"
 
 # Read a single key=value from a config file
 get_cfg_val() {
     $BB grep "^$1=" "$2" 2>/dev/null | $BB head -1 | $BB sed 's/^[^=]*=//' | $BB tr -d '\r\n'
-}
-
-# Find the container.config whose name= matches $1 (echoes path, empty if none)
-cfg_for_name() {
-    for c in $($BB find "${CONTAINERS_DIR}" -name "container.config" 2>/dev/null); do
-        n=$(get_cfg_val name "$c")
-        [ -n "$n" ] || n=$($BB basename "$($BB dirname "$c")")
-        if [ "$n" = "$1" ]; then
-            echo "$c"
-            return 0
-        fi
-    done
-    return 1
-}
-
-# A gateway is available if it started during this run, or is already running
-gateway_available() {
-    if $BB grep -qxF "$1" "${STARTED_OK}" 2>/dev/null; then
-        return 0
-    fi
-    gcfg=$(cfg_for_name "$1")
-    [ -n "${gcfg}" ] || return 1
-    gpid=$("${DROIDSPACE_BINARY}" --config "${gcfg}" pid 2>/dev/null)
-    [ "${gpid}" != "NONE" ] && [ -n "${gpid}" ]
 }
 
 # Start one container; returns 0 if it ends up with a live PID
@@ -121,7 +93,7 @@ boot_container() {
     [ "${bpid}" != "NONE" ] && [ -n "${bpid}" ]
 }
 
-# Build the boot table: PRIORITY \t NAME \t NET_MODE \t GATEWAY \t CFG
+# Build the boot table: PRIORITY \t NAME \t CFG
 for cfg in $($BB find "${CONTAINERS_DIR}" -name "container.config" 2>/dev/null); do
     [ -f "${cfg}" ] || continue
     [ "$(get_cfg_val run_at_boot "${cfg}")" = "1" ] || continue
@@ -134,14 +106,7 @@ for cfg in $($BB find "${CONTAINERS_DIR}" -name "container.config" 2>/dev/null);
         ''|*[!0-9]*) prio=99999999 ;;
     esac
 
-    # '-' placeholder for empty fields: IFS=<tab> collapses adjacent tabs
-    # (tab is IFS whitespace), so empty middle fields would shift the columns.
-    netmode=$(get_cfg_val net_mode "${cfg}")
-    [ -n "${netmode}" ] || netmode="-"
-    gw=$(get_cfg_val gateway_container "${cfg}")
-    [ -n "${gw}" ] || gw="-"
-
-    $BB printf '%s\t%s\t%s\t%s\t%s\n' "${prio}" "${name}" "${netmode}" "${gw}" "${cfg}" >> "${BOOT_TABLE}"
+    $BB printf '%s\t%s\t%s\n' "${prio}" "${name}" "${cfg}" >> "${BOOT_TABLE}"
 done
 
 # Smallest priority first, then name. Gaps/holes and large sentinels sort cleanly.
@@ -149,23 +114,13 @@ $BB sort -t"${TAB}" -k1,1n -k2,2 "${BOOT_TABLE}" > "${SORTED_FILE}"
 
 # Reading from a file (not a pipe) keeps the loop in this shell so the counters
 # survive each iteration.
-while IFS="${TAB}" read -r prio name netmode gw cfg; do
+while IFS="${TAB}" read -r prio name cfg; do
     [ -n "${cfg}" ] || continue
-    [ "${gw}" = "-" ] && gw=""
-
-    if [ "${netmode}" = "gateway" ] && [ -n "${gw}" ]; then
-        if ! gateway_available "${gw}"; then
-            log "SKIP: ${name} (gateway '${gw}' not running)"
-            skipped=$((skipped + 1))
-            continue
-        fi
-    fi
 
     log "Starting container: ${name}"
     if boot_container "${cfg}"; then
         PID=$("${DROIDSPACE_BINARY}" --config "${cfg}" pid 2>/dev/null)
         log "SUCCESS: ${name} (PID: ${PID})"
-        $BB printf '%s\n' "${name}" >> "${STARTED_OK}"
         success=$((success + 1))
     else
         log "FAILED: ${name}"
@@ -173,9 +128,9 @@ while IFS="${TAB}" read -r prio name netmode gw cfg; do
     fi
 done < "${SORTED_FILE}"
 
-$BB rm -f "${BOOT_TABLE}" "${SORTED_FILE}" "${STARTED_OK}" 2>/dev/null
+$BB rm -f "${BOOT_TABLE}" "${SORTED_FILE}" 2>/dev/null
 
-log "Autoboot complete: ${success} started | ${failed} failed | ${skipped} skipped"
+log "Autoboot complete: ${success} started | ${failed} failed"
 }
 
 autoboot

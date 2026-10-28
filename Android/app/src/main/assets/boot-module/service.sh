@@ -121,10 +121,10 @@ else
 fi
 
 # Auto-boot containers: the same script the native init path runs, sourced so
-# its success/failed/skipped counters land in the summary below. It waits for
-# the network itself.
+# its success and failed counters land in the summary below. It waits for the
+# network itself.
 . "${MODDIR}/droidspaces_autoboot.sh"
 
 stop_dmesg_logger
-log "Boot Summary: Daemon: ${DAEMON_STATUS} | ${success} started | ${failed} failed | ${skipped} skipped"
-update_prop "Daemon: ${DAEMON_STATUS} | Containers: ${success} started, ${failed} failed, ${skipped} skipped"
+log "Boot Summary: Daemon: ${DAEMON_STATUS} | ${success} started | ${failed} failed"
+update_prop "Daemon: ${DAEMON_STATUS} | Containers: ${success} started, ${failed} failed"
