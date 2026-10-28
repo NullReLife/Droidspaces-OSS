@@ -1,6 +1,7 @@
 package com.droidspaces.app.ui.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,7 +51,7 @@ fun DsRadioRow(
         tonalElevation = 0.dp
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -71,14 +72,18 @@ fun DsRadioRow(
                     )
                 }
             }
-            RadioButton(
-                selected = selected,
-                onClick = null,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+            // A radio with no onClick has no 48dp target of its own; the box keeps the
+            // row the height it had when the radio was the target.
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                RadioButton(
+                    selected = selected,
+                    onClick = null,
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = MaterialTheme.colorScheme.primary,
+                        unselectedColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+                    )
                 )
-            )
+            }
         }
     }
 }
