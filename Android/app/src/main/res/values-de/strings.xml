@@ -435,12 +435,12 @@
     <string name="virgl_extra_flags_placeholder">z.B. --multi-clients --angle-vulkan</string>
     <string name="auto_boot_priority">Autostart-Priorität</string>
     <string name="auto_boot_priority_description">Reihenfolge in der die Autostart Container starten</string>
-    <string name="auto_boot_priority_hint">Ziehen zum Neuanordnen. Die Container werden von oben nach unten gestartet – ein Gateway (z. B. OpenWRT) an erster Stelle einfügen, damit es vor den Containern startet, die Daten über dieses Gateway weiterleiten.</string>
+    <string name="auto_boot_priority_hint">Ziehen zum Neuanordnen. Die Container werden von oben nach unten gestartet – ein Gateway (z. B. OpenWrt) an erster Stelle einfügen, damit es vor den Containern startet, die Daten über dieses Gateway weiterleiten.</string>
     <string name="auto_boot_priority_empty">Kein Container mit aktivierten Autostart vorhanden.</string>
     <string name="reorder_handle">Ziehen zum Neuanordnen</string>
     <string name="network_mode_gateway">Gateway (Virtueller Router)</string>
     <string name="network_mode_gateway_short">Gateway</string>
-    <string name="gateway_settings_description">Diesen Container über einen anderen Container weiterleiten, der als Router fungiert (z. B. OpenWRT).</string>
+    <string name="gateway_settings_description">Diesen Container über einen anderen Container weiterleiten, der als Router fungiert (z. B. OpenWrt).</string>
     <string name="gateway_container">Gateway Container</string>
     <string name="gateway_net">LAN Name</string>
     <string name="gateway_net_hint">lan</string>
@@ -449,7 +449,7 @@
     <string name="gateway_bridge">Host-Brücke</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">Diese Einstellungen legen fest, wie dieser Container in das virtuelle LAN des Gateways eingebunden wird. Die Standardeinstellungen gelten für ein einzelnes LAN hinter einem Gateway – nur ändern, wenn mehrere LAN-Segmente oder mehr als ein Gateway betrieben wird.</string>
-    <string name="gateway_iface_explain">Der Name der Schnittstelle, unter dem diese Verbindung innerhalb des Gateway-Containers angezeigt wird (z. B. eth1 in OpenWRT). Er muss mit der Schnittstelle übereinstimmen, auf der das Gateway DHCP bereitstellt. Jedes einzelne Segment desselben Gateways benötigt einen eigenen, eindeutigen Namen. Standard: eth1.</string>
+    <string name="gateway_iface_explain">Der Name der Schnittstelle, unter dem diese Verbindung innerhalb des Gateway-Containers angezeigt wird (z. B. eth1 in OpenWrt). Er muss mit der Schnittstelle übereinstimmen, auf der das Gateway DHCP bereitstellt. Jedes einzelne Segment desselben Gateways benötigt einen eigenen, eindeutigen Namen. Standard: eth1.</string>
     <string name="gateway_net_explain">Eine Bezeichnung für dieses LAN-Segment. Container, die denselben Gateway- und LAN-Namen verwenden, werden demselben virtuellen Switch zugeordnet und können sich gegenseitig sehen. Mit einem anderen Namen lässt sich ein isoliertes zweites Segment einrichten. Standard: lan.</string>
     <string name="gateway_bridge_explain">Name des auf dem Android-Host erstellten virtuellen Switches. Felder leer lassen, damit der Name automatisch aus dem LAN-Namen (ds-&lt;lan&gt;) generiert wird. Nur einstellen, wenn ein bestimmter Brückenname erforderlich ist. Maximal 15 Zeichen.</string>
     <string name="error_gateway_required">Gateway Container auswählen</string>

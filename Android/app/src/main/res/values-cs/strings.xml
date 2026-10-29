@@ -176,7 +176,7 @@
     <string name="run_at_boot_description">Spustí kontejner při startu</string>
     <string name="auto_boot_priority">Priorita automatického spuštění</string>
     <string name="auto_boot_priority_description">Pořadí, ve kterém se spustí kontejnery nastavené ke spuštění při startu</string>
-    <string name="auto_boot_priority_hint">Pořadí změníte přetažením. Kontejnery se spouštějí shora dolů – bránu (např. OpenWRT) umístěte jako první, aby se spustila před kontejnery, které přes ni směrují provoz.</string>
+    <string name="auto_boot_priority_hint">Pořadí změníte přetažením. Kontejnery se spouštějí shora dolů – bránu (např. OpenWrt) umístěte jako první, aby se spustila před kontejnery, které přes ni směrují provoz.</string>
     <string name="auto_boot_priority_empty">Žádný kontejner nemá zapnuté spouštění při startu.</string>
     <string name="reorder_handle">Přetažením změníte pořadí</string>
     <string name="force_cgroupv1">Vynutit cgroup v1</string>
@@ -194,7 +194,7 @@
     <string name="network_mode_none_short">Žádná</string>
     <string name="network_mode_gateway">Brána (virtuální směrovač)</string>
     <string name="network_mode_gateway_short">Brána</string>
-    <string name="gateway_settings_description">Směruje tento kontejner přes jiný kontejner, který funguje jako směrovač (např. OpenWRT).</string>
+    <string name="gateway_settings_description">Směruje tento kontejner přes jiný kontejner, který funguje jako směrovač (např. OpenWrt).</string>
     <string name="gateway_container">Kontejner brány</string>
     <string name="gateway_net">Název sítě LAN</string>
     <string name="gateway_net_hint">lan</string>
@@ -203,7 +203,7 @@
     <string name="gateway_bridge">Most hostitele</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">Tato nastavení určují, jak se kontejner připojí k virtuální síti LAN brány. Výchozí hodnoty fungují pro jednu síť LAN za jednou bránou – měňte je pouze při provozu více segmentů LAN nebo více bran.</string>
-    <string name="gateway_iface_explain">Název rozhraní, pod kterým se toto připojení zobrazí UVNITŘ kontejneru brány (např. eth1 v OpenWRT). Musí odpovídat rozhraní, na kterém má brána poskytovat DHCP. Každý samostatný segment stejné brány musí mít jedinečný název. Výchozí: eth1.</string>
+    <string name="gateway_iface_explain">Název rozhraní, pod kterým se toto připojení zobrazí UVNITŘ kontejneru brány (např. eth1 v OpenWrt). Musí odpovídat rozhraní, na kterém má brána poskytovat DHCP. Každý samostatný segment stejné brány musí mít jedinečný název. Výchozí: eth1.</string>
     <string name="gateway_net_explain">Označení tohoto segmentu LAN. Kontejnery se stejnou bránou a názvem sítě LAN se připojí ke stejnému virtuálnímu přepínači a navzájem se uvidí. Chcete-li vytvořit druhý izolovaný segment, použijte jiný název. Výchozí: lan.</string>
     <string name="gateway_bridge_explain">Název virtuálního přepínače vytvořeného na hostiteli Androidu. Ponecháte-li pole prázdné, název se vytvoří automaticky z názvu sítě LAN (ds-&lt;lan&gt;). Nastavujte jej pouze v případě, že potřebujete přesný název mostu. Nejvýše 15 znaků.</string>
     <string name="error_gateway_required">Vyberte kontejner brány</string>

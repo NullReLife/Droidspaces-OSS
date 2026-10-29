@@ -469,7 +469,7 @@
     <string name="allow_userns_description_not_supported">Non disponibile. Questo kernel non supporta i namespace utente (CONFIG_USER_NS).</string>
     <string name="auto_boot_priority">Priorità Avvio Automatico</string>
     <string name="auto_boot_priority_description">Ordine di avvio dei container impostati per l\'esecuzione all\'avvio</string>
-    <string name="auto_boot_priority_hint">Trascina per riordinare. I container vengono avviati dall\'alto verso il basso - posiziona per primo un gateway (es. OpenWRT) in modo che si avvii prima dei container che lo utilizzano per il routing.</string>
+    <string name="auto_boot_priority_hint">Trascina per riordinare. I container vengono avviati dall\'alto verso il basso - posiziona per primo un gateway (es. OpenWrt) in modo che si avvii prima dei container che lo utilizzano per il routing.</string>
     <string name="auto_boot_priority_empty">Nessun container ha l\'opzione Esegui all\'Avvio abilitata.</string>
     <string name="reorder_handle">Trascina per riordinare</string>
     <string name="cat_resource_limits">Limiti Risorse</string>
@@ -521,7 +521,7 @@
     <string name="macvlan_mode_private">Privato</string>
     <string name="macvlan_mode_vepa">VEPA</string>
     <string name="macvlan_mode_passthru">Passthru</string>
-    <string name="gateway_settings_description">Instrada questo container attraverso un altro container che funge da router (es. OpenWRT).</string>
+    <string name="gateway_settings_description">Instrada questo container attraverso un altro container che funge da router (es. OpenWrt).</string>
     <string name="gateway_container">Contenitore Gateway</string>
     <string name="gateway_net">Nome LAN</string>
     <string name="gateway_net_hint">lan</string>
@@ -530,7 +530,7 @@
     <string name="gateway_bridge">Host Bridge</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">Questi parametri controllano il modo in cui il container si collega alla LAN virtuale del gateway. Le impostazioni predefinite sono adatte a una singola LAN a valle di un unico gateway - modificale solo se utilizzi più segmenti LAN o più di un gateway.</string>
-    <string name="gateway_iface_explain">Il nome dell\'interfaccia con cui questa connessione appare all\'interno del container del gateway (ad es. eth1 in OpenWRT). Deve corrispondere all\'interfaccia su cui il gateway è configurato per fornire il servizio DHCP. Ogni segmento distinto sullo stesso gateway richiede un nome univoco. Predefinito: eth1.</string>
+    <string name="gateway_iface_explain">Il nome dell\'interfaccia con cui questa connessione appare all\'interno del container del gateway (ad es. eth1 in OpenWrt). Deve corrispondere all\'interfaccia su cui il gateway è configurato per fornire il servizio DHCP. Ogni segmento distinto sullo stesso gateway richiede un nome univoco. Predefinito: eth1.</string>
     <string name="gateway_net_explain">Un\'etichetta per questo segmento LAN. I container che condividono lo stesso gateway e lo stesso nome LAN si collegano allo stesso switch virtuale e possono comunicare tra loro. Utilizza un nome diverso per creare un secondo segmento isolato. Predefinito: lan.</string>
     <string name="gateway_bridge_explain">Nome dello switch virtuale creato sull\'host Android. Lasciare vuoto per generare automaticamente il nome a partire da quello della LAN (ds-&lt;lan&gt;). Impostare questo campo solo se è necessario un nome specifico per il bridge. Max 15 caratteri.</string>
     <string name="error_gateway_required">Seleziona un container gateway</string>

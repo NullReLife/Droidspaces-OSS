@@ -246,7 +246,7 @@
     <string name="x11_replaces_anland">Off while Configure Termux:X11 is on. A container uses one display path.</string>
     <string name="auto_boot_priority">Auto Boot Priority</string>
     <string name="auto_boot_priority_description">Order in which run-at-boot containers start</string>
-    <string name="auto_boot_priority_hint">Drag to reorder. Containers start top to bottom - put a gateway (e.g. OpenWRT) first so it boots before the containers that route through it.</string>
+    <string name="auto_boot_priority_hint">Drag to reorder. Containers start top to bottom - put a gateway (e.g. OpenWrt) first so it boots before the containers that route through it.</string>
     <string name="auto_boot_priority_empty">No containers have Run at Boot enabled.</string>
     <string name="reorder_handle">Drag to reorder</string>
     <string name="force_cgroupv1">Force Cgroup V1</string>
@@ -320,7 +320,7 @@
     <string name="macvlan_mode_passthru">Passthru</string>
 
     <!-- Gateway networking mode -->
-    <string name="gateway_settings_description">Route this container through another container acting as a router (e.g. OpenWRT).</string>
+    <string name="gateway_settings_description">Route this container through another container acting as a router (e.g. OpenWrt).</string>
     <string name="gateway_container">Gateway Container</string>
     <string name="gateway_net">LAN Name</string>
     <string name="gateway_net_hint">lan</string>
@@ -329,7 +329,7 @@
     <string name="gateway_bridge">Host Bridge</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">These control how this container plugs into the gateway\'s virtual LAN. The defaults work for a single LAN behind one gateway - change them only when running multiple LAN segments or more than one gateway.</string>
-    <string name="gateway_iface_explain">The interface name this connection shows up as INSIDE the gateway container (e.g. eth1 in OpenWRT). It must match the interface your gateway is set to serve DHCP on. Each separate segment on the same gateway needs its own unique name. Default: eth1.</string>
+    <string name="gateway_iface_explain">The interface name this connection shows up as INSIDE the gateway container (e.g. eth1 in OpenWrt). It must match the interface your gateway is set to serve DHCP on. Each separate segment on the same gateway needs its own unique name. Default: eth1.</string>
     <string name="gateway_net_explain">A label for this LAN segment. Containers that share the same gateway and LAN name join the same virtual switch and can see each other. Use a different name to spin up an isolated second segment. Default: lan.</string>
     <string name="gateway_bridge_explain">Name of the virtual switch created on the Android host. Leave empty to auto-name it from the LAN name (ds-&lt;lan&gt;). Only set this if you need an exact bridge name. Max 15 characters.</string>
     <string name="error_gateway_required">Select a gateway container</string>

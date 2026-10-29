@@ -2,7 +2,7 @@
 title: Networking from zero
 section: Guides
 order: 7
-desc: Every networking concept behind Droidspaces gateway mode, from the start: IP addresses, LAN, WAN, DHCP, DNS, NAT, bridges, veth pairs, network namespaces and OpenWRT.
+desc: Every networking concept behind Droidspaces gateway mode, from the start: IP addresses, LAN, WAN, DHCP, DNS, NAT, bridges, veth pairs, network namespaces and OpenWrt.
 keywords: droidspaces, networking, gateway, openwrt, nat, dhcp, dns, lan, wan, veth, bridge, namespace, linux, android
 -->
 
@@ -339,13 +339,13 @@ The veth pair is the link between the host's namespace and the container's:
 - The other end stays in the host's network namespace, where Droidspaces connects it to a bridge.
 
 
-## Part 8: OpenWRT and what it is
+## Part 8: OpenWrt and what it is
 
-### What is OpenWRT?
+### What is OpenWrt?
 
-**OpenWRT** is a Linux distribution built for routers. It usually runs on router hardware, but it can also run on an ordinary Linux system or inside a container.
+**OpenWrt** is a Linux distribution built for routers. It usually runs on router hardware, but it can also run on an ordinary Linux system or inside a container.
 
-A running OpenWRT provides:
+A running OpenWrt provides:
 
 - **netifd**, the network interface daemon (manages network interfaces, DHCP client/server, etc.)
 - **dnsmasq**, a DNS and DHCP server
@@ -353,7 +353,7 @@ A running OpenWRT provides:
 - **LuCI**, a web UI for configuration
 - Everything else a real router does, in software
 
-So you can run OpenWRT in a Droidspaces container and it behaves like a real router: it manages networks, hands out DHCP leases, serves DNS, applies firewall rules, routes VPN traffic, and so on.
+So you can run OpenWrt in a Droidspaces container and it behaves like a real router: it manages networks, hands out DHCP leases, serves DNS, applies firewall rules, routes VPN traffic, and so on.
 
 
 ## Part 9: Gateway mode, putting it all together
@@ -362,11 +362,11 @@ So you can run OpenWRT in a Droidspaces container and it behaves like a real rou
 
 In NAT mode, Droidspaces is the router and does everything. For most uses that is fine.
 
-But you may want **OpenWRT to be the router** for other containers: OpenWRT's firewall rules, OpenWRT's DHCP, OpenWRT's VPN routing, with other containers (a Kali Linux container, say) sitting on OpenWRT's LAN and getting everything from it.
+But you may want **OpenWrt to be the router** for other containers: OpenWrt's firewall rules, OpenWrt's DHCP, OpenWrt's VPN routing, with other containers (a Kali Linux container, say) sitting on OpenWrt's LAN and getting everything from it.
 
-If Droidspaces also sets up NAT, DHCP and DNS for those containers, it *conflicts* with OpenWRT: two DHCP servers competing to hand out the address, two firewalls applying contradictory rules.
+If Droidspaces also sets up NAT, DHCP and DNS for those containers, it *conflicts* with OpenWrt: two DHCP servers competing to hand out the address, two firewalls applying contradictory rules.
 
-**Gateway mode avoids this.** Droidspaces steps back. It does only the L2 plumbing (the virtual cables and the switch) and leaves all the policy to OpenWRT: DHCP, DNS, firewall and routing.
+**Gateway mode avoids this.** Droidspaces steps back. It does only the L2 plumbing (the virtual cables and the switch) and leaves all the policy to OpenWrt: DHCP, DNS, firewall and routing.
 
 ### The architecture
 
@@ -375,35 +375,35 @@ Android host kernel
 |
 +-- wlan0 (Android's real Wi-Fi - WAN)
 |
-+-- [OpenWRT container - net=nat mode]
++-- [OpenWrt container - net=nat mode]
 |    netns: owns eth0 (WAN, gets NAT from Droidspaces)
 |           eth1 (LAN side - plugged into ds-lan bridge by gateway mode)
 |    Runs: dnsmasq, netifd, firewall, VPN
 |
 +-- ds-lan (host bridge - NO IP address, just a switch)
 |    |
-|    +-- ds-g[hash] (veth host-side, connected to OpenWRT's netns as eth1)
+|    +-- ds-g[hash] (veth host-side, connected to OpenWrt's netns as eth1)
 |    +-- ds-c[pid]  (veth host-side, connected to Kali's netns as eth0)
 |
 +-- [Kali container - net=gateway mode]
      netns: owns eth0 (LAN side - plugged into ds-lan bridge)
-     Gets DHCP from OpenWRT's dnsmasq
-     Routing decisions made by OpenWRT
-     Firewall rules applied by OpenWRT
+     Gets DHCP from OpenWrt's dnsmasq
+     Routing decisions made by OpenWrt
+     Firewall rules applied by OpenWrt
 ```
 
 ### Step by step - what happens when you start a gateway-mode container
 
-**Step 1: start OpenWRT first (in NAT mode)**
+**Step 1: start OpenWrt first (in NAT mode)**
 
 ```bash
 droidspaces --name=openwrt --rootfs=/data/openwrt --net=nat start
 ```
 
-OpenWRT boots with:
+OpenWrt boots with:
 
 - `eth0` on the WAN side (Droidspaces handles NAT for it)
-- No LAN side yet. OpenWRT is waiting for one.
+- No LAN side yet. OpenWrt is waiting for one.
 
 **Step 2: start Kali (in gateway mode)**
 
@@ -413,51 +413,51 @@ droidspaces --name=kali --rootfs=/data/kali --net=gateway --gateway=openwrt star
 
 Droidspaces does the following, all plumbing and no policy:
 
-1. Finds OpenWRT's running process ID, so it can reach its network namespace.
+1. Finds OpenWrt's running process ID, so it can reach its network namespace.
 2. Creates a bridge called `ds-lan` on the host, with no IP address on it.
-3. Disables `bridge-nf-call-iptables`, so Android's host firewall does NOT intercept traffic on this bridge and OpenWRT's firewall stays the only authority.
-4. Creates a veth pair for OpenWRT's LAN side. One end goes into OpenWRT's netns (as `eth1`), the other plugs into the `ds-lan` bridge.
+3. Disables `bridge-nf-call-iptables`, so Android's host firewall does NOT intercept traffic on this bridge and OpenWrt's firewall stays the only authority.
+4. Creates a veth pair for OpenWrt's LAN side. One end goes into OpenWrt's netns (as `eth1`), the other plugs into the `ds-lan` bridge.
 5. Creates a veth pair for Kali. One end goes into Kali's netns (as `eth0`), the other plugs into the `ds-lan` bridge.
 6. Does NOT install NAT, DHCP, DNS or any firewall rules.
 
-**Step 3: OpenWRT takes over**
+**Step 3: OpenWrt takes over**
 
-OpenWRT's `netifd` sees `eth1` appear and configures it as the LAN interface.
-OpenWRT's `dnsmasq` starts answering DHCP requests on `eth1`.
+OpenWrt's `netifd` sees `eth1` appear and configures it as the LAN interface.
+OpenWrt's `dnsmasq` starts answering DHCP requests on `eth1`.
 
-Kali's `eth0` sends a DHCP request, and OpenWRT's `dnsmasq` replies with:
+Kali's `eth0` sends a DHCP request, and OpenWrt's `dnsmasq` replies with:
 
-- IP address: `192.168.1.100` (or whatever OpenWRT's DHCP range is)
-- Gateway: `192.168.1.1` (OpenWRT itself)
-- DNS: `192.168.1.1` (OpenWRT's dnsmasq)
+- IP address: `192.168.1.100` (or whatever OpenWrt's DHCP range is)
+- Gateway: `192.168.1.1` (OpenWrt itself)
+- DNS: `192.168.1.1` (OpenWrt's dnsmasq)
 
-Kali is now configured, with OpenWRT as its router.
+Kali is now configured, with OpenWrt as its router.
 
-**Step 4: traffic flows through OpenWRT**
+**Step 4: traffic flows through OpenWrt**
 
 When Kali reaches for the internet:
 
 ```
-Kali eth0 --> ds-lan bridge --> OpenWRT eth1
+Kali eth0 --> ds-lan bridge --> OpenWrt eth1
                                       |
-                              OpenWRT firewall rules applied here
+                              OpenWrt firewall rules applied here
                                       |
-                              OpenWRT routes to eth0 (WAN)
+                              OpenWrt routes to eth0 (WAN)
                                       |
                               Droidspaces NAT (eth0 -> wlan0)
                                       |
                                   Android wlan0 --> Internet
 ```
 
-OpenWRT's firewall sees all of Kali's traffic and can apply any rule a real router could: block sites, redirect through a VPN, shape bandwidth, log connections.
+OpenWrt's firewall sees all of Kali's traffic and can apply any rule a real router could: block sites, redirect through a VPN, shape bandwidth, log connections.
 
 ### What "lazy attachment" means
 
 The gateway veth is "lazily attached":
 
-- Starting OpenWRT does NOT give it an `eth1` straight away.
-- `eth1` appears inside OpenWRT only **when the first gateway-mode container starts**.
-- This is on purpose. OpenWRT boots with only its WAN side (`eth0`), and its LAN cable (`eth1`) is plugged in later, on demand.
+- Starting OpenWrt does NOT give it an `eth1` straight away.
+- `eth1` appears inside OpenWrt only **when the first gateway-mode container starts**.
+- This is on purpose. OpenWrt boots with only its WAN side (`eth0`), and its LAN cable (`eth1`) is plugged in later, on demand.
 
 It is the same as plugging a cable into a router's LAN port after the router is already running.
 
@@ -465,7 +465,7 @@ It is the same as plugging a cable into a router's LAN port after the router is 
 
 In NAT mode, Droidspaces writes `/etc/resolv.conf` inside the container, pointing at `1.1.1.1` or `8.8.8.8`.
 
-In gateway mode, Droidspaces does NOT write a static `resolv.conf` unless you pass `--dns`. OpenWRT's `dnsmasq` gives the container its DNS server in the DHCP lease. If Droidspaces also wrote a `resolv.conf`, it would conflict with that: the container would use the wrong DNS and skip OpenWRT's DNS filtering and caching entirely.
+In gateway mode, Droidspaces does NOT write a static `resolv.conf` unless you pass `--dns`. OpenWrt's `dnsmasq` gives the container its DNS server in the DHCP lease. If Droidspaces also wrote a `resolv.conf`, it would conflict with that: the container would use the wrong DNS and skip OpenWrt's DNS filtering and caching entirely.
 
 How this is wired depends on the client's init system:
 
@@ -474,9 +474,9 @@ How this is wired depends on the client's init system:
 
 ### Why bridge-nf-call-iptables is set to 0
 
-The bridge `ds-lan` carries traffic between OpenWRT and Kali. By default, Linux can pass bridged traffic through the host's iptables. Android's iptables rules, which may drop or NAT packets unexpectedly, would then interfere with traffic OpenWRT is supposed to manage.
+The bridge `ds-lan` carries traffic between OpenWrt and Kali. By default, Linux can pass bridged traffic through the host's iptables. Android's iptables rules, which may drop or NAT packets unexpectedly, would then interfere with traffic OpenWrt is supposed to manage.
 
-Setting it to `0` tells Linux not to run iptables on bridged traffic. OpenWRT's firewall is then the *only* firewall that sees this traffic, which is what we want.
+Setting it to `0` tells Linux not to run iptables on bridged traffic. OpenWrt's firewall is then the *only* firewall that sees this traffic, which is what we want.
 
 ### Start order and automatic self-healing
 
@@ -552,73 +552,73 @@ The bridge Droidspaces creates on the host is named `ds-{NAME}`:
 
 **2. It identifies the segment, that is, which bridge clients land on.**
 
-The veth names for the gateway's LAN side come from a hash of the string `{gateway_container}:{gateway_net}`. Same hash, same veth, same bridge segment. So client containers that share the same `--gateway` and `--gateway-net` all end up on the same bridge and all get DHCP from the same OpenWRT interface.
+The veth names for the gateway's LAN side come from a hash of the string `{gateway_container}:{gateway_net}`. Same hash, same veth, same bridge segment. So client containers that share the same `--gateway` and `--gateway-net` all end up on the same bridge and all get DHCP from the same OpenWrt interface.
 
 This is what `--gateway-net` is for: running several isolated LAN segments through one gateway container.
 
 ```bash
-# These two land on ds-lan - they see each other, OpenWRT routes them as one LAN
+# These two land on ds-lan - they see each other, OpenWrt routes them as one LAN
 droidspaces --name=kali   --net=gateway --gateway=openwrt --gateway-net=lan start
 droidspaces --name=ubuntu --net=gateway --gateway=openwrt --gateway-net=lan start
 
 # This one lands on ds-vpn - a completely separate bridge
-# OpenWRT can apply different firewall/VPN rules to this segment
+# OpenWrt can apply different firewall/VPN rules to this segment
 droidspaces --name=torbox --net=gateway --gateway=openwrt --gateway-net=vpn start
 ```
 
-Inside OpenWRT, the `lan` clients arrive on `eth1` and the `vpn` clients on `eth2`. Each segment gets its own veth, because `openwrt:lan` and `openwrt:vpn` hash differently.
+Inside OpenWrt, the `lan` clients arrive on `eth1` and the `vpn` clients on `eth2`. Each segment gets its own veth, because `openwrt:lan` and `openwrt:vpn` hash differently.
 
 ### What --gateway-iface does
 
 This sets **the name of the LAN interface inside the gateway container's network namespace**.
 
-When Droidspaces creates the gateway veth for a segment, the gateway's end is born directly inside OpenWRT's netns under the name you pass here (default `eth1`); only the host end carries a hash name (`ds-gXXXXXXXX`).
+When Droidspaces creates the gateway veth for a segment, the gateway's end is born directly inside OpenWrt's netns under the name you pass here (default `eth1`); only the host end carries a hash name (`ds-gXXXXXXXX`).
 
-**Why it matters:** OpenWRT's configuration is keyed on interface names. If your OpenWRT `/etc/config/network` says:
+**Why it matters:** OpenWrt's configuration is keyed on interface names. If your OpenWrt `/etc/config/network` says:
 
 ```
 config interface 'lan'
     option device 'eth1'
 ```
 
-then the interface that appears inside OpenWRT **must** be named `eth1`, or OpenWRT will not treat it as its LAN and will not serve DHCP on it. `--gateway-iface=eth1` takes care of that.
+then the interface that appears inside OpenWrt **must** be named `eth1`, or OpenWrt will not treat it as its LAN and will not serve DHCP on it. `--gateway-iface=eth1` takes care of that.
 
-For a second segment, pass `--gateway-iface=eth2` so OpenWRT sees a separate interface and you can add a second UCI network block for it.
+For a second segment, pass `--gateway-iface=eth2` so OpenWrt sees a separate interface and you can add a second UCI network block for it.
 
 **Important detail:** `--gateway-iface` only takes effect when the gateway veth for a segment is first created, which is when the first client container on that segment starts. The gateway veth is shared by every client on the same `--gateway-net`: it is created once and reused. Every later client skips creating the gateway veth and only wires its own app veth into the existing bridge.
 
-So if you start two containers on `--gateway-net=lan` and both pass `--gateway-iface=eth1`, that works: the first creates the veth with its peer named `eth1` inside OpenWRT, and the second finds the veth already there and ignores `--gateway-iface`.
+So if you start two containers on `--gateway-net=lan` and both pass `--gateway-iface=eth1`, that works: the first creates the veth with its peer named `eth1` inside OpenWrt, and the second finds the veth already there and ignores `--gateway-iface`.
 
 ### The flag conflict you must avoid
 
 The problem only appears when you use **two different `--gateway-net` segments with the same `--gateway-iface`**:
 
 ```bash
-# segment 1 - creates eth1 inside OpenWRT
+# segment 1 - creates eth1 inside OpenWrt
 droidspaces --name=kali   --net=gateway --gateway=openwrt --gateway-net=lan --gateway-iface=eth1 start
 
-# segment 2 - WRONG: also tries to create eth1 inside OpenWRT
+# segment 2 - WRONG: also tries to create eth1 inside OpenWrt
 droidspaces --name=torbox --net=gateway --gateway=openwrt --gateway-net=vpn --gateway-iface=eth1 start
 ```
 
-When the second command runs, Droidspaces sees that OpenWRT already has an `eth1`, belonging to the first segment, and refuses to wire the `vpn` segment. The log says `'openwrt' already has an interface named eth1 that is not this segment's cable`. The `vpn` segment gets no gateway-side interface: no DHCP, no routing, and its containers are effectively isolated.
+When the second command runs, Droidspaces sees that OpenWrt already has an `eth1`, belonging to the first segment, and refuses to wire the `vpn` segment. The log says `'openwrt' already has an interface named eth1 that is not this segment's cable`. The `vpn` segment gets no gateway-side interface: no DHCP, no routing, and its containers are effectively isolated.
 
 **The rule:** every `--gateway-net` segment needs its own `--gateway-iface` name.
 
 ```bash
 # Correct: two segments, two interface names
---gateway-net=lan  --gateway-iface=eth1   ->  eth1 inside OpenWRT (LAN segment)
---gateway-net=vpn  --gateway-iface=eth2   ->  eth2 inside OpenWRT (VPN segment)
+--gateway-net=lan  --gateway-iface=eth1   ->  eth1 inside OpenWrt (LAN segment)
+--gateway-net=vpn  --gateway-iface=eth2   ->  eth2 inside OpenWrt (VPN segment)
 ```
 
 ### IPv6 through the gateway
 
-NAT mode gives a container IPv6 as well as IPv4: Droidspaces announces a private IPv6 prefix (`fd64:7370::/64`) with router advertisements and translates it on the way out, the same idea as IPv4 NAT. The gateway container's WAN is a NAT interface, so OpenWRT can have IPv6 too. It does not pick it up by itself, and there are two things to understand before the steps:
+NAT mode gives a container IPv6 as well as IPv4: Droidspaces announces a private IPv6 prefix (`fd64:7370::/64`) with router advertisements and translates it on the way out, the same idea as IPv4 NAT. The gateway container's WAN is a NAT interface, so OpenWrt can have IPv6 too. It does not pick it up by itself, and there are two things to understand before the steps:
 
-- **Droidspaces hands OpenWRT one address, not a block of addresses to pass on.** OpenWRT therefore numbers its own LAN from a private prefix of its own (a ULA) and does IPv6 NAT a second time on its WAN. Client traffic is translated twice, once by OpenWRT and once by Droidspaces. It works, it is just not how IPv6 is used on a real ISP line.
-- **The host kernel does the work for both.** A container shares the host's kernel, so both Droidspaces and OpenWRT need `CONFIG_IP6_NF_NAT` and `CONFIG_IP6_NF_TARGET_MASQUERADE` in it. `droidspaces check` reports this as "IPv6 NAT support".
+- **Droidspaces hands OpenWrt one address, not a block of addresses to pass on.** OpenWrt therefore numbers its own LAN from a private prefix of its own (a ULA) and does IPv6 NAT a second time on its WAN. Client traffic is translated twice, once by OpenWrt and once by Droidspaces. It works, it is just not how IPv6 is used on a real ISP line.
+- **The host kernel does the work for both.** A container shares the host's kernel, so both Droidspaces and OpenWrt need `CONFIG_IP6_NF_NAT` and `CONFIG_IP6_NF_TARGET_MASQUERADE` in it. `droidspaces check` reports this as "IPv6 NAT support".
 
-The OpenWRT image from the Droidspaces rootfs repository already ships steps 1, 2 and 4. With it you only need step 3 for each LAN. On any other OpenWRT image, do all of them, inside the gateway container.
+The OpenWrt image from the Droidspaces rootfs repository already ships steps 1, 2 and 4. With it you only need step 3 for each LAN. On any other OpenWrt image, do all of them, inside the gateway container.
 
 **1. Add an IPv6 WAN on `eth0`**
 
@@ -629,9 +629,9 @@ uci set network.wan6.proto='dhcpv6'
 uci set network.wan6.sourcefilter='0'
 ```
 
-`sourcefilter '0'` matters. By default OpenWRT installs its IPv6 default route as "only for packets from my WAN prefix". Two things break with that: Android kernels are built without `CONFIG_IPV6_SUBTREES`, so the route silently fails to install, and LAN clients carry a different source address anyway, so the route would not apply to them.
+`sourcefilter '0'` matters. By default OpenWrt installs its IPv6 default route as "only for packets from my WAN prefix". Two things break with that: Android kernels are built without `CONFIG_IPV6_SUBTREES`, so the route silently fails to install, and LAN clients carry a different source address anyway, so the route would not apply to them.
 
-**2. Make sure OpenWRT has a private prefix of its own**
+**2. Make sure OpenWrt has a private prefix of its own**
 
 ```bash
 uci get network.globals.ula_prefix
@@ -655,7 +655,7 @@ uci set dhcp.lan.dhcpv6='server'
 uci set dhcp.lan.ra_default='1'
 ```
 
-`ip6assign` gives the interface a `/64` out of the private prefix. `ra` and `dhcpv6` make OpenWRT announce it to clients. `ra_default '1'` tells clients to use OpenWRT as their IPv6 gateway even though the prefix is a private one, which OpenWRT would otherwise refuse to do.
+`ip6assign` gives the interface a `/64` out of the private prefix. `ra` and `dhcpv6` make OpenWrt announce it to clients. `ra_default '1'` tells clients to use OpenWrt as their IPv6 gateway even though the prefix is a private one, which OpenWrt would otherwise refuse to do.
 
 **4. Firewall: let IPv6 in, and translate it on the way out**
 
@@ -673,7 +673,7 @@ uci set firewall.nat6.path='/etc/firewall.nat6'
 uci set firewall.nat6.reload='1'
 ```
 
-On an image with the nftables firewall (fw4, the OpenWRT default on a Linux host), it is one option on the `wan` zone instead: `option masq6 '1'`.
+On an image with the nftables firewall (fw4, the OpenWrt default on a Linux host), it is one option on the `wan` zone instead: `option masq6 '1'`.
 
 **5. Apply and check**
 
@@ -692,7 +692,7 @@ ip -6 route | grep default  # default via fe80::1 dev eth0
 ping6 -c3 google.com
 ```
 
-A client container on the LAN then gets an address from OpenWRT's private prefix and can `ping6` the internet.
+A client container on the LAN then gets an address from OpenWrt's private prefix and can `ping6` the internet.
 
 Three things to expect:
 
@@ -718,38 +718,38 @@ Two more things to know:
 
 | Feature | NAT Mode | Host Mode | None Mode | Gateway Mode | Macvlan Mode |
 |---|---|---|---|---|---|
-| Who assigns IPs? | Droidspaces DHCP | Android (shared) | Nobody (loopback only) | OpenWRT dnsmasq | The LAN's DHCP server (your router) |
-| Who does NAT? | Droidspaces iptables | Android | N/A | OpenWRT (via Droidspaces NAT on OpenWRT's WAN) | Your router, as for any LAN device |
-| Who manages firewall? | Droidspaces | Android | N/A | OpenWRT | The container itself |
-| Who manages DNS? | Droidspaces | Android | Nobody | OpenWRT dnsmasq | The LAN's DHCP server |
+| Who assigns IPs? | Droidspaces DHCP | Android (shared) | Nobody (loopback only) | OpenWrt dnsmasq | The LAN's DHCP server (your router) |
+| Who does NAT? | Droidspaces iptables | Android | N/A | OpenWrt (via Droidspaces NAT on OpenWrt's WAN) | Your router, as for any LAN device |
+| Who manages firewall? | Droidspaces | Android | N/A | OpenWrt | The container itself |
+| Who manages DNS? | Droidspaces | Android | Nobody | OpenWrt dnsmasq | The LAN's DHCP server |
 | Container isolated from host network? | Yes | No | Yes | Yes | Yes (the phone cannot even reach it over that NIC) |
 | Internet access? | Yes | Yes | No | Yes (via gateway container) | Yes (via the LAN's router) |
-| IPv6? | Yes, with NAT66 (needs kernel support) | Whatever Android has | Loopback only | Yes, once OpenWRT is set up for it (see Part 10) | Whatever the LAN advertises |
+| IPv6? | Yes, with NAT66 (needs kernel support) | Whatever Android has | Loopback only | Yes, once OpenWrt is set up for it (see Part 10) | Whatever the LAN advertises |
 | Needs a second container to function? | No | No | No | Yes (the gateway container) | No, but a wired NIC and `CONFIG_MACVLAN` |
-| Good for | Simple internet access | Maximum performance, no veth or bridge in the path | Offline / sandboxed workloads | Router appliance, VPN gateway, segmented LANs | A real LAN address, OpenWRT on a physical LAN |
+| Good for | Simple internet access | Maximum performance, no veth or bridge in the path | Offline / sandboxed workloads | Router appliance, VPN gateway, segmented LANs | A real LAN address, OpenWrt on a physical LAN |
 
 
 ## Part 12: Real-world use cases for gateway mode
 
 ### 1. VPN killswitch for specific containers
 
-Run OpenWRT with a WireGuard or OpenVPN client, and configure its firewall to drop all traffic that does not go through the VPN tunnel. No gateway-mode container can then leak traffic outside the VPN. OpenWRT enforces it at the bridge, not inside each container.
+Run OpenWrt with a WireGuard or OpenVPN client, and configure its firewall to drop all traffic that does not go through the VPN tunnel. No gateway-mode container can then leak traffic outside the VPN. OpenWrt enforces it at the bridge, not inside each container.
 
 ### 2. Multiple isolated LAN segments
 
-Use `--gateway-net` to create separate segments on the same OpenWRT. Containers on `--gateway-net=lan` cannot reach containers on `--gateway-net=vpn` unless OpenWRT routes between them. You get VLAN-style isolation from a single gateway container.
+Use `--gateway-net` to create separate segments on the same OpenWrt. Containers on `--gateway-net=lan` cannot reach containers on `--gateway-net=vpn` unless OpenWrt routes between them. You get VLAN-style isolation from a single gateway container.
 
 ### 3. Traffic analysis
 
-Run OpenWRT with `tcpdump` or `nftables` logging enabled. Every packet from every gateway-mode container passes through OpenWRT, so you have one chokepoint from which to watch the network activity of many containers at once.
+Run OpenWrt with `tcpdump` or `nftables` logging enabled. Every packet from every gateway-mode container passes through OpenWrt, so you have one chokepoint from which to watch the network activity of many containers at once.
 
 ### 4. Custom DNS filtering
 
-Run OpenWRT with a `dnsmasq` blocklist (or with Adblock installed via opkg). Every container on the gateway LAN gets filtered DNS without configuring each container.
+Run OpenWrt with a `dnsmasq` blocklist (or with Adblock installed via opkg). Every container on the gateway LAN gets filtered DNS without configuring each container.
 
 ### 5. Bandwidth shaping
 
-OpenWRT's `tc` (traffic control) and `sqm-scripts` can shape bandwidth per container, because OpenWRT sees each container as a separate MAC address on its LAN interface.
+OpenWrt's `tc` (traffic control) and `sqm-scripts` can shape bandwidth per container, because OpenWrt sees each container as a separate MAC address on its LAN interface.
 
 
 ## Quick reference - terms
@@ -767,9 +767,9 @@ OpenWRT's `tc` (traffic control) and `sqm-scripts` can shape bandwidth per conta
 | **Bridge** | A virtual (or physical) switch that connects multiple network interfaces |
 | **veth pair** | A pair of virtual network interfaces connected like a pipe - what goes in one end comes out the other |
 | **Network namespace** | An isolated copy of the Linux networking stack - containers live in their own namespace |
-| **OpenWRT** | A Linux distro designed to run as a router/gateway - runs dnsmasq, netifd, firewall |
-| **netifd** | OpenWRT's network interface daemon - manages interfaces and DHCP |
-| **dnsmasq** | Lightweight DHCP and DNS server used by OpenWRT |
+| **OpenWrt** | A Linux distro designed to run as a router/gateway - runs dnsmasq, netifd, firewall |
+| **netifd** | OpenWrt's network interface daemon - manages interfaces and DHCP |
+| **dnsmasq** | Lightweight DHCP and DNS server used by OpenWrt |
 | **MASQUERADE** | The Linux iptables rule that implements NAT (rewrites source IPs) |
 | **NAT66** | NAT for IPv6: private IPv6 addresses rewritten to the uplink's address on the way out |
 | **ULA** | A private IPv6 prefix starting with `fd`, the IPv6 counterpart of `192.168.x.x` |

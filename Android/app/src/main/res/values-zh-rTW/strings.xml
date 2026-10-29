@@ -403,14 +403,14 @@
     <string name="termux_requirements">Termux 需求</string>
     <string name="auto_boot_priority">自動啟動優先權</string>
     <string name="auto_boot_priority_description">容器啟動時的運行順序</string>
-    <string name="auto_boot_priority_hint">拖曳即可重新排序。容器從上到下排列－首先放置網關（例如 OpenWRT），以便它在路由經過它的容器之前啟動。</string>
+    <string name="auto_boot_priority_hint">拖曳即可重新排序。容器從上到下排列－首先放置網關（例如 OpenWrt），以便它在路由經過它的容器之前啟動。</string>
     <string name="auto_boot_priority_empty">所有容器均未啟用「啟動時運行」功能。</string>
     <string name="reorder_handle">拖曳以重新排序</string>
     <string name="network_mode_gateway">閘道器（虛擬路由器）</string>
     <string name="network_mode_gateway_short">網路閘道器</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">這些設定控制此容器如何連接到網關的虛擬區域網路。預設設定適用於單一網關後的單一區域網路－僅在執行多個區域網路區段或多個閘道時才需要變更這些設定。</string>
-    <string name="gateway_iface_explain">此連接的介面名稱顯示在網關容器內部（例如，OpenWRT 中的 eth1）。它必須與網關用於提供 DHCP 服務的介面名稱相符。同一網關上的每個獨立網段都需要有其唯一的名稱。預設值：eth1。</string>
+    <string name="gateway_iface_explain">此連接的介面名稱顯示在網關容器內部（例如，OpenWrt 中的 eth1）。它必須與網關用於提供 DHCP 服務的介面名稱相符。同一網關上的每個獨立網段都需要有其唯一的名稱。預設值：eth1。</string>
     <string name="gateway_net_explain">此 LAN 網段的標籤。共用相同網關和 LAN 名稱的容器將加入同一個虛擬交換機，彼此可以互相存取。使用不同的名稱可以啟動一個獨立的第二個網段。預設值：lan。</string>
     <string name="gateway_bridge_explain">在 Android 主機上建立的虛擬交換器的名稱。留空則會根據 LAN 名稱自動命名 (ds-&lt;lan&gt;)。僅當需要精確的網橋名稱時才設定此項目。最多 15 個字元。</string>
     <string name="error_gateway_required">選擇網關容器</string>
@@ -426,7 +426,7 @@
     <string name="unknown_legend">未知</string>
     <string name="reload_service">重載服務</string>
     <string name="no_unknown_services">沒有狀態未知的服務</string>
-    <string name="gateway_settings_description">將此容器的流量路由到另一個充當路由器的容器（例如 OpenWRT）。</string>
+    <string name="gateway_settings_description">將此容器的流量路由到另一個充當路由器的容器（例如 OpenWrt）。</string>
     <string name="gateway_container">網關容器</string>
     <string name="gateway_net">LAN名稱</string>
     <string name="gateway_net_hint">lan</string>

@@ -2,7 +2,7 @@
 title: 从零开始的网络基础
 section: Guides
 order: 7
-desc: 从头讲起 Droidspaces 网关模式背后的每个网络概念：IP 地址、LAN、WAN、DHCP、DNS、NAT、网桥、veth 对、网络命名空间与 OpenWRT。
+desc: 从头讲起 Droidspaces 网关模式背后的每个网络概念：IP 地址、LAN、WAN、DHCP、DNS、NAT、网桥、veth 对、网络命名空间与 OpenWrt。
 keywords: droidspaces, networking, gateway, openwrt, nat, dhcp, dns, lan, wan, veth, bridge, namespace, linux, android
 -->
 
@@ -330,20 +330,20 @@ veth 对是宿主机命名空间和容器命名空间之间的连接：
 - 另一端留在宿主机的网络命名空间中（Droidspaces 将其连接到网桥）
 
 
-## 第八部分：OpenWRT 及其概念
+## 第八部分：OpenWrt 及其概念
 
-### 什么是 OpenWRT？
+### 什么是 OpenWrt？
 
-**OpenWRT** 是专为路由器设计的 Linux 发行版。通常情况下它运行在物理路由器硬件上，但也可以在常规 Linux 系统或容器内运行。
+**OpenWrt** 是专为路由器设计的 Linux 发行版。通常情况下它运行在物理路由器硬件上，但也可以在常规 Linux 系统或容器内运行。
 
-当 OpenWRT 运行时，它提供：
+当 OpenWrt 运行时，它提供：
 - **netifd**，网络接口守护进程（管理网络接口、DHCP 客户端/服务器等）
 - **dnsmasq**，DNS 和 DHCP 服务器
 - **firewall3** 或 **nftables**，防火墙
 - **LuCI**，配置用的 Web 界面
 - 真正路由器所做的一切，以软件形式实现
 
-这意味着你可以在 Droidspaces 容器内运行 OpenWRT，它会表现得和真正的路由器一模一样：管理网络、分发 DHCP 租约、处理 DNS、应用防火墙规则、路由 VPN 流量等。
+这意味着你可以在 Droidspaces 容器内运行 OpenWrt，它会表现得和真正的路由器一模一样：管理网络、分发 DHCP 租约、处理 DNS、应用防火墙规则、路由 VPN 流量等。
 
 
 ## 第九部分：网关模式，融会贯通
@@ -352,11 +352,11 @@ veth 对是宿主机命名空间和容器命名空间之间的连接：
 
 在 NAT 模式中，Droidspaces 就是路由器。它包办一切。这在大多数情况下都很好。
 
-但如果你想让 **OpenWRT 成为其他容器的路由器**呢？你想要 OpenWRT 的防火墙规则、OpenWRT 的 DHCP、OpenWRT 的 VPN 路由，并让其他容器（比如 Kali Linux 容器）处在 OpenWRT 的局域网内，一切从 OpenWRT 获取。
+但如果你想让 **OpenWrt 成为其他容器的路由器**呢？你想要 OpenWrt 的防火墙规则、OpenWrt 的 DHCP、OpenWrt 的 VPN 路由，并让其他容器（比如 Kali Linux 容器）处在 OpenWrt 的局域网内，一切从 OpenWrt 获取。
 
-问题在于：如果 Droidspaces 也试图为这些容器安装 NAT、DHCP 和 DNS，就会与 OpenWRT 正在做的事情*冲突*。两个 DHCP 服务器争抢由谁分配 IP 地址。两个防火墙应用互相矛盾的规则。
+问题在于：如果 Droidspaces 也试图为这些容器安装 NAT、DHCP 和 DNS，就会与 OpenWrt 正在做的事情*冲突*。两个 DHCP 服务器争抢由谁分配 IP 地址。两个防火墙应用互相矛盾的规则。
 
-**网关模式解决了这个问题：** Droidspaces 退后一步。它只做 L2 的管道（虚拟线缆和交换机），让 OpenWRT 掌管所有策略：DHCP、DNS、防火墙、路由。
+**网关模式解决了这个问题：** Droidspaces 退后一步。它只做 L2 的管道（虚拟线缆和交换机），让 OpenWrt 掌管所有策略：DHCP、DNS、防火墙、路由。
 
 ### 架构总览
 
@@ -365,34 +365,34 @@ Android 宿主机内核
 |
 +-- wlan0（Android 的真实 Wi-Fi，WAN）
 |
-+-- [OpenWRT 容器，net=nat 模式]
++-- [OpenWrt 容器，net=nat 模式]
 |    netns：拥有 eth0（WAN 侧，由 Droidspaces 提供 NAT）
 |           eth1（LAN 侧，由网关模式插入 ds-lan 网桥）
 |    运行：dnsmasq、netifd、防火墙、VPN
 |
 +-- ds-lan（宿主机网桥，无 IP 地址，仅作为交换机）
 |    |
-|    +-- ds-g[hash]（veth 宿主机侧，连接到 OpenWRT 的 netns 作为 eth1）
+|    +-- ds-g[hash]（veth 宿主机侧，连接到 OpenWrt 的 netns 作为 eth1）
 |    +-- ds-c[pid]  （veth 宿主机侧，连接到 Kali 的 netns 作为 eth0）
 |
 +-- [Kali 容器，网关模式（net=gateway）]
      netns：拥有 eth0（LAN 侧，插入 ds-lan 网桥）
-     从 OpenWRT 的 dnsmasq 获取 DHCP
-     路由决策由 OpenWRT 做出
-     防火墙规则由 OpenWRT 应用
+     从 OpenWrt 的 dnsmasq 获取 DHCP
+     路由决策由 OpenWrt 做出
+     防火墙规则由 OpenWrt 应用
 ```
 
 ### 逐步说明：启动网关模式容器时发生了什么
 
-**第 1 步：先启动 OpenWRT（NAT 模式）**
+**第 1 步：先启动 OpenWrt（NAT 模式）**
 
 ```bash
 droidspaces --name=openwrt --rootfs=/data/openwrt --net=nat start
 ```
 
-OpenWRT 启动。它拥有：
+OpenWrt 启动。它拥有：
 - WAN 侧的 `eth0`（Droidspaces 为其管理 NAT）
-- 还没有 LAN 侧，OpenWRT 正在等待
+- 还没有 LAN 侧，OpenWrt 正在等待
 
 **第 2 步：启动 Kali（网关模式）**
 
@@ -402,50 +402,50 @@ droidspaces --name=kali --rootfs=/data/kali --net=gateway --gateway=openwrt star
 
 Droidspaces 执行以下操作（仅管道，无策略）：
 
-1. 找到 OpenWRT 正在运行的进程 ID，以便访问其网络命名空间
+1. 找到 OpenWrt 正在运行的进程 ID，以便访问其网络命名空间
 2. 在宿主机上创建一个名为 `ds-lan` 的网桥，该网桥上不设置 IP 地址
-3. 禁用 `bridge-nf-call-iptables`，使 Android 宿主机防火墙**不**拦截该网桥上的流量，让 OpenWRT 的防火墙成为唯一的权威
-4. 为 OpenWRT 的 LAN 侧创建一个 veth 对，一端进入 OpenWRT 的 netns（显示为 `eth1`），另一端插入 `ds-lan` 网桥
+3. 禁用 `bridge-nf-call-iptables`，使 Android 宿主机防火墙**不**拦截该网桥上的流量，让 OpenWrt 的防火墙成为唯一的权威
+4. 为 OpenWrt 的 LAN 侧创建一个 veth 对，一端进入 OpenWrt 的 netns（显示为 `eth1`），另一端插入 `ds-lan` 网桥
 5. 为 Kali 创建一个 veth 对，一端进入 Kali 的 netns（显示为 `eth0`），另一端插入 `ds-lan` 网桥
 6. **不**安装 NAT、DHCP、DNS 或任何防火墙规则
 
-**第 3 步：OpenWRT 接管**
+**第 3 步：OpenWrt 接管**
 
-OpenWRT 的 `netifd` 检测到 `eth1` 出现。它将其配置为 LAN 接口。
-OpenWRT 的 `dnsmasq` 开始在 `eth1` 上响应 DHCP 请求。
+OpenWrt 的 `netifd` 检测到 `eth1` 出现。它将其配置为 LAN 接口。
+OpenWrt 的 `dnsmasq` 开始在 `eth1` 上响应 DHCP 请求。
 
-Kali 的 `eth0` 发送 DHCP 请求，OpenWRT 的 `dnsmasq` 回复：
-- IP 地址：`192.168.1.100`（或 OpenWRT DHCP 范围内的任意 IP）
-- 网关：`192.168.1.1`（即 OpenWRT 本身）
-- DNS：`192.168.1.1`（OpenWRT 的 dnsmasq）
+Kali 的 `eth0` 发送 DHCP 请求，OpenWrt 的 `dnsmasq` 回复：
+- IP 地址：`192.168.1.100`（或 OpenWrt DHCP 范围内的任意 IP）
+- 网关：`192.168.1.1`（即 OpenWrt 本身）
+- DNS：`192.168.1.1`（OpenWrt 的 dnsmasq）
 
-Kali 现在已完全配置好，以 OpenWRT 作为其路由器。
+Kali 现在已完全配置好，以 OpenWrt 作为其路由器。
 
-**第 4 步：流量经过 OpenWRT**
+**第 4 步：流量经过 OpenWrt**
 
 当 Kali 尝试访问互联网时：
 
 ```
-Kali eth0 --> ds-lan 网桥 --> OpenWRT eth1
+Kali eth0 --> ds-lan 网桥 --> OpenWrt eth1
                                    |
-                          OpenWRT 防火墙规则在此应用
+                          OpenWrt 防火墙规则在此应用
                                    |
-                          OpenWRT 路由到 eth0（WAN）
+                          OpenWrt 路由到 eth0（WAN）
                                    |
                           Droidspaces NAT（eth0 -> wlan0）
                                    |
                               Android wlan0 --> 互联网
 ```
 
-OpenWRT 的防火墙看到 Kali 的全部流量，并可以应用任何规则：阻止特定网站、通过 VPN 重定向、带宽整形、连接日志，完全和真正的路由器一样。
+OpenWrt 的防火墙看到 Kali 的全部流量，并可以应用任何规则：阻止特定网站、通过 VPN 重定向、带宽整形、连接日志，完全和真正的路由器一样。
 
 ### "延迟挂接"的含义
 
 网关 veth 是"延迟挂接"的。这意味着：
 
-- 当你启动 OpenWRT 时，它**不会**立即获得 `eth1`
-- `eth1` 仅在**第一个网关模式容器启动时**才会出现在 OpenWRT 内部
-- 这是有意为之：OpenWRT 只带着它的 WAN 侧启动（`eth0`），其 LAN 线缆（`eth1`）稍后按需插入
+- 当你启动 OpenWrt 时，它**不会**立即获得 `eth1`
+- `eth1` 仅在**第一个网关模式容器启动时**才会出现在 OpenWrt 内部
+- 这是有意为之：OpenWrt 只带着它的 WAN 侧启动（`eth0`），其 LAN 线缆（`eth1`）稍后按需插入
 
 这模拟了你在路由器运行后，再将物理线缆插入路由器 LAN 端口的场景。
 
@@ -453,7 +453,7 @@ OpenWRT 的防火墙看到 Kali 的全部流量，并可以应用任何规则：
 
 在 NAT 模式中，Droidspaces 会在容器内写入 `/etc/resolv.conf`，指向 `1.1.1.1` 或 `8.8.8.8`。
 
-在网关模式中，Droidspaces **不**写入 `resolv.conf`（除非你显式传入 `--dns`）。这是因为 OpenWRT 的 `dnsmasq` 会通过 DHCP 租约将 DNS 服务器地址分发给容器。如果 Droidspaces 也写入了 `resolv.conf`，就会与 dnsmasq 提供的内容冲突：容器将使用错误的 DNS，完全绕过 OpenWRT 的 DNS 过滤/缓存。
+在网关模式中，Droidspaces **不**写入 `resolv.conf`（除非你显式传入 `--dns`）。这是因为 OpenWrt 的 `dnsmasq` 会通过 DHCP 租约将 DNS 服务器地址分发给容器。如果 Droidspaces 也写入了 `resolv.conf`，就会与 dnsmasq 提供的内容冲突：容器将使用错误的 DNS，完全绕过 OpenWrt 的 DNS 过滤/缓存。
 
 如何接线取决于客户端使用的 init 系统：
 
@@ -462,9 +462,9 @@ OpenWRT 的防火墙看到 Kali 的全部流量，并可以应用任何规则：
 
 ### 为什么 bridge-nf-call-iptables 要设为 0
 
-网桥 `ds-lan` 承载着 OpenWRT 和 Kali 之间的流量。默认情况下，Linux 可以将桥接流量通过宿主机的 iptables 处理。这意味着 Android 的 iptables 规则（可能会意外丢弃或 NAT 某些流量）会干扰本该由 OpenWRT 管理的流量。
+网桥 `ds-lan` 承载着 OpenWrt 和 Kali 之间的流量。默认情况下，Linux 可以将桥接流量通过宿主机的 iptables 处理。这意味着 Android 的 iptables 规则（可能会意外丢弃或 NAT 某些流量）会干扰本该由 OpenWrt 管理的流量。
 
-将其设为 `0` 告诉 Linux："不对桥接流量运行 iptables。"这让 OpenWRT 的防火墙成为查看此流量的*唯一*防火墙，这正是我们想要的效果。
+将其设为 `0` 告诉 Linux："不对桥接流量运行 iptables。"这让 OpenWrt 的防火墙成为查看此流量的*唯一*防火墙，这正是我们想要的效果。
 
 ### 启动顺序与自动自愈
 
@@ -540,73 +540,73 @@ Droidspaces 在宿主机上创建的网桥命名为 `ds-{NAME}`：
 
 **2. 它是网段标识符，即客户端落在哪个网桥上：**
 
-网关 LAN 侧的 veth 名称是通过对字符串 `{gateway_container}:{gateway_net}` 进行哈希来生成的。相同的哈希 = 相同的 veth = 相同的网桥网段。这意味着共享相同 `--gateway` 和 `--gateway-net` 的多个客户端容器最终都在同一个网桥上，并且都从同一个 OpenWRT 接口获取 DHCP。
+网关 LAN 侧的 veth 名称是通过对字符串 `{gateway_container}:{gateway_net}` 进行哈希来生成的。相同的哈希 = 相同的 veth = 相同的网桥网段。这意味着共享相同 `--gateway` 和 `--gateway-net` 的多个客户端容器最终都在同一个网桥上，并且都从同一个 OpenWrt 接口获取 DHCP。
 
 这就是 `--gateway-net` 真正的威力所在：通过同一个网关容器运行多个隔离的 LAN 网段。
 
 ```bash
-# 这两个落在 ds-lan 上，它们彼此可见，OpenWRT 将它们作为一个局域网路由
+# 这两个落在 ds-lan 上，它们彼此可见，OpenWrt 将它们作为一个局域网路由
 droidspaces --name=kali   --net=gateway --gateway=openwrt --gateway-net=lan start
 droidspaces --name=ubuntu --net=gateway --gateway=openwrt --gateway-net=lan start
 
 # 这一个落在 ds-vpn 上，一个完全独立的网桥
-# OpenWRT 可以对这个网段应用不同的防火墙/VPN 规则
+# OpenWrt 可以对这个网段应用不同的防火墙/VPN 规则
 droidspaces --name=torbox --net=gateway --gateway=openwrt --gateway-net=vpn start
 ```
 
-在 OpenWRT 内部，`lan` 客户端通过 `eth1` 传入，`vpn` 客户端通过 `eth2` 传入（每个网段获得自己的 veth，因为 `openwrt:lan` 和 `openwrt:vpn` 的哈希不同）。
+在 OpenWrt 内部，`lan` 客户端通过 `eth1` 传入，`vpn` 客户端通过 `eth2` 传入（每个网段获得自己的 veth，因为 `openwrt:lan` 和 `openwrt:vpn` 的哈希不同）。
 
 ### --gateway-iface 的作用
 
 这控制了**LAN 接口在网关容器的网络命名空间内部使用的名称**。
 
-当 Droidspaces 为一个网段创建网关 veth 时，网关这一端直接在 OpenWRT 的 netns 中以你在此传入的名称（默认 `eth1`）创建；只有宿主端带有哈希名称（`ds-gXXXXXXXX`）。
+当 Droidspaces 为一个网段创建网关 veth 时，网关这一端直接在 OpenWrt 的 netns 中以你在此传入的名称（默认 `eth1`）创建；只有宿主端带有哈希名称（`ds-gXXXXXXXX`）。
 
-**为什么要这么做？** OpenWRT 的配置是围绕接口名称构建的。如果你的 OpenWRT `/etc/config/network` 写着：
+**为什么要这么做？** OpenWrt 的配置是围绕接口名称构建的。如果你的 OpenWrt `/etc/config/network` 写着：
 
 ```
 config interface 'lan'
     option device 'eth1'
 ```
 
-...那么出现在 OpenWRT 内部的接口**必须**命名为 `eth1`，否则 OpenWRT 不会将其识别为 LAN，也不会在上面提供 DHCP。`--gateway-iface=eth1` 确保了这一点。
+...那么出现在 OpenWrt 内部的接口**必须**命名为 `eth1`，否则 OpenWrt 不会将其识别为 LAN，也不会在上面提供 DHCP。`--gateway-iface=eth1` 确保了这一点。
 
-对于第二个网段，你需要传入 `--gateway-iface=eth2`，这样 OpenWRT 会将其视为一个独立的接口，你可以为其添加第二个 UCI network 配置块。
+对于第二个网段，你需要传入 `--gateway-iface=eth2`，这样 OpenWrt 会将其视为一个独立的接口，你可以为其添加第二个 UCI network 配置块。
 
 **重要细节：** `--gateway-iface` 仅在该网段的网关 veth 首次创建时生效，也就是该网段上第一个客户端容器启动时。网关 veth 由同一个 `--gateway-net` 上的所有客户端共享；它只创建一次并重复使用。第一个之后的每个客户端完全跳过网关 veth 的创建，仅仅将自己的应用 veth 接入现有的网桥。
 
-这意味着如果你在 `--gateway-net=lan` 上启动两个容器，且两个都传入 `--gateway-iface=eth1`，完全没有问题：第一个容器创建 veth，其对端在 OpenWRT 内名为 `eth1`，第二个容器发现 veth 已经存在，根本不处理 `--gateway-iface`。
+这意味着如果你在 `--gateway-net=lan` 上启动两个容器，且两个都传入 `--gateway-iface=eth1`，完全没有问题：第一个容器创建 veth，其对端在 OpenWrt 内名为 `eth1`，第二个容器发现 veth 已经存在，根本不处理 `--gateway-iface`。
 
 ### 必须避免的标志冲突
 
 问题只会在你使用**两个不同的 `--gateway-net` 网段但相同的 `--gateway-iface`** 时出现：
 
 ```bash
-# 网段 1：在 OpenWRT 内部创建 eth1
+# 网段 1：在 OpenWrt 内部创建 eth1
 droidspaces --name=kali   --net=gateway --gateway=openwrt --gateway-net=lan --gateway-iface=eth1 start
 
-# 网段 2，错误：也尝试在 OpenWRT 内部创建 eth1
+# 网段 2，错误：也尝试在 OpenWrt 内部创建 eth1
 droidspaces --name=torbox --net=gateway --gateway=openwrt --gateway-net=vpn --gateway-iface=eth1 start
 ```
 
-当第二条命令运行时，Droidspaces 发现 OpenWRT 内已经有属于第一个网段的 `eth1`，于是拒绝为 `vpn` 网段接线，日志中会出现 `'openwrt' already has an interface named eth1 that is not this segment's cable`。`vpn` 网段得不到网关侧接口：没有 DHCP、没有路由，其上的容器实际上处于隔离状态。
+当第二条命令运行时，Droidspaces 发现 OpenWrt 内已经有属于第一个网段的 `eth1`，于是拒绝为 `vpn` 网段接线，日志中会出现 `'openwrt' already has an interface named eth1 that is not this segment's cable`。`vpn` 网段得不到网关侧接口：没有 DHCP、没有路由，其上的容器实际上处于隔离状态。
 
 **规则：** 每个 `--gateway-net` 网段必须有唯一的 `--gateway-iface` 名称。
 
 ```bash
 # 正确：两个网段，两个接口名称
---gateway-net=lan  --gateway-iface=eth1   ->  OpenWRT 内的 eth1（LAN 网段）
---gateway-net=vpn  --gateway-iface=eth2   ->  OpenWRT 内的 eth2（VPN 网段）
+--gateway-net=lan  --gateway-iface=eth1   ->  OpenWrt 内的 eth1（LAN 网段）
+--gateway-net=vpn  --gateway-iface=eth2   ->  OpenWrt 内的 eth2（VPN 网段）
 ```
 
 ### 通过网关使用 IPv6
 
-NAT 模式除了 IPv4 之外也会给容器提供 IPv6：Droidspaces 通过路由通告 (RA) 发布一个私有 IPv6 前缀（`fd64:7370::/64`），并在出站时进行地址转换，原理与 IPv4 NAT 相同。网关容器的 WAN 口就是一个 NAT 接口，所以 OpenWRT 也可以获得 IPv6。但它不会自动配置好，开始之前需要先了解两点：
+NAT 模式除了 IPv4 之外也会给容器提供 IPv6：Droidspaces 通过路由通告 (RA) 发布一个私有 IPv6 前缀（`fd64:7370::/64`），并在出站时进行地址转换，原理与 IPv4 NAT 相同。网关容器的 WAN 口就是一个 NAT 接口，所以 OpenWrt 也可以获得 IPv6。但它不会自动配置好，开始之前需要先了解两点：
 
-- **Droidspaces 只给 OpenWRT 一个地址，而不是一段可以继续分发的地址：** 因此 OpenWRT 用自己的私有前缀 (ULA) 为 LAN 编址，并在 WAN 口再做一次 IPv6 NAT。客户端流量会被转换两次，一次由 OpenWRT，一次由 Droidspaces。这样可以正常工作，只是与真实运营商线路上使用 IPv6 的方式不同。
-- **两者都依赖宿主内核：** 容器共享宿主的内核，所以 Droidspaces 和 OpenWRT 都需要内核启用 `CONFIG_IP6_NF_NAT` 和 `CONFIG_IP6_NF_TARGET_MASQUERADE`。`droidspaces check` 会以 "IPv6 NAT support" 显示这一项。
+- **Droidspaces 只给 OpenWrt 一个地址，而不是一段可以继续分发的地址：** 因此 OpenWrt 用自己的私有前缀 (ULA) 为 LAN 编址，并在 WAN 口再做一次 IPv6 NAT。客户端流量会被转换两次，一次由 OpenWrt，一次由 Droidspaces。这样可以正常工作，只是与真实运营商线路上使用 IPv6 的方式不同。
+- **两者都依赖宿主内核：** 容器共享宿主的内核，所以 Droidspaces 和 OpenWrt 都需要内核启用 `CONFIG_IP6_NF_NAT` 和 `CONFIG_IP6_NF_TARGET_MASQUERADE`。`droidspaces check` 会以 "IPv6 NAT support" 显示这一项。
 
-Droidspaces rootfs 仓库提供的 OpenWRT 镜像已经包含第 1、2、4 步，使用它时只需为每个 LAN 执行第 3 步。其他 OpenWRT 镜像需要在网关容器内执行全部步骤。
+Droidspaces rootfs 仓库提供的 OpenWrt 镜像已经包含第 1、2、4 步，使用它时只需为每个 LAN 执行第 3 步。其他 OpenWrt 镜像需要在网关容器内执行全部步骤。
 
 **1. 在 `eth0` 上添加 IPv6 WAN**
 
@@ -617,9 +617,9 @@ uci set network.wan6.proto='dhcpv6'
 uci set network.wan6.sourcefilter='0'
 ```
 
-`sourcefilter '0'` 很重要。OpenWRT 默认把 IPv6 默认路由安装成"仅适用于源地址属于 WAN 前缀的数据包"。这会带来两个问题：Android 内核没有启用 `CONFIG_IPV6_SUBTREES`，这条路由会静默安装失败；而且 LAN 客户端的源地址本来就不同，这条路由对它们也不生效。
+`sourcefilter '0'` 很重要。OpenWrt 默认把 IPv6 默认路由安装成"仅适用于源地址属于 WAN 前缀的数据包"。这会带来两个问题：Android 内核没有启用 `CONFIG_IPV6_SUBTREES`，这条路由会静默安装失败；而且 LAN 客户端的源地址本来就不同，这条路由对它们也不生效。
 
-**2. 确认 OpenWRT 有自己的私有前缀**
+**2. 确认 OpenWrt 有自己的私有前缀**
 
 ```bash
 uci get network.globals.ula_prefix
@@ -643,7 +643,7 @@ uci set dhcp.lan.dhcpv6='server'
 uci set dhcp.lan.ra_default='1'
 ```
 
-`ip6assign` 从私有前缀中给该接口分配一个 `/64`。`ra` 和 `dhcpv6` 让 OpenWRT 向客户端通告它。`ra_default '1'` 让客户端把 OpenWRT 当作 IPv6 网关，即使前缀是私有的；否则 OpenWRT 不会这样通告。
+`ip6assign` 从私有前缀中给该接口分配一个 `/64`。`ra` 和 `dhcpv6` 让 OpenWrt 向客户端通告它。`ra_default '1'` 让客户端把 OpenWrt 当作 IPv6 网关，即使前缀是私有的；否则 OpenWrt 不会这样通告。
 
 **4. 防火墙：放行 IPv6 入站，并在出站时转换**
 
@@ -661,7 +661,7 @@ uci set firewall.nat6.path='/etc/firewall.nat6'
 uci set firewall.nat6.reload='1'
 ```
 
-使用 nftables 防火墙的镜像（fw4，Linux 宿主上 OpenWRT 的默认防火墙）只需在 `wan` 区域加一个选项：`option masq6 '1'`。
+使用 nftables 防火墙的镜像（fw4，Linux 宿主上 OpenWrt 的默认防火墙）只需在 `wan` 区域加一个选项：`option masq6 '1'`。
 
 **5. 应用并检查**
 
@@ -680,7 +680,7 @@ ip -6 route | grep default  # default via fe80::1 dev eth0
 ping6 -c3 google.com
 ```
 
-之后 LAN 上的客户端容器会从 OpenWRT 的私有前缀获得地址，并且可以 `ping6` 互联网。
+之后 LAN 上的客户端容器会从 OpenWrt 的私有前缀获得地址，并且可以 `ping6` 互联网。
 
 需要了解的三点：
 
@@ -706,38 +706,38 @@ Droidspaces 在启动时强制执行几条规则，违规则拒绝启动：
 
 | 特性 | NAT 模式 | 主机模式 | 无网络模式 | 网关模式 | Macvlan 模式 |
 |---|---|---|---|---|---|
-| 谁分配 IP？ | Droidspaces DHCP | Android（共享） | 无（仅 loopback） | OpenWRT dnsmasq | 局域网的 DHCP 服务器（你的路由器） |
-| 谁做 NAT？ | Droidspaces iptables | Android | 不适用 | OpenWRT（通过 Droidspaces 为 OpenWRT 的 WAN 做 NAT） | 你的路由器，与局域网上任何设备一样 |
-| 谁管理防火墙？ | Droidspaces | Android | 不适用 | OpenWRT | 容器自身 |
-| 谁管理 DNS？ | Droidspaces | Android | 无 | OpenWRT dnsmasq | 局域网的 DHCP 服务器 |
+| 谁分配 IP？ | Droidspaces DHCP | Android（共享） | 无（仅 loopback） | OpenWrt dnsmasq | 局域网的 DHCP 服务器（你的路由器） |
+| 谁做 NAT？ | Droidspaces iptables | Android | 不适用 | OpenWrt（通过 Droidspaces 为 OpenWrt 的 WAN 做 NAT） | 你的路由器，与局域网上任何设备一样 |
+| 谁管理防火墙？ | Droidspaces | Android | 不适用 | OpenWrt | 容器自身 |
+| 谁管理 DNS？ | Droidspaces | Android | 无 | OpenWrt dnsmasq | 局域网的 DHCP 服务器 |
 | 容器与宿主机网络隔离？ | 是 | 否 | 是 | 是 | 是（手机甚至无法通过该网卡访问它） |
 | 互联网访问？ | 是 | 是 | 否 | 是（通过网关容器） | 是（通过局域网的路由器） |
-| IPv6？ | 支持，使用 NAT66（需要内核支持） | 取决于 Android | 仅回环 | 支持，需先配置 OpenWRT（见第 10 部分） | 取决于局域网的通告 |
+| IPv6？ | 支持，使用 NAT66（需要内核支持） | 取决于 Android | 仅回环 | 支持，需先配置 OpenWrt（见第 10 部分） | 取决于局域网的通告 |
 | 需要第二个容器才能工作？ | 否 | 否 | 否 | 是（网关容器） | 否，但需要有线网卡和 `CONFIG_MACVLAN` |
-| 适用于 | 简单的互联网访问 | 最大性能，路径上没有 veth 或网桥 | 离线 / 沙盒环境 | 路由器设备、VPN 网关、分段局域网 | 真实的局域网地址、在物理局域网上运行 OpenWRT |
+| 适用于 | 简单的互联网访问 | 最大性能，路径上没有 veth 或网桥 | 离线 / 沙盒环境 | 路由器设备、VPN 网关、分段局域网 | 真实的局域网地址、在物理局域网上运行 OpenWrt |
 
 
 ## 第十二部分：网关模式的真实使用场景
 
 ### 1. 为特定容器设置 VPN 终止开关
 
-运行带有 WireGuard 或 OpenVPN 客户端的 OpenWRT。配置 OpenWRT 的防火墙丢弃所有不经过 VPN 隧道的流量。使用网关模式的任何容器都无法将流量泄漏到 VPN 之外。OpenWRT 在网桥层面强制实施这一点，而不是在各个容器内部。
+运行带有 WireGuard 或 OpenVPN 客户端的 OpenWrt。配置 OpenWrt 的防火墙丢弃所有不经过 VPN 隧道的流量。使用网关模式的任何容器都无法将流量泄漏到 VPN 之外。OpenWrt 在网桥层面强制实施这一点，而不是在各个容器内部。
 
 ### 2. 多个隔离的 LAN 网段
 
-使用 `--gateway-net` 在同一个 OpenWRT 上创建独立的网段。`--gateway-net=lan` 上的容器无法访问 `--gateway-net=vpn` 上的容器，除非 OpenWRT 显式地在它们之间进行路由。你可以通过一个网关容器实现类 VLAN（虚拟局域网）风格的隔离。
+使用 `--gateway-net` 在同一个 OpenWrt 上创建独立的网段。`--gateway-net=lan` 上的容器无法访问 `--gateway-net=vpn` 上的容器，除非 OpenWrt 显式地在它们之间进行路由。你可以通过一个网关容器实现类 VLAN（虚拟局域网）风格的隔离。
 
 ### 3. 流量分析
 
-运行带有 `tcpdump` 或 `nftables` 日志功能的 OpenWRT。来自每个网关模式容器的每个数据包都流经 OpenWRT，因此你获得了一个单一的咽喉点，可以同时观察许多容器的网络活动。
+运行带有 `tcpdump` 或 `nftables` 日志功能的 OpenWrt。来自每个网关模式容器的每个数据包都流经 OpenWrt，因此你获得了一个单一的咽喉点，可以同时观察许多容器的网络活动。
 
 ### 4. 自定义 DNS 过滤
 
-运行带有 `dnsmasq` 黑名单（或通过 opkg 安装 Adblock）的 OpenWRT。网关局域网上的每个容器都会获得经过过滤的 DNS，而无需单独触碰每个容器。
+运行带有 `dnsmasq` 黑名单（或通过 opkg 安装 Adblock）的 OpenWrt。网关局域网上的每个容器都会获得经过过滤的 DNS，而无需单独触碰每个容器。
 
 ### 5. 带宽整形
 
-OpenWRT 的 `tc`（流量控制）和 `sqm-scripts` 可以按容器进行带宽整形，因为 OpenWRT 将每个容器视为到达其 LAN 接口的一个独立 MAC 地址。
+OpenWrt 的 `tc`（流量控制）和 `sqm-scripts` 可以按容器进行带宽整形，因为 OpenWrt 将每个容器视为到达其 LAN 接口的一个独立 MAC 地址。
 
 
 ## 快速参考：术语表
@@ -755,9 +755,9 @@ OpenWRT 的 `tc`（流量控制）和 `sqm-scripts` 可以按容器进行带宽�
 | **网桥** | 连接多个网络接口的虚拟（或物理）交换机 |
 | **veth 对** | 一对像管道一样连接的虚拟网络接口，从一端进，从另一端出 |
 | **网络命名空间** | Linux 网络栈的隔离副本，容器生活在自己的命名空间中 |
-| **OpenWRT** | 一个为作为路由器/网关运行而设计的 Linux 发行版，运行 dnsmasq、netifd、防火墙 |
-| **netifd** | OpenWRT 的网络接口守护进程，管理接口和 DHCP |
-| **dnsmasq** | OpenWRT 使用的轻量级 DHCP 和 DNS 服务器 |
+| **OpenWrt** | 一个为作为路由器/网关运行而设计的 Linux 发行版，运行 dnsmasq、netifd、防火墙 |
+| **netifd** | OpenWrt 的网络接口守护进程，管理接口和 DHCP |
+| **dnsmasq** | OpenWrt 使用的轻量级 DHCP 和 DNS 服务器 |
 | **MASQUERADE** | 实现 NAT 的 Linux iptables 规则（改写源 IP） |
 | **NAT66** | IPv6 的 NAT：私有 IPv6 地址在出站时被改写为上行链路的地址 |
 | **ULA** | 以 `fd` 开头的私有 IPv6 前缀，相当于 IPv6 中的 `192.168.x.x` |

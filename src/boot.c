@@ -256,7 +256,7 @@ int internal_boot(struct ds_config *cfg) {
   /* 4b. Force the image rootfs read-write - the single unified point covering
    * fresh boot, restart, AND internal reboot.
    *
-   * On shutdown/reboot OpenWRT remounts its root read-only, leaving our mount
+   * On shutdown/reboot OpenWrt remounts its root read-only, leaving our mount
    * point under /mnt/Droidspaces/<name> read-only too.  External and internal
    * reboots never unmount the rootfs.img (to keep restarts fast), so the next
    * boot reuses that still-read-only mount and pivot_root fails to create

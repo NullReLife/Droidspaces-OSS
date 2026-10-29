@@ -218,7 +218,7 @@
     <string name="x11_replaces_anland">هنگام فعال‌بودن پیکربندی Termux:X11، غیرفعال است. هر کانتینر فقط از یک مسیر نمایش استفاده می‌کند.</string>
     <string name="auto_boot_priority">اولویت اجرای خودکار هنگام بوت</string>
     <string name="auto_boot_priority_description">ترتیب شروع کانتینرهای تنظیم‌شده برای اجرا هنگام بوت</string>
-    <string name="auto_boot_priority_hint">برای تغییر ترتیب، بکشید و جابه‌جا کنید. کانتینرها از بالا به پایین اجرا می‌شوند؛ بنابراین یک Gateway (مثلاً OpenWRT) را در ابتدا قرار دهید تا پیش از کانتینرهایی که ترافیک خود را از طریق آن مسیریابی می‌کنند، بوت شود.</string>
+    <string name="auto_boot_priority_hint">برای تغییر ترتیب، بکشید و جابه‌جا کنید. کانتینرها از بالا به پایین اجرا می‌شوند؛ بنابراین یک Gateway (مثلاً OpenWrt) را در ابتدا قرار دهید تا پیش از کانتینرهایی که ترافیک خود را از طریق آن مسیریابی می‌کنند، بوت شود.</string>
     <string name="auto_boot_priority_empty">هیچ کانتینری گزینهٔ «اجرا هنگام بوت» را فعال نکرده است.</string>
     <string name="reorder_handle">برای تغییر ترتیب، بکشید و رها کنید</string>
     <string name="force_cgroupv1">Cgroup V1 اجباری</string>

@@ -401,13 +401,13 @@
     <string name="virgl_extra_flags_placeholder">mis. --multi-clients --angle-vulkan</string>
     <string name="auto_boot_priority">Prioritas Boot Otomatis</string>
     <string name="auto_boot_priority_description">Urutan container yang dijalankan saat boot dimulai</string>
-    <string name="auto_boot_priority_hint">Seret untuk menyusun ulang. Container dimulai dari atas ke bawah - letakkan gateway (mis. OpenWRT) di atas agar boot lebih dulu sebelum container yang merutekan lewatnya.</string>
+    <string name="auto_boot_priority_hint">Seret untuk menyusun ulang. Container dimulai dari atas ke bawah - letakkan gateway (mis. OpenWrt) di atas agar boot lebih dulu sebelum container yang merutekan lewatnya.</string>
     <string name="auto_boot_priority_empty">Tidak ada container yang mengaktifkan Jalankan saat Boot.</string>
     <string name="reorder_handle">Seret untuk menyusun ulang</string>
     <string name="network_mode_host_short">Host</string>
     <string name="network_mode_gateway">Gateway (Router Virtual)</string>
     <string name="network_mode_gateway_short">Gateway</string>
-    <string name="gateway_settings_description">Rutekan container ini melalui container lain yang bertindak sebagai router (mis. OpenWRT).</string>
+    <string name="gateway_settings_description">Rutekan container ini melalui container lain yang bertindak sebagai router (mis. OpenWrt).</string>
     <string name="gateway_container">Container Gateway</string>
     <string name="gateway_net">Nama LAN</string>
     <string name="gateway_net_hint">lan</string>
@@ -416,7 +416,7 @@
     <string name="gateway_bridge">Bridge Host</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">Pengaturan ini mengontrol bagaimana container ini terhubung ke LAN virtual gateway. Nilai bawaan cocok untuk satu LAN di belakang satu gateway - ubah hanya saat menjalankan beberapa segmen LAN atau lebih dari satu gateway.</string>
-    <string name="gateway_iface_explain">Nama antarmuka tempat koneksi ini muncul DI DALAM container gateway (mis. eth1 di OpenWRT). Harus cocok dengan antarmuka tempat gateway Anda melayani DHCP. Setiap segmen terpisah pada gateway yang sama memerlukan nama uniknya sendiri. Bawaan: eth1.</string>
+    <string name="gateway_iface_explain">Nama antarmuka tempat koneksi ini muncul DI DALAM container gateway (mis. eth1 di OpenWrt). Harus cocok dengan antarmuka tempat gateway Anda melayani DHCP. Setiap segmen terpisah pada gateway yang sama memerlukan nama uniknya sendiri. Bawaan: eth1.</string>
     <string name="gateway_net_explain">Label untuk segmen LAN ini. Container yang memakai gateway dan nama LAN yang sama akan bergabung ke virtual switch yang sama dan dapat saling melihat. Gunakan nama berbeda untuk membuat segmen kedua yang terisolasi. Bawaan: lan.</string>
     <string name="gateway_bridge_explain">Nama virtual switch yang dibuat pada host Android. Biarkan kosong agar nama dibuat otomatis dari nama LAN (ds-&lt;lan&gt;). Isi hanya jika Anda memerlukan nama bridge yang persis. Maks. 15 karakter.</string>
     <string name="error_gateway_required">Pilih container gateway</string>

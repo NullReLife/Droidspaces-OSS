@@ -282,7 +282,7 @@
     <string name="check_app_updates_description">Procurar por um novo release no Github quando o app abrir</string>
     <string name="auto_boot_priority">Prioridade de Boot</string>
     <string name="auto_boot_priority_description">Ordem na qual os containers inicializam</string>
-    <string name="auto_boot_priority_hint">Arraste para reordenar. Os containers iniciam de cima para baixo - coloque um gateway (ex: OpenWRT) primeiro para que ele inicialize antes dos containers que roteiam através dele.</string>
+    <string name="auto_boot_priority_hint">Arraste para reordenar. Os containers iniciam de cima para baixo - coloque um gateway (ex: OpenWrt) primeiro para que ele inicialize antes dos containers que roteiam através dele.</string>
     <string name="auto_boot_priority_empty">Nenhum container tem Iniciar no Boot habilitado.</string>
     <string name="terminal_tap_keyboard_description">Clicar no terminal abre o teclado. Desligue isso nos editores, para que um clique apenas mova o cursor, e use o teclado na tela no lugar.</string>
     <string name="terminal_keyboard_left">Botão do Teclado na esquerda</string>
@@ -409,7 +409,7 @@
     <string name="macvlan_mode_bridge">Ponte (Padrão)</string>
     <string name="macvlan_mode_private">Privado</string>
     <string name="macvlan_mode_vepa">VEPA</string>
-    <string name="gateway_settings_description">Roteie este container através de outro container agindo como um roteador (ex: OpenWRT).</string>
+    <string name="gateway_settings_description">Roteie este container através de outro container agindo como um roteador (ex: OpenWrt).</string>
     <string name="gateway_container">Gateway Container</string>
     <string name="gateway_net">Nome da LAN</string>
     <string name="network_mode_host_short">Host</string>
@@ -423,7 +423,7 @@
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="limit_pids_label">PIDs</string>
     <string name="gateway_configure_intro">Isso controla como esse container se conecta na LAN virtual do gateway. O padrão funciona para uma só LAN atrás de um gateway - mude apenas se estiver usando vários segmentos de LAN ou mais de um gateway.</string>
-    <string name="gateway_iface_explain">O nome da interface pelo qual esta conexão é identificada DENTRO do container de gateway (por exemplo, eth1 no OpenWRT). Deve coincidir com a interface configurada para distribuir DHCP no gateway. Cada segmento distinto sob o mesmo gateway exige um nome único. Padrão: eth1.</string>
+    <string name="gateway_iface_explain">O nome da interface pelo qual esta conexão é identificada DENTRO do container de gateway (por exemplo, eth1 no OpenWrt). Deve coincidir com a interface configurada para distribuir DHCP no gateway. Cada segmento distinto sob o mesmo gateway exige um nome único. Padrão: eth1.</string>
     <string name="gateway_net_explain">Um rótulo para este segmento de LAN. Os contêineres que compartilham o mesmo gateway e nome de LAN entram no mesmo switch virtual e conseguem ver uns aos outros. Use um nome diferente para criar um segundo segmento isolado. Padrão: lan.</string>
     <string name="gateway_bridge_explain">Nome do switch virtual criado no host Android. Deixe em branco para nomear automaticamente a partir do nome da LAN (ds-). Defina isto apenas se precisar de um nome exato para a bridge. Máximo de 15 caracteres.</string>
     <string name="error_gateway_required">Escolha um container gateway</string>

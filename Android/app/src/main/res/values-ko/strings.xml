@@ -191,7 +191,7 @@
     <string name="run_at_boot_description">부팅 시 컨테이너 시작</string>
     <string name="auto_boot_priority">자동 부팅 우선순위</string>
     <string name="auto_boot_priority_description">부팅 시 실행이 활성화된 컨테이너들의 시작 순서</string>
-    <string name="auto_boot_priority_hint">드래그하여 순서를 변경하세요. 컨테이너는 위에서 아래로 시작됩니다 - 게이트웨이(예: OpenWRT)를 먼저 배치하면 이를 경유하는 다른 컨테이너보다 먼저 부팅됩니다.</string>
+    <string name="auto_boot_priority_hint">드래그하여 순서를 변경하세요. 컨테이너는 위에서 아래로 시작됩니다 - 게이트웨이(예: OpenWrt)를 먼저 배치하면 이를 경유하는 다른 컨테이너보다 먼저 부팅됩니다.</string>
     <string name="auto_boot_priority_empty">부팅 시 실행이 활성화된 컨테이너가 없습니다.</string>
     <string name="reorder_handle">드래그하여 순서 변경</string>
     <string name="force_cgroupv1">Cgroup V1 강제 사용</string>
@@ -211,7 +211,7 @@
     <string name="network_mode_gateway">게이트웨이(가상 라우터)</string>
     <string name="network_mode_gateway_short">게이트웨이</string>
     <!-- Gateway networking mode -->
-    <string name="gateway_settings_description">라우터 역할을 하는 다른 컨테이너(예: OpenWRT)를 통해 이 컨테이너를 라우팅합니다.</string>
+    <string name="gateway_settings_description">라우터 역할을 하는 다른 컨테이너(예: OpenWrt)를 통해 이 컨테이너를 라우팅합니다.</string>
     <string name="gateway_container">게이트웨이 컨테이너</string>
     <string name="gateway_net">LAN 이름</string>
     <string name="gateway_net_hint">lan</string>
@@ -220,7 +220,7 @@
     <string name="gateway_bridge">호스트 브리지</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">이 설정은 이 컨테이너가 게이트웨이의 가상 LAN에 연결되는 방식을 제어합니다. 기본값은 단일 게이트웨이 뒤의 단일 LAN에 적합합니다 - 여러 LAN 세그먼트 또는 둘 이상의 게이트웨이를 실행하는 경우에만 변경하세요.</string>
-    <string name="gateway_iface_explain">이 연결이 게이트웨이 컨테이너 내부에 표시되는 인터페이스 이름입니다(예: OpenWRT의 eth1). 게이트웨이가 DHCP를 제공하도록 설정된 인터페이스와 일치해야 합니다. 동일한 게이트웨이의 각 세그먼트는 고유한 이름이 필요합니다. 기본값: eth1.</string>
+    <string name="gateway_iface_explain">이 연결이 게이트웨이 컨테이너 내부에 표시되는 인터페이스 이름입니다(예: OpenWrt의 eth1). 게이트웨이가 DHCP를 제공하도록 설정된 인터페이스와 일치해야 합니다. 동일한 게이트웨이의 각 세그먼트는 고유한 이름이 필요합니다. 기본값: eth1.</string>
     <string name="gateway_net_explain">이 LAN 세그먼트의 라벨입니다. 동일한 게이트웨이와 LAN 이름을 공유하는 컨테이너는 동일한 가상 스위치에 참여하며 서로를 볼 수 있습니다. 격리된 두 번째 세그먼트를 만들려면 다른 이름을 사용하세요. 기본값: lan.</string>
     <string name="gateway_bridge_explain">Android 호스트에 생성되는 가상 스위치의 이름입니다. 비워두면 LAN 이름에서 자동으로 이름이 지정됩니다(ds-&lt;lan&gt;). 정확한 브리지 이름이 필요한 경우에만 설정하세요. 최대 15자.</string>
     <string name="error_gateway_required">게이트웨이 컨테이너를 선택하세요</string>

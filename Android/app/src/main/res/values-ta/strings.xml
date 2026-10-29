@@ -166,7 +166,7 @@
     <string name="network_mode_host_short">விருந்தோம்பி</string>
     <string name="repo_dl_error_http_data">HTTP தரவு பிழை</string>
     <string name="uninstall_container_message">இது \"%1$s\" கண்டெய்னரையும் அதன் எல்லா தரவையும் நிரந்தரமாக நீக்கும். இந்தச் செயலைச் செயல்தவிர்க்க முடியாது. \n\nகொள்கலன் இயங்கினால், அது முதலில் நிறுத்தப்படும்.</string>
-    <string name="gateway_iface_explain">இந்த இணைப்பின் இடைமுகப் பெயர் கேட்வே கொள்கலனின் உள்ளே (எ.கா. OpenWRT இல் eth1) எனக் காட்டுகிறது. இது DHCP இல் பணி செய்ய உங்கள் நுழைவாயில் அமைக்கப்பட்ட இடைமுகத்துடன் பொருந்த வேண்டும். ஒரே நுழைவாயிலில் உள்ள ஒவ்வொரு தனிப் பிரிவுக்கும் அதன் சொந்தப் பெயர் தேவை. இயல்புநிலை: eth1.</string>
+    <string name="gateway_iface_explain">இந்த இணைப்பின் இடைமுகப் பெயர் கேட்வே கொள்கலனின் உள்ளே (எ.கா. OpenWrt இல் eth1) எனக் காட்டுகிறது. இது DHCP இல் பணி செய்ய உங்கள் நுழைவாயில் அமைக்கப்பட்ட இடைமுகத்துடன் பொருந்த வேண்டும். ஒரே நுழைவாயிலில் உள்ள ஒவ்வொரு தனிப் பிரிவுக்கும் அதன் சொந்தப் பெயர் தேவை. இயல்புநிலை: eth1.</string>
     <string name="repo_failed_to_load">களஞ்சியத்தை ஏற்ற முடியவில்லை</string>
     <string name="hostname">புரவலன்பெயர்</string>
     <string name="uninstalling_container">நிறுவல் நீக்குகிறது...</string>
@@ -233,7 +233,7 @@
     <string name="repo_manage_custom">களஞ்சியங்களை நிர்வகிக்கவும்</string>
     <string name="logs_title">பதிவுகள்: %1$s</string>
     <string name="feat_autoboot_desc">திரை பூட்டப்பட்டிருந்தாலும், தரவு குறியாக்கம் செய்யப்பட்டிருந்தாலும், பூட்டில் கொள்கலன்களைத் தானாகத் தொடங்கவும்.</string>
-    <string name="gateway_settings_description">இந்த கொள்கலனை திசைவியாக செயல்படும் மற்றொரு கொள்கலன் வழியாக இயக்கவும் (எ.கா. OpenWRT).</string>
+    <string name="gateway_settings_description">இந்த கொள்கலனை திசைவியாக செயல்படும் மற்றொரு கொள்கலன் வழியாக இயக்கவும் (எ.கா. OpenWrt).</string>
     <string name="environment_variables">சுற்றுச்சூழல் மாறிகள்</string>
     <string name="notification_wakelock_off">வேக் லாக்: ஆஃப்</string>
     <string name="empty_directory">வெற்று அடைவு</string>
@@ -343,7 +343,7 @@
     <string name="repo_cancel">ரத்துசெய்</string>
     <string name="gpu_access">GPU அணுகல்</string>
     <string name="root_required_message">கொள்கலன்களை நிர்வகிக்க ரூட் அணுகல் தேவை.</string>
-    <string name="auto_boot_priority_hint">மறுவரிசைப்படுத்த இழுக்கவும். கொள்கலன்கள் மேலிருந்து கீழாகத் தொடங்குகின்றன - முதலில் ஒரு நுழைவாயிலை (எ.கா. OpenWRT) வைக்கவும், அதனால் அதன் வழியாக செல்லும் கொள்கலன்களுக்கு முன் அது பூட் ஆகும்.</string>
+    <string name="auto_boot_priority_hint">மறுவரிசைப்படுத்த இழுக்கவும். கொள்கலன்கள் மேலிருந்து கீழாகத் தொடங்குகின்றன - முதலில் ஒரு நுழைவாயிலை (எ.கா. OpenWrt) வைக்கவும், அதனால் அதன் வழியாக செல்லும் கொள்கலன்களுக்கு முன் அது பூட் ஆகும்.</string>
     <string name="no_abnormal_services">அசாதாரண சேவைகள் இல்லை</string>
     <string name="no_disabled_services">முடக்கப்பட்ட சேவைகள் இல்லை</string>
     <string name="privileged_confirm_instruction">உறுதிப்படுத்த, \"எந்த பிழைகளையும் நான் புகாரளிக்க மாட்டேன்\" என்று பெரிய எழுத்துக்களில் தட்டச்சு செய்க:</string>

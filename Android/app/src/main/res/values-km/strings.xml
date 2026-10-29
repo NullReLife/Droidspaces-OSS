@@ -414,12 +414,12 @@
     <string name="allow_userns_description_not_supported">មិនគាំទ្រទេ​. CONFIG_USER_NS មិនត្រូវបានបើកដំណើរការនៅក្នុង kernel ទេ.</string>
     <string name="auto_boot_priority">អាទិភាពចាប់ផ្ដើមស្វ័យប្រវត្តិ</string>
     <string name="auto_boot_priority_description">លំដាប់នៃការចាប់ផ្តើមខនតឺន័រដំណើរការពេលចាប់ផ្ដើមប្រព័ន្ធ</string>
-    <string name="auto_boot_priority_hint">អូសដើម្បីប្ដូរលំដាប់។ ខនតឺន័រចាប់ផ្ដើមពីលើចុះក្រោម - សូមដាក់ច្រកទ្វារ (ឧ. OpenWRT) មុនគេ ដើម្បីវាចាប់ផ្ដើមមុនខនតឺន័រដែលត្រូវតភ្ជាប់ឆ្លងកាត់វា។</string>
+    <string name="auto_boot_priority_hint">អូសដើម្បីប្ដូរលំដាប់។ ខនតឺន័រចាប់ផ្ដើមពីលើចុះក្រោម - សូមដាក់ច្រកទ្វារ (ឧ. OpenWrt) មុនគេ ដើម្បីវាចាប់ផ្ដើមមុនខនតឺន័រដែលត្រូវតភ្ជាប់ឆ្លងកាត់វា។</string>
     <string name="auto_boot_priority_empty">គ្មានខនតឺន័រណាមួយត្រូវបានបើកដំណើរការពេលចាប់ផ្ដើមប្រព័ន្ធទេ។</string>
     <string name="reorder_handle">អូសដើម្បីប្ដូរលំដាប់</string>
     <string name="network_mode_gateway">ច្រកទ្វារ (រ៉ោតទ័រនិម្មិត)</string>
     <string name="network_mode_gateway_short">ច្រកទ្វារ (Gateway)</string>
-    <string name="gateway_settings_description">បញ្ជូនបណ្តាញរបស់ខនតឺន័រនេះឆ្លងកាត់ខនតឺន័រផ្សេងទៀតដែលធ្វើជាតួអង្គរ៉ោតទ័រ (ឧ. OpenWRT)។</string>
+    <string name="gateway_settings_description">បញ្ជូនបណ្តាញរបស់ខនតឺន័រនេះឆ្លងកាត់ខនតឺន័រផ្សេងទៀតដែលធ្វើជាតួអង្គរ៉ោតទ័រ (ឧ. OpenWrt)។</string>
     <string name="gateway_container">ខនតឺន័រច្រកទ្វារ</string>
     <string name="gateway_net">ឈ្មោះបណ្តាញ LAN</string>
     <string name="gateway_net_hint">បណ្តាញ lan</string>
@@ -428,7 +428,7 @@
     <string name="gateway_bridge">ស្ពានតភ្ជាប់ប្រព័ន្ធគោល (Host Bridge)</string>
     <string name="gateway_bridge_hint">ds-lan</string>
     <string name="gateway_configure_intro">ការកំណត់ទាំងនេះគ្រប់គ្រងពីរបៀបដែលខនតឺន័រនេះភ្ជាប់ទៅនឹងបណ្តាញ LAN និម្មិតរបស់ច្រកទ្វារ។ តម្លៃលំនាំដើមគឺសាកសមសម្រាប់បណ្តាញ LAN តែមួយនៅពីក្រោយច្រកទ្វារតែមួយ - សូមផ្លាស់ប្តូរវាលុះត្រាតែអ្នកដំណើរការបណ្តាញ LAN ច្រើន ឬមានច្រកទ្វារច្រើនជាងមួយ។</string>
-    <string name="gateway_iface_explain">ឈ្មោះចំណុចប្រទាក់ដែលការតភ្ជាប់នេះបង្ហាញ ខាងក្នុង ខនតឺន័រច្រកទ្វារ (ឧ. eth1 ក្នុង OpenWRT)។ វាត្រូវតែត្រូវគ្នាទៅនឹងចំណុចប្រទាក់ដែលច្រកទ្វាររបស់អ្នកត្រូវបានកំណត់ឱ្យផ្ដល់សេវា DHCP។ សេនហ្កាម (Segment) នីមួយៗនៅលើច្រកទ្វារតែមួយ ត្រូវការឈ្មោះផ្ទាល់ខ្លួនដែលមិនត្រួតស៊ីគ្នា។ លំនាំដើម៖ eth1។</string>
+    <string name="gateway_iface_explain">ឈ្មោះចំណុចប្រទាក់ដែលការតភ្ជាប់នេះបង្ហាញ ខាងក្នុង ខនតឺន័រច្រកទ្វារ (ឧ. eth1 ក្នុង OpenWrt)។ វាត្រូវតែត្រូវគ្នាទៅនឹងចំណុចប្រទាក់ដែលច្រកទ្វាររបស់អ្នកត្រូវបានកំណត់ឱ្យផ្ដល់សេវា DHCP។ សេនហ្កាម (Segment) នីមួយៗនៅលើច្រកទ្វារតែមួយ ត្រូវការឈ្មោះផ្ទាល់ខ្លួនដែលមិនត្រួតស៊ីគ្នា។ លំនាំដើម៖ eth1។</string>
     <string name="gateway_net_explain">ស្លាកសម្រាប់បណ្តាញ LAN នេះ។ ខនតឺន័រដែលប្រើប្រាស់ច្រកទ្វារ និងឈ្មោះបណ្តាញ LAN ដូចគ្នា នឹងចូលរួមក្នុងស្វ៊ីចនិម្មិត (virtual switch) តែមួយ និងអាចមើលឃើញគ្នាទៅវិញទៅមក។ សូមប្រើប្រាស់ឈ្មោះផ្សេងដើម្បីបង្កើតបណ្តាញដាច់ដោយឡែកទីពីរ។ លំនាំដើម៖ lan។</string>
     <string name="gateway_bridge_explain">ឈ្មោះរបស់ស្ពាននិម្មិត (virtual switch) ដែលបានបង្កើតនៅលើប្រព័ន្ធប្រតិបត្តិការ Android គោល។ សូមទុកវាឱ្យនៅទว่างដើម្បីដាក់ឈ្មោះដោយស្វ័យប្រវត្តិផ្អែកលើឈ្មោះ LAN (ds-)។ កំណត់វាលុះត្រាតែអ្នកត្រូវការឈ្មោះស្ពានពិតប្រាកដប៉ុណ្ណោះ។ អតិបរមា ១៥ តួអក្សរ។</string>
     <string name="error_gateway_required">ជ្រើសរើសខនតឺន័រច្រកទ្វារ (Select a gateway container)</string>

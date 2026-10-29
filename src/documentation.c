@@ -227,7 +227,7 @@ static void print_page(int page, const char *bin) {
     p_printf("  --net=host     Shared with host\n");
     p_printf("  --net=none     No network access (air-gapped)\n");
     p_printf("  --net=gateway  LAN delegated to another container "
-             "(e.g. OpenWRT)\n");
+             "(e.g. OpenWrt)\n");
     p_printf("  --net=macvlan  Straight onto a wired LAN through a host NIC "
              "(USB Ethernet)\n\n");
 
@@ -256,7 +256,7 @@ static void print_page(int page, const char *bin) {
              "across reconnects.)\n\n");
 
     p_printf("%sGateway Mode Configuration:%s\n", bold, reset);
-    p_printf("  Delegate the LAN to another running container (e.g. OpenWRT), "
+    p_printf("  Delegate the LAN to another running container (e.g. OpenWrt), "
              "which owns\n");
     p_printf("  DHCP, DNS, firewall and routing. Start the gateway first, "
              "then the client.\n");
