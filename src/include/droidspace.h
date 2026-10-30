@@ -329,7 +329,7 @@ typedef enum {
   DS_INIT_SYSTEMD,  /* SIGRTMIN+3 */
   DS_INIT_PROCD,    /* SIGUSR2    -- OpenWrt; SIGTERM = reboot there! */
   DS_INIT_OPENRC,   /* SIGTERM    */
-  DS_INIT_RUNIT,    /* SIGCONT    */
+  DS_INIT_RUNIT,    /* stopit flag + SIGCONT */
   DS_INIT_S6,       /* SIGUSR2    */
   DS_INIT_BUSYBOX,  /* SIGUSR2    */
   DS_INIT_SYSVINIT, /* SIGTERM    */
